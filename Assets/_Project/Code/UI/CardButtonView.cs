@@ -24,9 +24,11 @@ namespace Game.UI
         [SerializeField] private Image background;
         [SerializeField] private Button button;
 
+        // Both stay dark: the labels are light, so a light "affordable" fill renders white on white.
+        // Affordability reads as a lift in brightness against the dimmed state, not as a colour flip.
         [Header("State colours")]
-        [SerializeField] private Color affordableColor = new Color(1f, 1f, 1f);
-        [SerializeField] private Color unaffordableColor = new Color(0.78f, 0.79f, 0.81f);
+        [SerializeField] private Color affordableColor = new Color(0.22f, 0.27f, 0.36f);
+        [SerializeField] private Color unaffordableColor = new Color(0.13f, 0.14f, 0.18f);
 
         public int CardId { get; private set; }
 

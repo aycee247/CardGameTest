@@ -422,20 +422,24 @@ namespace Game.SceneTools
 
         private static CardButtonView BuildCardButtonTemplate(Transform parent)
         {
+            // 5 cards must fit a 1080-wide canvas: 5 x 190 plus four 12pt gaps leaves a little room.
+            const float CardWidth = 190f;
+            const float CardHeight = 320f;
+
             var go = new GameObject("CardButton", typeof(RectTransform), typeof(Image), typeof(Button));
             var rt = (RectTransform)go.transform;
             rt.SetParent(parent, false);
-            rt.sizeDelta = new Vector2(220, 320);
+            rt.sizeDelta = new Vector2(CardWidth, CardHeight);
             go.GetComponent<Image>().color = new Color(0.16f, 0.18f, 0.24f, 1f);
 
             // A card has to show all three of cost, power and value — a player cannot choose without them.
-            var tierLabel = UiFactory.Label(rt, "Tier", "T1", new Vector2(-80, 138), new Vector2(60, 40), 22f);
-            var nameLabel = UiFactory.Label(rt, "Name", "Card", new Vector2(0, 108), new Vector2(200, 56), 26f);
-            var costLabel = UiFactory.Label(rt, "Cost", "", new Vector2(0, 44), new Vector2(200, 60), 22f);
-            var powerLabel = UiFactory.Label(rt, "Power", "", new Vector2(0, -30), new Vector2(200, 110), 21f);
-            var pointsLabel = UiFactory.Label(rt, "Points", "0", new Vector2(0, -128), new Vector2(200, 56), 34f);
+            var tierLabel = UiFactory.Label(rt, "Tier", "T1", new Vector2(-64, 138), new Vector2(56, 40), 22f);
+            var nameLabel = UiFactory.Label(rt, "Name", "Card", new Vector2(0, 106), new Vector2(174, 56), 24f);
+            var costLabel = UiFactory.Label(rt, "Cost", "", new Vector2(0, 46), new Vector2(174, 56), 21f);
+            var powerLabel = UiFactory.Label(rt, "Power", "", new Vector2(0, -28), new Vector2(174, 112), 19f);
+            var pointsLabel = UiFactory.Label(rt, "Points", "0", new Vector2(0, -126), new Vector2(174, 56), 34f);
 
-            FixedSize(go, 220, 320);
+            FixedSize(go, CardWidth, CardHeight);
 
             var view = go.AddComponent<CardButtonView>();
             SetRef(view, "nameText", nameLabel);
