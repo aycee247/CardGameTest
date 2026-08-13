@@ -179,7 +179,10 @@ namespace Game.SceneTools
             faceRoot.anchoredPosition = new Vector2(0, -300);
             Row(faceRoot, spacing: 10);
             for (int face = 1; face <= 6; face++)
-                UiFactory.Button(faceRoot, "Face" + face, face.ToString(), Vector2.zero, new Vector2(140, 100));
+            {
+                var faceButton = UiFactory.Button(faceRoot, "Face" + face, face.ToString(), Vector2.zero, new Vector2(140, 100));
+                FixedSize(faceButton.gameObject, 140, 100);
+            }
 
             // --- shape controls ---
             var reroll = UiFactory.Button(content, "RerollButton", "Re-roll", new Vector2(-330, -440), new Vector2(300, 120));
@@ -309,6 +312,20 @@ namespace Game.SceneTools
             layout.childForceExpandHeight = false;
         }
 
+        /// <summary>
+        /// Pins a size for something living inside a layout group. Without this the group asks the
+        /// child for its preferred size, a plain Image answers zero, and the row renders empty —
+        /// sizeDelta alone is ignored once a layout group is driving the child.
+        /// </summary>
+        private static void FixedSize(GameObject target, float width, float height)
+        {
+            var element = target.AddComponent<LayoutElement>();
+            element.preferredWidth = width;
+            element.preferredHeight = height;
+            element.minWidth = width;
+            element.minHeight = height;
+        }
+
         // ---------------- Building blocks ----------------
 
         private static Camera CreateCamera()
@@ -362,6 +379,8 @@ namespace Game.SceneTools
             var powerLabel = UiFactory.Label(rt, "Power", "", new Vector2(0, -30), new Vector2(200, 110), 21f);
             var pointsLabel = UiFactory.Label(rt, "Points", "0", new Vector2(0, -128), new Vector2(200, 56), 34f);
 
+            FixedSize(go, 220, 320);
+
             var view = go.AddComponent<CardButtonView>();
             SetRef(view, "nameText", nameLabel);
             SetRef(view, "costText", costLabel);
@@ -389,6 +408,8 @@ namespace Game.SceneTools
 
             var faceLabel = UiFactory.Label(rt, "Face", "1", Vector2.zero, new Vector2(130, 130), 72f);
             faceLabel.color = new Color(0.09f, 0.11f, 0.15f, 1f);
+
+            FixedSize(go, 140, 140);
 
             var view = go.AddComponent<DieView>();
             SetRef(view, "faceText", faceLabel);
