@@ -34,6 +34,17 @@ namespace Game.SceneTools
         [MenuItem("Foundry/Generate Scenes & Build Settings")]
         public static void Generate()
         {
+            // EditorSceneManager.NewScene throws in Play mode. Without this guard the prefabs are
+            // rebuilt, the scenes are not, and the only clue is an InvalidOperationException — so
+            // the scene silently stays on the previous version.
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                EditorUtility.DisplayDialog("Generate Scenes",
+                    "Stop Play mode first — Unity cannot create scenes while the game is running.\n\n" +
+                    "Press Stop, run this again, then press Play.", "OK");
+                return;
+            }
+
             if (!EditorUtility.DisplayDialog("Generate Scenes",
                 "This creates/overwrites Boot, MainMenu, Lobby and Game scenes under " + SceneDir +
                 " and sets the Build Settings scene list. Continue?", "Generate", "Cancel"))
