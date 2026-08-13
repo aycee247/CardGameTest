@@ -73,6 +73,11 @@ namespace Game.Networking
 
         private void Update()
         {
+            // Clients only hear the remaining time when a snapshot arrives, which is far less often
+            // than once a frame, so the countdown is ticked down locally between messages and
+            // corrected by the next one.
+            if (SecondsLeft > 0f) SecondsLeft = Mathf.Max(0f, SecondsLeft - Time.deltaTime);
+
             if (!IsServer || _server == null) return;
 
             var phase = _server.State.Phase;
@@ -203,9 +208,20 @@ namespace Game.Networking
             }
         }
 
+        /// <summary>
+        /// These three travel server-to-client. Nothing in the transport stops a hostile peer from
+        /// sending one directly to another client, so each verifies the sender really is the server
+        /// before acting — otherwise a client could forge state, reassign someone's seat, or fake a
+        /// rejection.
+        /// </summary>
+        private bool FromServer(RpcParams rpc) =>
+            rpc.Receive.SenderClientId == NetworkManager.ServerClientId;
+
         [Rpc(SendTo.SpecifiedInParams)]
         private void StateRpc(byte[] snapshotBytes, float secondsLeft, RpcParams rpc = default)
         {
+            if (!FromServer(rpc)) return;
+
             Current = SnapshotCodec.Decode(snapshotBytes);
             SecondsLeft = secondsLeft;
             Changed?.Invoke(Current);
@@ -214,12 +230,14 @@ namespace Game.Networking
         [Rpc(SendTo.SpecifiedInParams)]
         private void AssignPlayerRpc(int playerId, RpcParams rpc = default)
         {
+            if (!FromServer(rpc)) return;
             _localPlayer = new PlayerId(playerId);
         }
 
         [Rpc(SendTo.SpecifiedInParams)]
         private void RejectRpc(int failure, RpcParams rpc = default)
         {
+            if (!FromServer(rpc)) return;
             MoveRejected?.Invoke((MoveFailure)failure);
         }
     }

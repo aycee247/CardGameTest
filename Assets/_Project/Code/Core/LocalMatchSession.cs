@@ -42,6 +42,9 @@ namespace Game.Core
         public PlayerId LocalPlayer => ViewAs;
         public MatchSnapshot Current { get; private set; }
 
+        /// <summary>No clock offline: phases advance when <see cref="Advance"/> is called.</summary>
+        public float SecondsLeft => -1f;
+
         /// <summary>The report from the most recent contention pass, or null if none has run.</summary>
         public ResolutionReport LastResolution { get; private set; }
 

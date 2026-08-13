@@ -102,7 +102,17 @@ namespace Game.App
         private void Refresh()
         {
             if (view == null || _match == null) return;
-            view.Render(_match.Current, _canAct, _shapingAllowed);
+            view.Render(_match.Current, _canAct, _shapingAllowed, _match.SecondsLeft);
+        }
+
+        /// <summary>
+        /// Online the phase clock ticks between server messages, so the countdown has to be redrawn
+        /// per frame rather than only when a snapshot arrives. Offline SecondsLeft is negative and
+        /// this does nothing visible.
+        /// </summary>
+        private void Update()
+        {
+            if (_match != null && _match.SecondsLeft >= 0f) Refresh();
         }
 
         private void OnMatchChanged(MatchSnapshot snapshot) => Refresh();

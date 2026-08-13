@@ -41,6 +41,12 @@ namespace Game.Core
         /// <summary>Latest known snapshot, filtered for <see cref="LocalPlayer"/>.</summary>
         MatchSnapshot Current { get; }
 
+        /// <summary>
+        /// Seconds left in the current phase (UI-2), or a negative value when the match has no
+        /// clock — hot-seat advances when the player says so, not when time runs out.
+        /// </summary>
+        float SecondsLeft { get; }
+
         /// <summary>Raised on the main thread whenever <see cref="Current"/> changes.</summary>
         event Action<MatchSnapshot> Changed;
 

@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using System.Text;
 using Game.Core;
 
 namespace Game.Tests.EditMode
@@ -76,6 +79,52 @@ namespace Game.Tests.EditMode
 
         /// <summary>Grants a card outright, bypassing the market. Setup only.</summary>
         public static void Grant(PlayerState player, Card card) => player.OwnedCards.Add(card);
+    }
+
+    /// <summary>
+    /// Renders any snapshot to a canonical string by walking its fields with reflection.
+    ///
+    /// Used to compare two snapshots exactly. Reflection rather than hand-written assertions is
+    /// the point: a field added to <see cref="MatchSnapshot"/> later is covered automatically, so
+    /// a future leak cannot slip through by living in a property nobody remembered to assert on.
+    /// </summary>
+    internal static class Dump
+    {
+        public static string Of(object value) => Write(value, "", new StringBuilder()).ToString();
+
+        private static StringBuilder Write(object value, string path, StringBuilder sb)
+        {
+            if (value == null)
+            {
+                sb.Append(path).Append(" = null\n");
+                return sb;
+            }
+
+            var type = value.GetType();
+
+            if (type.IsPrimitive || type.IsEnum || value is string)
+            {
+                sb.Append(path).Append(" = ").Append(value).Append('\n');
+                return sb;
+            }
+
+            if (value is Array array)
+            {
+                sb.Append(path).Append(".Length = ").Append(array.Length).Append('\n');
+                for (int i = 0; i < array.Length; i++)
+                    Write(array.GetValue(i), $"{path}[{i}]", sb);
+                return sb;
+            }
+
+            // Fields in declaration order is not guaranteed, so sort for a stable rendering.
+            var fields = type.GetFields(BindingFlags.Public | BindingFlags.Instance)
+                .OrderBy(f => f.Name, StringComparer.Ordinal);
+
+            foreach (var field in fields)
+                Write(field.GetValue(value), $"{path}.{field.Name}", sb);
+
+            return sb;
+        }
     }
 
     internal static class Pay

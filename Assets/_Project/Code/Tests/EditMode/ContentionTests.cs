@@ -156,6 +156,20 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void Commit_RejectsAnOfferLongerThanThePlayersPool()
+        {
+            // A hostile client could otherwise make the server allocate and scan an arbitrarily
+            // large array before any per-index validation rejected it.
+            var session = TwoWayContest(out var state);
+
+            var oversized = new int[10_000];
+            var result = session.Commit(new PlayerId(0), new CardId(1), oversized);
+
+            Assert.IsFalse(result.Success);
+            Assert.IsFalse(state.Players[0].HasCommitted);
+        }
+
+        [Test]
         public void Commit_RejectsASecondCommitInTheSamePass()
         {
             var session = TwoWayContest(out var state);

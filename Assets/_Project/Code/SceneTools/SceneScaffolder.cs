@@ -163,6 +163,9 @@ namespace Game.SceneTools
             var round = Top(UiFactory.Label(content, "Round", "", Vector2.zero, new Vector2(1000, 70), 46f), -50);
             var phase = Top(UiFactory.Label(content, "Phase", "", Vector2.zero, new Vector2(1000, 60), 32f), -115);
 
+            // Online only: hidden whenever there is no phase clock (UI-2).
+            var timer = Top(UiFactory.Label(content, "Timer", "", new Vector2(430, 0), new Vector2(180, 70), 44f), -50);
+
             // Standings rail. Left-aligned because it is a column of names and numbers, not prose.
             var rail = Top(UiFactory.Label(content, "Rail", "", Vector2.zero, new Vector2(1000, 240), 28f,
                 TextAlignmentOptions.TopLeft), -290);
@@ -221,6 +224,7 @@ namespace Game.SceneTools
             SetRef(hud, "allowanceLabel", allowance);
             SetRef(hud, "messageLabel", message);
             SetRef(hud, "railLabel", rail);
+            SetRef(hud, "timerLabel", timer);
             SetRef(hud, "diceRoot", diceRoot);
             SetRef(hud, "marketRoot", marketRoot);
             SetRef(hud, "faceButtonsRoot", faceRoot);
@@ -250,18 +254,25 @@ namespace Game.SceneTools
             SetRef(hotSeat, "overlay", overlay);
             if (db != null) SetRef(hotSeat, "cardDatabase", db);
 
-            // In-scene networked controller (auto-spawns when the host loads this scene via NGO).
+            // In-scene networked controller (spawns when the host loads this scene via NGO).
             var ctrlGo = new GameObject("GameController");
             ctrlGo.AddComponent<NetworkObject>();
             var controller = ctrlGo.AddComponent<NetworkGameController>();
 
-            // Host-side match orchestration for online play. Disabled by default so the scene opens
-            // straight into a hot-seat game; the Lobby flow enables it for a networked match.
+            // Host-side match orchestration for online play.
             var launcherGo = new GameObject("MatchLauncher");
-            launcherGo.SetActive(false);
             var launcher = launcherGo.AddComponent<MatchLauncher>();
             SetRef(launcher, "gameController", controller);
             if (db != null) SetRef(launcher, "cardDatabase", db);
+
+            // Decides between the two modes at runtime and disables whichever is not in play.
+            var modeGo = new GameObject("GameSceneBootstrap");
+            var mode = modeGo.AddComponent<GameSceneBootstrap>();
+            SetRef(mode, "presenter", presenter);
+            SetRef(mode, "hotSeatHost", hotSeat);
+            SetRef(mode, "hotSeatOverlay", overlay);
+            SetRef(mode, "networkController", controller);
+            SetRef(mode, "matchLauncher", launcher);
 
             return Save(scene, SceneNames.Game);
         }

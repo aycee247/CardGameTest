@@ -28,6 +28,7 @@ namespace Game.UI
         [SerializeField] private TMP_Text allowanceLabel;
         [SerializeField] private TMP_Text messageLabel;
         [SerializeField] private TMP_Text railLabel;
+        [SerializeField] private TMP_Text timerLabel;
 
         [Header("Dice tray")]
         [SerializeField] private Transform diceRoot;
@@ -105,14 +106,25 @@ namespace Game.UI
             _selected.Clear();
         }
 
+        /// <summary>Renders with no phase clock — the hot-seat case.</summary>
+        public void Render(in MatchSnapshot snapshot, bool canAct, bool shapingAllowed) =>
+            Render(snapshot, canAct, shapingAllowed, -1f);
+
         /// <summary>
         /// Renders the board. <paramref name="canAct"/> is false whenever the device is not in this
-        /// player's hands — during a handoff, a reveal, or another seat's turn — and disables every
-        /// control rather than relying on the engine to reject stray taps.
+        /// player's hands, and disables every control rather than relying on the engine to reject
+        /// stray taps. <paramref name="secondsLeft"/> is negative when there is no clock.
         /// </summary>
-        public void Render(in MatchSnapshot snapshot, bool canAct, bool shapingAllowed)
+        public void Render(in MatchSnapshot snapshot, bool canAct, bool shapingAllowed, float secondsLeft)
         {
             _canAct = canAct;
+
+            if (timerLabel != null)
+            {
+                bool ticking = secondsLeft >= 0f && !snapshot.IsMatchOver;
+                timerLabel.gameObject.SetActive(ticking);
+                if (ticking) timerLabel.text = Mathf.CeilToInt(secondsLeft).ToString();
+            }
 
             var me = snapshot.Observer;
 

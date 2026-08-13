@@ -192,7 +192,7 @@ Ordered so the riskiest unknown — whether contested simultaneous claims are ac
 |----|-----------|------|-------|
 | M1 | Rules core | ✅ **done** — 67 tests green | Round clock, Spark economy, powers, priority, contention resolver. Pure C#, fully unit-tested, no editor required. |
 | M2 | Hot-seat playable | ✅ **built** — awaiting first playtest | All seats on one device via `HotSeatDirector`. Answers the fun question before any netcode is trusted. |
-| M3 | Online duel | no information leaks | Two players over Relay with per-player filtered snapshots and secret commits verified against a hostile client. The code exists (`NetworkGameController`); M3 is about proving it. |
+| M3 | Online duel | ✅ **secrecy proven** — live play untested | Per-player filtered snapshots, hardened RPCs, and a differential secrecy gate. What remains is two devices over Relay. |
 | M4 | Full table | 6 players, drops survived | Scale to six, server phase timers, disconnect and auto-pass handling, opponent rail at full width. |
 | M5 | Content and balance | no dominant strategy | All 48 cards authored and tuned across player counts. Round count confirmed or adjusted against real match times. |
 | M6 | Polish | TestFlight build | Reveal choreography, dice and claim animation, audio, first-time-player onboarding. |
@@ -232,7 +232,13 @@ It gathers references three ways, because Unity uses three mechanisms: `<HintPat
 2. **Foundry ▸ Generate Scenes & Build Settings** — rebuilds Boot / MainMenu / Lobby / Game.
 3. Open the **Game** scene and press play. `HotSeatHost` starts a match immediately; set `playerCount` on it for 2–6 seats, or `fixedSeed` to replay an exact match.
 
-`MatchLauncher` (the online path) is present in the scene but disabled, so the Game scene opens straight into a hot-seat match.
+### Playing online
+
+Boot → MainMenu → **Host** (shows a join code) or **Join** by code → Lobby → host presses **Start**, which loads the Game scene for everyone over NGO.
+
+`GameSceneBootstrap` decides the mode when the Game scene loads: if a network session is live it binds the board to `NetworkGameController` and hides the hot-seat handoff panels; otherwise it starts a hot-seat match. Both modes share the entire presentation layer, because `LocalMatchSession` and `NetworkGameController` implement the same `IGameActions`/`IMatchView` pair. The only difference is who advances the phases — the player, or the server's clock.
+
+Online needs UGS configured: **Edit ▸ Project Settings ▸ Services**, link a project, then enable Authentication, Relay and Lobby in the Unity Cloud dashboard.
 
 ### Flow, and where it lives
 
@@ -240,10 +246,31 @@ It gathers references three ways, because Unity uses three mechanisms: `<HintPat
 
 The handoff screen is load-bearing, not decoration. The director moves the private view to the next actor *before* the handoff panel goes up, and the panel is opaque and full-screen, so the previous player's dice and claim are out of the snapshot and off the screen before the device changes hands.
 
+### How the secrecy gate is proven
+
+`SnapshotSecrecyTests` asserts particular fields are hidden — that catches the leaks someone thought of. `SecrecyGateTests` asserts something stronger:
+
+> If two matches differ **only** in what an opponent secretly committed to, everything the other player receives must be identical.
+
+If your view cannot distinguish their choices, there is nothing in it to exploit — no field, no array length, no ordering, and no field added later. Snapshots are compared by a full reflective dump rather than hand-written assertions, so new state is covered without anyone remembering to write a test for it. It runs across every card × dice combination and every player count from 2 to 6.
+
+The suite includes a **negative control** (`TheComparisonCanActuallyDetectADifference`): at Reveal the commits are public, so the two views must differ. Without it, the gate would pass just as happily if the dump were empty.
+
+Deliberately *not* secret, and asserted as such: dice faces, owned cards, priority order, and the fact that a player has decided. Reading that an opponent rolled a pair of 5s is the whole basis of deciding whether to contest a card; only the choice itself is hidden.
+
+### Hostile-client hardening
+
+- Intents are mapped sender → seat, so a client can only ever act as itself.
+- The three server-to-client RPCs verify the sender really is the server. Nothing in the transport prevents a peer sending one directly to another client, which would otherwise let it forge state, reassign a seat, or fake a rejection.
+- A commit offering more dice than the player holds is rejected before any per-index work, so a hostile client cannot make the server scan an arbitrarily large array.
+- Everything else is already gated by `RulesEngine`, which validates phase, ownership, dice validity and cost on the server.
+
+Not yet addressed: no rate limiting on intent RPCs. A client can spam valid actions and force a re-broadcast each time.
+
 ### Still open
 
 - **UI-1 is only partly met.** The standings rail is a formatted text block, not per-player chips. Fine for hot-seat, wants revisiting for online at six players.
-- **UI-2, the phase countdown, is not shown.** `NetworkGameController` computes and replicates `SecondsLeft`, but no hot-seat screen needs it. Wire it in M4.
+- **UI-2, the phase countdown, is wired but only visible online.** Hot-seat has no clock, so `SecondsLeft` is negative there and the label hides itself.
 - **UI-4, the reveal beat, is a static list.** It says who won and lost what; it does not animate.
 - The deck is 36 cards, not the specced 48, and is unbalanced by design until M5.
 

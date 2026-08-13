@@ -30,7 +30,9 @@ namespace Game.App
         [Tooltip("Leave at 0 for a different match every time; set a value to replay an exact one.")]
         [SerializeField] private int fixedSeed;
 
-        [SerializeField] private bool autoStartOnLoad = true;
+        [Tooltip("Leave off in the generated scene: GameSceneBootstrap decides between hot-seat and " +
+                 "online and starts this itself. Turn on only for a scene that is hot-seat only.")]
+        [SerializeField] private bool autoStartOnLoad;
 
         private HotSeatDirector _director;
         private LocalMatchSession _session;

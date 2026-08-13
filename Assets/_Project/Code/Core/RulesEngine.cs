@@ -210,6 +210,11 @@ namespace Game.Core
 
             if (diceIndices == null || diceIndices.Count == 0) return MoveResult.Fail(MoveFailure.NoDiceOffered);
 
+            // Bound the work before doing any. A player cannot offer more dice than they hold, so
+            // anything longer is malformed — and rejecting it up front stops a hostile client from
+            // making the server allocate and scan an arbitrarily large array.
+            if (diceIndices.Count > player.Dice.Count) return MoveResult.Fail(MoveFailure.DuplicateDie);
+
             var seen = new HashSet<int>();
             for (int i = 0; i < diceIndices.Count; i++)
             {
