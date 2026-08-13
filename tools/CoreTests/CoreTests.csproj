@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Headless runner for the Game.Core test suite.
+
+    Game.Core is compiled with noEngineReferences, so it is ordinary portable C# and can be
+    built and tested without opening the Unity Editor. This project compiles the same source
+    files the Unity assemblies do — it does not copy or fork them — and executes the same
+    NUnit [Test] methods via reflection (see TestRunner.cs).
+
+    Run it with tools/run-core-tests.sh, which locates Unity's bundled .NET SDK and the
+    nunit.framework.dll that ships with com.unity.ext.nunit, and passes NUnitPath in.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>CoreTests</AssemblyName>
+    <RootNamespace>Game.Tests.Headless</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <!-- NU1701/MSB3277: nunit.framework ships as net472 only. It resolves and runs fine on
+         net8.0 because the assertion API touches nothing framework-specific. -->
+    <NoWarn>$(NoWarn);NU1701;MSB3277</NoWarn>
+    <RestorePackages>false</RestorePackages>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="TestRunner.cs" />
+    <Compile Include="../../Assets/_Project/Code/Core/**/*.cs" />
+    <Compile Include="../../Assets/_Project/Code/Tests/EditMode/**/*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="nunit.framework">
+      <HintPath>$(NUnitPath)</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

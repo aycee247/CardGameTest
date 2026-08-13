@@ -1,0 +1,24 @@
+{
+    "name": "Game.Networking",
+    "rootNamespace": "Game.Networking",
+    "references": [
+        "Game.Core",
+        "Game.Data",
+        "Unity.Netcode.Runtime",
+        "Unity.Netcode.Components",
+        "Unity.Services.Core",
+        "Unity.Services.Authentication",
+        "Unity.Services.Multiplayer"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "FOUNDRY_M2"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,0 +1,86 @@
+using System;
+using Game.Networking;
+using Game.UI;
+using UnityEngine;
+
+namespace Game.App
+{
+    /// <summary>
+    /// Presenter that connects the <see cref="MainMenuView"/> to the online session services.
+    /// Lives in the MainMenu scene. Host creates a session and shows the join code; Join connects
+    /// by code. Both then move to the Lobby.
+    /// </summary>
+    public sealed class MainMenuController : MonoBehaviour
+    {
+        [SerializeField] private MainMenuView view;
+
+        private SessionManager _session;
+        private SceneFlowService _sceneFlow;
+
+        private void Start()
+        {
+            if (!GameServices.IsReady)
+            {
+                // Entered this scene directly without going through Boot; send the player back.
+                Debug.LogWarning("[Menu] Services not ready — returning to Boot.");
+                UnityEngine.SceneManagement.SceneManager.LoadScene(SceneNames.Boot);
+                return;
+            }
+
+            _session = GameServices.Locator.Get<SessionManager>();
+            _sceneFlow = GameServices.Locator.Get<SceneFlowService>();
+
+            view.HostClicked += OnHost;
+            view.JoinClicked += OnJoin;
+            view.SetStatus("Ready");
+        }
+
+        private void OnDestroy()
+        {
+            if (view == null) return;
+            view.HostClicked -= OnHost;
+            view.JoinClicked -= OnJoin;
+        }
+
+        private async void OnHost()
+        {
+            try
+            {
+                view.SetInteractable(false);
+                view.SetStatus("Creating match…");
+                var code = await _session.CreateSessionAsync(maxPlayers: 2);
+                view.SetJoinCode(code);
+                view.SetStatus("Match created. Waiting for players…");
+                _sceneFlow.LoadLobby();
+            }
+            catch (Exception e)
+            {
+                view.SetStatus($"Failed to host: {e.Message}");
+                view.SetInteractable(true);
+            }
+        }
+
+        private async void OnJoin(string code)
+        {
+            if (string.IsNullOrEmpty(code))
+            {
+                view.SetStatus("Enter a join code first.");
+                return;
+            }
+
+            try
+            {
+                view.SetInteractable(false);
+                view.SetStatus("Joining…");
+                await _session.JoinSessionByCodeAsync(code);
+                view.SetStatus("Joined. Entering lobby…");
+                _sceneFlow.LoadLobby();
+            }
+            catch (Exception e)
+            {
+                view.SetStatus($"Failed to join: {e.Message}");
+                view.SetInteractable(true);
+            }
+        }
+    }
+}

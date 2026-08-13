@@ -1,0 +1,28 @@
+{
+    "name": "Game.SceneTools",
+    "rootNamespace": "Game.SceneTools",
+    "references": [
+        "Game.Core",
+        "Game.Data",
+        "Game.Audio",
+        "Game.UI",
+        "Game.Networking",
+        "Game.App",
+        "Unity.Netcode.Runtime",
+        "Unity.InputSystem",
+        "Unity.TextMeshPro"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "FOUNDRY_M2"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

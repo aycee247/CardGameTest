@@ -105,3 +105,12 @@ InitTestScene*.unity*
 
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
+
+# Build output of the headless Game.Core test harness (tools/CoreTests).
+# The root /[Oo]bj/ rule above is anchored, so it does not cover these.
+/tools/**/bin/
+/tools/**/obj/
+
+# ...but tools/CoreTests.csproj is hand-written, not Unity-generated, and must be tracked.
+# The blanket *.csproj rule above exists to drop the ones Unity regenerates under the repo root.
+!/tools/**/*.csproj

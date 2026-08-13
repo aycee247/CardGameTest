@@ -1,0 +1,27 @@
+{
+    "name": "Game.App",
+    "rootNamespace": "Game.App",
+    "references": [
+        "Game.Core",
+        "Game.Data",
+        "Game.Persistence",
+        "Game.Audio",
+        "Game.Networking",
+        "Game.UI",
+        "Unity.Netcode.Runtime",
+        "Unity.Services.Core",
+        "Unity.Services.Authentication",
+        "Unity.Services.Multiplayer"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "FOUNDRY_M2"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
