@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c07d15a1f2a754f7fa8389e89b0fe167, type: 3}
+  m_Name: Card_31_Blast_Furnace
+  m_EditorClassIdentifier: Game.Data::Game.Data.CardDefinition
+  cardId: 31
+  displayName: Blast Furnace
+  artwork: {fileID: 0}
+  tier: 3
+  family: 0
+  points: 5
+  power:
+    kind: 1
+    magnitude: 2
+    face: 0
+    countsFamily: 0
+  combineMode: 0
+  requirements:
+  - kind: 2
+    n: 0
+    face: 0
+    runLength: 0
+    sumTarget: 28
+    sumComparison: 1
+    requiredFaces: 

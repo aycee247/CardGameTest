@@ -43,15 +43,21 @@ namespace Game.SceneTools
             EnsureFolder("Assets/_Project", "Prefabs");
             EnsureFolder("Assets/_Project/Prefabs", "UI");
 
-            var cardButtonPrefab = BuildCardButtonPrefab();
-            var diePrefab = BuildDiePrefab();
+            BuildCardButtonPrefab();
+            BuildDiePrefab();
+
+            // Import them before wiring, then load by path below. The objects returned by
+            // SaveAsPrefabAsset do not reliably survive the NewScene calls that follow, which
+            // silently left the HUD's prefab fields null and rendered an empty board.
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
 
             var paths = new List<string>
             {
                 BuildBootScene(),
                 BuildMainMenuScene(),
                 BuildLobbyScene(),
-                BuildGameScene(cardButtonPrefab, diePrefab),
+                BuildGameScene(),
             };
 
             var buildScenes = new List<EditorBuildSettingsScene>();
@@ -143,40 +149,62 @@ namespace Game.SceneTools
             return Save(scene, SceneNames.Lobby);
         }
 
-        private static string BuildGameScene(CardButtonView cardButtonPrefab, DieView diePrefab)
+        private static T LoadPrefabPart<T>(string prefabName) where T : Component
         {
+            var go = AssetDatabase.LoadAssetAtPath<GameObject>($"{PrefabDir}/{prefabName}.prefab");
+            var part = go != null ? go.GetComponent<T>() : null;
+
+            if (part == null)
+                Debug.LogError($"[Scaffold] Could not load {prefabName}.prefab as {typeof(T).Name}. " +
+                               "The board will render without it.");
+
+            return part;
+        }
+
+        private static string BuildGameScene()
+        {
+            var cardButtonPrefab = LoadPrefabPart<CardButtonView>("CardButton");
+            var diePrefab = LoadPrefabPart<DieView>("Die");
+
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             CreateCamera();
             CreateEventSystem();
             var canvas = CreateCanvas(out var content);
 
-            // --- status ---
-            var round = UiFactory.Label(content, "Round", "", new Vector2(0, 880), new Vector2(1000, 70), 46f);
-            var phase = UiFactory.Label(content, "Phase", "", new Vector2(0, 810), new Vector2(1000, 60), 32f);
+            // Everything anchors to the top or bottom edge rather than to the centre. Absolute
+            // offsets from centre only work at the exact reference aspect: on a wider, shorter view
+            // the outermost rows simply fall off the screen.
+
+            // --- status, from the top down ---
+            var round = Top(UiFactory.Label(content, "Round", "", Vector2.zero, new Vector2(1000, 70), 46f), -50);
+            var phase = Top(UiFactory.Label(content, "Phase", "", Vector2.zero, new Vector2(1000, 60), 32f), -115);
 
             // Standings rail. Left-aligned because it is a column of names and numbers, not prose.
-            var rail = UiFactory.Label(content, "Rail", "", new Vector2(0, 640), new Vector2(1000, 260), 28f,
-                TextAlignmentOptions.TopLeft);
+            var rail = Top(UiFactory.Label(content, "Rail", "", Vector2.zero, new Vector2(1000, 240), 28f,
+                TextAlignmentOptions.TopLeft), -290);
 
-            // --- market ---
             var marketRoot = UiFactory.Panel(content, "Market", stretch: false);
-            marketRoot.sizeDelta = new Vector2(1020, 420);
-            marketRoot.anchoredPosition = new Vector2(0, 250);
+            marketRoot.sizeDelta = new Vector2(1020, 400);
+            Top(marketRoot, -640);
             Row(marketRoot, spacing: 12);
 
-            var sparks = UiFactory.Label(content, "Sparks", "", new Vector2(-280, -20), new Vector2(420, 60), 34f);
-            var allowance = UiFactory.Label(content, "Allowance", "", new Vector2(280, -20), new Vector2(520, 60), 30f);
+            // --- controls, from the bottom up ---
+            var message = Bottom(UiFactory.Label(content, "Message", "", Vector2.zero, new Vector2(1000, 80), 32f), 45);
 
-            // --- dice tray ---
-            var diceRoot = UiFactory.Panel(content, "DiceTray", stretch: false);
-            diceRoot.sizeDelta = new Vector2(1000, 170);
-            diceRoot.anchoredPosition = new Vector2(0, -160);
-            Row(diceRoot, spacing: 14);
+            var pass = Bottom(UiFactory.Button(content, "PassButton", "Pass", Vector2.zero, new Vector2(300, 120)), 150);
+            var withdraw = Bottom(UiFactory.Button(content, "WithdrawButton", "Withdraw", Vector2.zero, new Vector2(300, 120)), 150);
+            var done = Bottom(UiFactory.Button(content, "DoneButton", "Done", Vector2.zero, new Vector2(300, 120)), 150);
+            Spread(pass, withdraw, done, gap: 320);
+
+            var reroll = Bottom(UiFactory.Button(content, "RerollButton", "Re-roll", Vector2.zero, new Vector2(300, 120)), 285);
+            var nudgeUp = Bottom(UiFactory.Button(content, "NudgeUpButton", "+1", Vector2.zero, new Vector2(300, 120)), 285);
+            var nudgeDown = Bottom(UiFactory.Button(content, "NudgeDownButton", "-1", Vector2.zero, new Vector2(300, 120)), 285);
+            Spread(reroll, nudgeUp, nudgeDown, gap: 320);
 
             // Face picker, shown only while dice are selected.
             var faceRoot = UiFactory.Panel(content, "FaceButtons", stretch: false);
             faceRoot.sizeDelta = new Vector2(1000, 110);
-            faceRoot.anchoredPosition = new Vector2(0, -300);
+            Bottom(faceRoot, 410);
             Row(faceRoot, spacing: 10);
             for (int face = 1; face <= 6; face++)
             {
@@ -184,17 +212,13 @@ namespace Game.SceneTools
                 FixedSize(faceButton.gameObject, 140, 100);
             }
 
-            // --- shape controls ---
-            var reroll = UiFactory.Button(content, "RerollButton", "Re-roll", new Vector2(-330, -440), new Vector2(300, 120));
-            var nudgeUp = UiFactory.Button(content, "NudgeUpButton", "+1", new Vector2(0, -440), new Vector2(240, 120));
-            var nudgeDown = UiFactory.Button(content, "NudgeDownButton", "−1", new Vector2(300, -440), new Vector2(240, 120));
+            var diceRoot = UiFactory.Panel(content, "DiceTray", stretch: false);
+            diceRoot.sizeDelta = new Vector2(1000, 170);
+            Bottom(diceRoot, 555);
+            Row(diceRoot, spacing: 14);
 
-            // --- decide controls ---
-            var pass = UiFactory.Button(content, "PassButton", "Pass", new Vector2(-330, -600), new Vector2(300, 120));
-            var withdraw = UiFactory.Button(content, "WithdrawButton", "Withdraw", new Vector2(0, -600), new Vector2(300, 120));
-            var done = UiFactory.Button(content, "DoneButton", "Done", new Vector2(330, -600), new Vector2(300, 120));
-
-            var message = UiFactory.Label(content, "Message", "", new Vector2(0, -740), new Vector2(1000, 90), 32f);
+            var sparks = Bottom(UiFactory.Label(content, "Sparks", "", new Vector2(-280, 0), new Vector2(420, 60), 34f), 680);
+            var allowance = Bottom(UiFactory.Label(content, "Allowance", "", new Vector2(280, 0), new Vector2(520, 60), 30f), 680);
 
             var hud = content.gameObject.AddComponent<GameHudView>();
             SetRef(hud, "roundLabel", round);
@@ -302,6 +326,43 @@ namespace Game.SceneTools
             panel.gameObject.SetActive(false);
             return panel;
         }
+
+        /// <summary>Pins to the top edge, <paramref name="y"/> being a negative offset downward.</summary>
+        private static T Top<T>(T target, float y) where T : Component
+        {
+            Anchor(target, new Vector2(0.5f, 1f), y);
+            return target;
+        }
+
+        /// <summary>Pins to the bottom edge, <paramref name="y"/> being a positive offset upward.</summary>
+        private static T Bottom<T>(T target, float y) where T : Component
+        {
+            Anchor(target, new Vector2(0.5f, 0f), y);
+            return target;
+        }
+
+        private static RectTransform Anchor(Component target, Vector2 anchor, float y)
+        {
+            var rt = (RectTransform)target.transform;
+            rt.anchorMin = anchor;
+            rt.anchorMax = anchor;
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = new Vector2(rt.anchoredPosition.x, y);
+            return rt;
+        }
+
+        /// <summary>Spaces a row of already-anchored controls evenly about the horizontal centre.</summary>
+        private static void Spread(float gap, params Component[] items)
+        {
+            float start = -gap * (items.Length - 1) / 2f;
+            for (int i = 0; i < items.Length; i++)
+            {
+                var rt = (RectTransform)items[i].transform;
+                rt.anchoredPosition = new Vector2(start + i * gap, rt.anchoredPosition.y);
+            }
+        }
+
+        private static void Spread(Component a, Component b, Component c, float gap) => Spread(gap, a, b, c);
 
         private static void Row(RectTransform target, float spacing)
         {

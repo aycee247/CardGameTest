@@ -242,13 +242,15 @@ namespace Game.UI
             {
                 if (_sb.Length > 0) _sb.Append('\n');
 
-                _sb.Append(p.PriorityRank == 0 ? "▶ " : "  ");
+                // ASCII only — the default LiberationSans font has no arrow glyphs and TMP logs a
+                // fallback warning for every character it cannot find.
+                _sb.Append(p.PriorityRank == 0 ? "> " : "  ");
                 _sb.Append(p.DisplayName);
                 _sb.Append("  ").Append(p.Score).Append("vp");
                 _sb.Append("  ").Append(p.CardCount).Append(p.CardCount == 1 ? " card" : " cards");
                 _sb.Append("  ").Append(p.DiceFaces?.Length ?? 0).Append(" dice");
                 _sb.Append("  ").Append(p.Sparks).Append("sp");
-                if (p.HasDecided) _sb.Append("   ✓");
+                if (p.HasDecided) _sb.Append("   [ready]");
             }
             return _sb.ToString();
         }
