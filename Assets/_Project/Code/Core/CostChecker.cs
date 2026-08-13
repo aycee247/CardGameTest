@@ -20,6 +20,19 @@ namespace Game.Core
             Satisfies(requirement, faces, null, 0);
 
         /// <summary>
+        /// True if *some* roll of exactly <paramref name="diceCount"/> dice could pay this cost.
+        ///
+        /// Content validation: a card whose cost no legal dice pool can meet is dead weight in the
+        /// market, and the mistake is easy to make (a run of 6 costs nothing to type but needs six
+        /// dice). Callers check against the pool size a player could actually reach.
+        /// </summary>
+        public static bool IsSatisfiableWith(ICardRequirement requirement, int diceCount)
+        {
+            if (requirement == null || diceCount < 0) return false;
+            return TryAssign(requirement, new List<int>(), diceCount);
+        }
+
+        /// <summary>
         /// True if <paramref name="faces"/> can satisfy <paramref name="requirement"/> when dice
         /// showing a face in <paramref name="wildFaces"/>, plus up to <paramref name="wildDice"/>
         /// dice of the player's choosing, may stand in for any face.

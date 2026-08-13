@@ -168,17 +168,84 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
-        public void Commit_OutsideACommitWindow_IsRejected()
+        public void Commit_IsAllowedDuringShape()
         {
-            var config = Make.Config();
-            var state = Make.Match(config, new[] { Make.Pair(1), Make.Pair(2) });
+            // Locking in early is legal, and is what lets a hot-seat player shape and commit in
+            // one sitting rather than passing the device round the table twice per round.
+            var state = Make.Match(Make.Config(), new[] { Make.Pair(1), Make.Pair(2) });
             var session = new LocalMatchSession(state, new ConstantRoller(3));
 
             session.Advance();   // -> Shape
 
+            Assert.IsTrue(session.Commit(new PlayerId(0), new CardId(1), new[] { 0, 1 }).Success);
+            Assert.IsTrue(state.Players[0].HasCommitted);
+        }
+
+        [Test]
+        public void Commit_OutsideAnyDecisionWindow_IsRejected()
+        {
+            var state = Make.Match(Make.Config(), new[] { Make.Pair(1), Make.Pair(2) });
+            var session = new LocalMatchSession(state, new ConstantRoller(3));
+
+            session.AdvanceTo(RoundPhase.Reveal);
+
             var result = session.Commit(new PlayerId(0), new CardId(1), new[] { 0, 1 });
             Assert.IsFalse(result.Success);
             Assert.AreEqual(MoveFailure.WrongPhase, result.Failure);
+        }
+
+        [Test]
+        public void ShapingIsLockedOnceCommitted()
+        {
+            var state = Make.Match(Make.Config(), new[] { Make.Pair(1), Make.Pair(2) });
+            var session = new LocalMatchSession(state, new ConstantRoller(3));
+            session.Advance();   // -> Shape
+
+            var p0 = state.Players[0];
+            p0.Sparks = 10;
+
+            Assert.IsTrue(session.Commit(p0.Id, new CardId(1), new[] { 0, 1 }).Success);
+
+            // The committed dice are pledged; re-rolling them would change what is being paid.
+            var shaped = session.Shape(p0.Id, ShapeAction.Reroll(0));
+            Assert.IsFalse(shaped.Success);
+            Assert.AreEqual(MoveFailure.AlreadyCommitted, shaped.Failure);
+            Assert.AreEqual(10, p0.Sparks);
+        }
+
+        [Test]
+        public void WithdrawRestoresTheAbilityToShapeAndDecideAgain()
+        {
+            var state = Make.Match(Make.Config(), new[] { Make.Pair(1), Make.Pair(2) });
+            var session = new LocalMatchSession(state, new ConstantRoller(3));
+            session.Advance();   // -> Shape
+
+            var p0 = state.Players[0];
+            p0.Sparks = 10;
+
+            session.Commit(p0.Id, new CardId(1), new[] { 0, 1 });
+            Assert.IsTrue(session.Withdraw(p0.Id).Success);
+
+            Assert.IsFalse(p0.HasCommitted);
+            Assert.IsFalse(p0.HasPassed);
+            Assert.IsTrue(session.Shape(p0.Id, ShapeAction.Reroll(0)).Success);
+            Assert.IsTrue(session.Commit(p0.Id, new CardId(2), new[] { 1, 2 }).Success);
+        }
+
+        [Test]
+        public void AllDecidedClosesTheWindowEarly()
+        {
+            var state = Make.Match(Make.Config(), new[] { Make.Pair(1), Make.Pair(2) });
+            var session = new LocalMatchSession(state, new ConstantRoller(3));
+            session.Advance();   // -> Shape
+
+            Assert.IsFalse(RulesEngine.AllDecided(state));
+
+            session.Commit(new PlayerId(0), new CardId(1), new[] { 0, 1 });
+            Assert.IsFalse(RulesEngine.AllDecided(state));
+
+            session.Pass(new PlayerId(1));
+            Assert.IsTrue(RulesEngine.AllDecided(state));
         }
 
         [Test]

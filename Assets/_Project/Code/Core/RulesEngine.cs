@@ -137,6 +137,10 @@ namespace Game.Core
             var player = state.Find(playerId);
             if (player == null) return MoveResult.Fail(MoveFailure.UnknownPlayer);
 
+            // Dice backing a pending commit are pledged: re-rolling them afterwards would change
+            // what the commit is paying with. Withdraw first to keep shaping.
+            if (player.Pending.HasValue) return MoveResult.Fail(MoveFailure.AlreadyCommitted);
+
             var dice = player.Dice;
             if (!dice.IsValidIndex(action.DieIndex)) return MoveResult.Fail(MoveFailure.NoSuchDie);
             if (dice.IsSpent(action.DieIndex)) return MoveResult.Fail(MoveFailure.DieAlreadySpent);
@@ -236,6 +240,20 @@ namespace Game.Core
         }
 
         /// <summary>
+        /// Takes back a commit or a pass, freeing the player to shape again and decide differently.
+        /// Legal right up until the window closes; after Reveal there is nothing to withdraw.
+        /// </summary>
+        public static MoveResult Withdraw(MatchState state, PlayerId playerId)
+        {
+            var gate = CheckCommitWindow(state, playerId, out var player);
+            if (!gate.Success) return gate;
+
+            player.Pending = null;
+            player.HasPassed = false;
+            return MoveResult.Ok;
+        }
+
+        /// <summary>
         /// Marks every player who has neither committed nor passed as passed. The server calls this
         /// when a phase timer expires so one stalled or disconnected device cannot hold the table
         /// (CORE-2, NET-3).
@@ -252,10 +270,13 @@ namespace Game.Core
             }
         }
 
-        /// <summary>True once every player who still has a decision to make has made it.</summary>
+        /// <summary>
+        /// True once every player who still has a decision to make has made it. Lets a driver close
+        /// a window early instead of waiting out the clock — which is how hot-seat play advances.
+        /// </summary>
         public static bool AllDecided(MatchState state)
         {
-            if (state.Phase == RoundPhase.Commit)
+            if (state.Phase == RoundPhase.Shape || state.Phase == RoundPhase.Commit)
                 return state.Players.All(p => p.Pending.HasValue || p.HasPassed);
 
             if (state.Phase == RoundPhase.Repick)
@@ -273,7 +294,13 @@ namespace Game.Core
             player = null;
 
             if (state.Phase == RoundPhase.MatchOver) return MoveResult.Fail(MoveFailure.MatchOver);
-            if (state.Phase != RoundPhase.Commit && state.Phase != RoundPhase.Repick)
+
+            // Shape is included deliberately. Locking in before the deadline is a legitimate
+            // choice online, and it is what lets a hot-seat player shape and commit in one sitting
+            // instead of the device going round the table twice per round.
+            if (state.Phase != RoundPhase.Shape &&
+                state.Phase != RoundPhase.Commit &&
+                state.Phase != RoundPhase.Repick)
                 return MoveResult.Fail(MoveFailure.WrongPhase);
 
             player = state.Find(playerId);

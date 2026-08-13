@@ -62,6 +62,8 @@ namespace Game.Core
 
         public void RequestPass() => Pass(ViewAs);
 
+        public void RequestWithdraw() => Withdraw(ViewAs);
+
         // ------------------------------------------------------------------ per-seat commands
 
         /// <summary>Acts as a specific seat. Hot-seat and tests use this; online clients cannot.</summary>
@@ -73,6 +75,9 @@ namespace Game.Core
 
         public MoveResult Pass(PlayerId player) =>
             Resolve(RulesEngine.Pass(_state, player));
+
+        public MoveResult Withdraw(PlayerId player) =>
+            Resolve(RulesEngine.Withdraw(_state, player));
 
         // ------------------------------------------------------------------ clock
 

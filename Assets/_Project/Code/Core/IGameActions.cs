@@ -21,6 +21,9 @@ namespace Game.Core
 
         /// <summary>Decline to claim anything this pass.</summary>
         void RequestPass();
+
+        /// <summary>Take back a commit or pass, freeing the dice to be shaped again.</summary>
+        void RequestWithdraw();
     }
 
     /// <summary>

@@ -45,6 +45,9 @@ Each round runs five phases on a server-owned clock:
 | CORE-2 | Every phase has a server-owned countdown visible to all players. On expiry the server auto-resolves that player's phase — Shape does nothing, Commit becomes a pass. The clock must be authoritative on the server, or a stalled device holds five other people hostage. |
 | CORE-3 | Players start with 4 dice, hard maximum 8. The cap keeps both balance and the phone layout tractable. |
 | CORE-4 | Dice spent claiming a card are exhausted for that round. Unspent dice convert to Sparks at Upkeep, so no roll is ever wasted. |
+| CORE-5 | A player may commit during **Shape** as well as Commit — locking in early is a legitimate choice. Once committed, shaping is locked, because the committed dice are pledged and re-rolling them would change what is being paid. `Withdraw` takes the commit back and frees the dice again. |
+
+> **Why CORE-5 exists.** It was added during M2. Online, Shape and Commit are separate windows because everyone acts at once. On one device a player does both while holding it, so without this the device has to go round the table twice per round — eight handoffs at four players, eighty in a match. Allowing an early commit collapses that to one pass, and costs nothing online because commits are secret either way.
 
 ### Sparks — the soft currency
 
@@ -188,8 +191,8 @@ Ordered so the riskiest unknown — whether contested simultaneous claims are ac
 | ID | Milestone | Gate | Scope |
 |----|-----------|------|-------|
 | M1 | Rules core | ✅ **done** — 67 tests green | Round clock, Spark economy, powers, priority, contention resolver. Pure C#, fully unit-tested, no editor required. |
-| M2 | Hot-seat playable | first real playtest | All seats on one device via `LocalMatchSession`. Answers the fun question before any netcode is written. **Starts by clearing the `FOUNDRY_M2` gate — see §9.** |
-| M3 | Online duel | no information leaks | Two players over Relay with per-player filtered snapshots and secret commits verified against a hostile client. |
+| M2 | Hot-seat playable | ✅ **built** — awaiting first playtest | All seats on one device via `HotSeatDirector`. Answers the fun question before any netcode is trusted. |
+| M3 | Online duel | no information leaks | Two players over Relay with per-player filtered snapshots and secret commits verified against a hostile client. The code exists (`NetworkGameController`); M3 is about proving it. |
 | M4 | Full table | 6 players, drops survived | Scale to six, server phase timers, disconnect and auto-pass handling, opponent rail at full width. |
 | M5 | Content and balance | no dominant strategy | All 48 cards authored and tuned across player counts. Round count confirmed or adjusted against real match times. |
 | M6 | Polish | TestFlight build | Reveal choreography, dice and claim animation, audio, first-time-player onboarding. |
@@ -211,25 +214,38 @@ It uses the .NET SDK and `nunit.framework.dll` bundled inside the Unity installa
 
 The runner deliberately supports only `[Test]`, `[TestFixture]`, `[SetUp]` and `[TearDown]`. If a test uses anything richer (`[TestCase]`, `[UnityTest]`, …) it refuses to run rather than silently skipping and reporting green.
 
-### The `FOUNDRY_M2` gate
+### Type-checking the Unity assemblies
 
-`Game.App`, `Game.UI`, `Game.Networking`, `Game.SceneTools` and `Game.PlayModeTests` still call the turn-based API that M1 replaced. Until they are rebound, their asmdefs carry an unmet `defineConstraints: ["FOUNDRY_M2"]`, so Unity skips compiling them entirely. That keeps the Editor green and Unity's EditMode Test Runner usable while the presentation and netcode layers are still on the old model.
+Unity holds an exclusive lock on the project, so `Unity -batchmode -runTests` is unavailable whenever the Editor is open — which is most of the time. This compiles every first-party script against Unity's managed DLLs instead:
 
-**M2 begins by deleting that constraint from all five asmdefs** and rebinding these files:
+```
+tools/verify-unity-compile.sh
+```
 
-| File | What it still assumes |
-|------|----------------------|
-| `App/GameHudPresenter.cs` | one current player, roll/claim/end-turn |
-| `App/MatchLauncher.cs` | `GameState` / `GameConfig` construction |
-| `UI/GameHudView.cs` | turn and rolls-remaining labels |
-| `Networking/NetworkGameController.cs` | a single global snapshot broadcast to all |
-| `Networking/SnapshotCodec.cs` | `GameStateSnapshot` wire format |
+It gathers references three ways, because Unity uses three mechanisms: `<HintPath>` for engine DLLs, `Library/ScriptAssemblies` for package and first-party assemblies (TMPro, uGUI, Netcode), and plain DLLs inside `Library/PackageCache` (Newtonsoft). It needs Unity's generated `Game.*.csproj` files to exist.
 
-`NetworkGameController` and `SnapshotCodec` are the M3 pieces: they must move to per-recipient snapshots (NET-2), which is a rewrite rather than a rename.
+**It verifies types, not asmdef boundaries.** Everything compiles into one assembly, so a script reaching across an assembly reference it does not declare passes here and fails in Unity. Green means "no type errors", not "Unity is happy".
 
-### Not yet done
+### Playing a hot-seat match
 
-`Game.Data`'s `CardDefinition` compiles against the new `Card`, but cannot yet author a `CardPower` — a designer can set a cost and points but not what the card *does*. Closing that is CARD-2 and belongs to M5.
+1. **Foundry ▸ Generate Starter Deck** — 36 cards over three tiers, plus the `CardDatabase`. It validates as it goes and logs an error for any cost no legal dice pool could pay.
+2. **Foundry ▸ Generate Scenes & Build Settings** — rebuilds Boot / MainMenu / Lobby / Game.
+3. Open the **Game** scene and press play. `HotSeatHost` starts a match immediately; set `playerCount` on it for 2–6 seats, or `fixedSeed` to replay an exact match.
+
+`MatchLauncher` (the online path) is present in the scene but disabled, so the Game scene opens straight into a hot-seat match.
+
+### Flow, and where it lives
+
+`HotSeatDirector` is pure C# in `Game.Core` and carries the whole pass-the-device state machine — seat queue, handoff, reveal, re-pick passes. `HotSeatHost` is a thin MonoBehaviour over it. That split is deliberate: the awkward parts (a re-pick pass only some players may join; the privacy boundary between seats) are covered by the headless suite rather than only being exercisable by hand.
+
+The handoff screen is load-bearing, not decoration. The director moves the private view to the next actor *before* the handoff panel goes up, and the panel is opaque and full-screen, so the previous player's dice and claim are out of the snapshot and off the screen before the device changes hands.
+
+### Still open
+
+- **UI-1 is only partly met.** The standings rail is a formatted text block, not per-player chips. Fine for hot-seat, wants revisiting for online at six players.
+- **UI-2, the phase countdown, is not shown.** `NetworkGameController` computes and replicates `SecondsLeft`, but no hot-seat screen needs it. Wire it in M4.
+- **UI-4, the reveal beat, is a static list.** It says who won and lost what; it does not animate.
+- The deck is 36 cards, not the specced 48, and is unbalanced by design until M5.
 
 ---
 

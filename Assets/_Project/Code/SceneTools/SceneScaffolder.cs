@@ -21,8 +21,8 @@ namespace Game.SceneTools
     /// scaffold's components, and registered in Build Settings in order. Re-runnable: it overwrites
     /// the four scenes. Restyle the generated UI in the editor afterwards.
     ///
-    /// Menu: <b>DiceCards ▸ Generate Scenes &amp; Build Settings</b>.
-    /// Run <b>DiceCards ▸ Generate Sample Content</b> first so the Game scene can bind a CardDatabase.
+    /// Menu: <b>Foundry ▸ Generate Scenes &amp; Build Settings</b>.
+    /// Run <b>Foundry ▸ Generate Starter Deck</b> first so the Game scene can bind a CardDatabase.
     /// </summary>
     public static class SceneScaffolder
     {
@@ -31,7 +31,7 @@ namespace Game.SceneTools
         private const string DatabasePath = "Assets/_Project/ScriptableObjects/CardDatabase.asset";
         private static readonly Vector2 RefRes = new Vector2(1080, 1920);
 
-        [MenuItem("DiceCards/Generate Scenes & Build Settings")]
+        [MenuItem("Foundry/Generate Scenes & Build Settings")]
         public static void Generate()
         {
             if (!EditorUtility.DisplayDialog("Generate Scenes",
@@ -44,13 +44,14 @@ namespace Game.SceneTools
             EnsureFolder("Assets/_Project/Prefabs", "UI");
 
             var cardButtonPrefab = BuildCardButtonPrefab();
+            var diePrefab = BuildDiePrefab();
 
             var paths = new List<string>
             {
                 BuildBootScene(),
                 BuildMainMenuScene(),
                 BuildLobbyScene(),
-                BuildGameScene(cardButtonPrefab),
+                BuildGameScene(cardButtonPrefab, diePrefab),
             };
 
             var buildScenes = new List<EditorBuildSettingsScene>();
@@ -142,60 +143,170 @@ namespace Game.SceneTools
             return Save(scene, SceneNames.Lobby);
         }
 
-        private static string BuildGameScene(CardButtonView cardButtonPrefab)
+        private static string BuildGameScene(CardButtonView cardButtonPrefab, DieView diePrefab)
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             CreateCamera();
             CreateEventSystem();
             var canvas = CreateCanvas(out var content);
 
-            var turn = UiFactory.Label(content, "Turn", "", new Vector2(0, 820), new Vector2(1000, 80), 48f);
-            var phase = UiFactory.Label(content, "Phase", "", new Vector2(0, 740), new Vector2(1000, 60), 32f);
-            var rolls = UiFactory.Label(content, "Rolls", "", new Vector2(0, 680), new Vector2(1000, 60), 32f);
-            var score = UiFactory.Label(content, "Score", "", new Vector2(0, 620), new Vector2(1000, 60), 34f);
-            var dice = UiFactory.Label(content, "Dice", "Dice: —", new Vector2(0, -560), new Vector2(1000, 90), 54f);
-            var message = UiFactory.Label(content, "Message", "", new Vector2(0, -680), new Vector2(1000, 70), 34f);
+            // --- status ---
+            var round = UiFactory.Label(content, "Round", "", new Vector2(0, 880), new Vector2(1000, 70), 46f);
+            var phase = UiFactory.Label(content, "Phase", "", new Vector2(0, 810), new Vector2(1000, 60), 32f);
 
-            // Market row.
+            // Standings rail. Left-aligned because it is a column of names and numbers, not prose.
+            var rail = UiFactory.Label(content, "Rail", "", new Vector2(0, 640), new Vector2(1000, 260), 28f,
+                TextAlignmentOptions.TopLeft);
+
+            // --- market ---
             var marketRoot = UiFactory.Panel(content, "Market", stretch: false);
-            marketRoot.sizeDelta = new Vector2(1000, 460);
-            marketRoot.anchoredPosition = new Vector2(0, 60);
-            var layout = marketRoot.gameObject.AddComponent<HorizontalLayoutGroup>();
-            layout.spacing = 16; layout.childAlignment = TextAnchor.MiddleCenter;
-            layout.childForceExpandWidth = false; layout.childForceExpandHeight = false;
+            marketRoot.sizeDelta = new Vector2(1020, 420);
+            marketRoot.anchoredPosition = new Vector2(0, 250);
+            Row(marketRoot, spacing: 12);
 
-            var roll = UiFactory.Button(content, "RollButton", "Roll", new Vector2(-160, -820), new Vector2(300, 130));
-            var endTurn = UiFactory.Button(content, "EndTurnButton", "End Turn", new Vector2(200, -820), new Vector2(320, 130));
+            var sparks = UiFactory.Label(content, "Sparks", "", new Vector2(-280, -20), new Vector2(420, 60), 34f);
+            var allowance = UiFactory.Label(content, "Allowance", "", new Vector2(280, -20), new Vector2(520, 60), 30f);
+
+            // --- dice tray ---
+            var diceRoot = UiFactory.Panel(content, "DiceTray", stretch: false);
+            diceRoot.sizeDelta = new Vector2(1000, 170);
+            diceRoot.anchoredPosition = new Vector2(0, -160);
+            Row(diceRoot, spacing: 14);
+
+            // Face picker, shown only while dice are selected.
+            var faceRoot = UiFactory.Panel(content, "FaceButtons", stretch: false);
+            faceRoot.sizeDelta = new Vector2(1000, 110);
+            faceRoot.anchoredPosition = new Vector2(0, -300);
+            Row(faceRoot, spacing: 10);
+            for (int face = 1; face <= 6; face++)
+                UiFactory.Button(faceRoot, "Face" + face, face.ToString(), Vector2.zero, new Vector2(140, 100));
+
+            // --- shape controls ---
+            var reroll = UiFactory.Button(content, "RerollButton", "Re-roll", new Vector2(-330, -440), new Vector2(300, 120));
+            var nudgeUp = UiFactory.Button(content, "NudgeUpButton", "+1", new Vector2(0, -440), new Vector2(240, 120));
+            var nudgeDown = UiFactory.Button(content, "NudgeDownButton", "−1", new Vector2(300, -440), new Vector2(240, 120));
+
+            // --- decide controls ---
+            var pass = UiFactory.Button(content, "PassButton", "Pass", new Vector2(-330, -600), new Vector2(300, 120));
+            var withdraw = UiFactory.Button(content, "WithdrawButton", "Withdraw", new Vector2(0, -600), new Vector2(300, 120));
+            var done = UiFactory.Button(content, "DoneButton", "Done", new Vector2(330, -600), new Vector2(300, 120));
+
+            var message = UiFactory.Label(content, "Message", "", new Vector2(0, -740), new Vector2(1000, 90), 32f);
 
             var hud = content.gameObject.AddComponent<GameHudView>();
-            SetRef(hud, "turnLabel", turn);
+            SetRef(hud, "roundLabel", round);
             SetRef(hud, "phaseLabel", phase);
-            SetRef(hud, "rollsLabel", rolls);
-            SetRef(hud, "scoreLabel", score);
-            SetRef(hud, "diceLabel", dice);
+            SetRef(hud, "sparksLabel", sparks);
+            SetRef(hud, "allowanceLabel", allowance);
             SetRef(hud, "messageLabel", message);
-            SetRef(hud, "rollButton", roll);
-            SetRef(hud, "endTurnButton", endTurn);
+            SetRef(hud, "railLabel", rail);
+            SetRef(hud, "diceRoot", diceRoot);
             SetRef(hud, "marketRoot", marketRoot);
+            SetRef(hud, "faceButtonsRoot", faceRoot);
+            SetRef(hud, "rerollButton", reroll);
+            SetRef(hud, "nudgeUpButton", nudgeUp);
+            SetRef(hud, "nudgeDownButton", nudgeDown);
+            SetRef(hud, "passButton", pass);
+            SetRef(hud, "withdrawButton", withdraw);
+            SetRef(hud, "doneButton", done);
             if (cardButtonPrefab != null) SetRef(hud, "cardButtonPrefab", cardButtonPrefab);
+            if (diePrefab != null) SetRef(hud, "diePrefab", diePrefab);
 
             var presenter = canvas.gameObject.AddComponent<GameHudPresenter>();
             SetRef(presenter, "view", hud);
+
+            var overlay = BuildHotSeatOverlay(canvas.transform);
+
+            var db = AssetDatabase.LoadAssetAtPath<CardDatabase>(DatabasePath);
+            if (db == null)
+                Debug.LogWarning("[Scaffold] CardDatabase not found — run 'Foundry ▸ Generate Starter Deck' " +
+                                 "and re-run, or assign it on HotSeatHost and MatchLauncher.");
+
+            // Hot-seat host: playable immediately, with no networking involved.
+            var hotSeatGo = new GameObject("HotSeatHost");
+            var hotSeat = hotSeatGo.AddComponent<HotSeatHost>();
+            SetRef(hotSeat, "presenter", presenter);
+            SetRef(hotSeat, "overlay", overlay);
+            if (db != null) SetRef(hotSeat, "cardDatabase", db);
 
             // In-scene networked controller (auto-spawns when the host loads this scene via NGO).
             var ctrlGo = new GameObject("GameController");
             ctrlGo.AddComponent<NetworkObject>();
             var controller = ctrlGo.AddComponent<NetworkGameController>();
 
-            // Host-side match orchestration.
+            // Host-side match orchestration for online play. Disabled by default so the scene opens
+            // straight into a hot-seat game; the Lobby flow enables it for a networked match.
             var launcherGo = new GameObject("MatchLauncher");
+            launcherGo.SetActive(false);
             var launcher = launcherGo.AddComponent<MatchLauncher>();
             SetRef(launcher, "gameController", controller);
-            var db = AssetDatabase.LoadAssetAtPath<CardDatabase>(DatabasePath);
             if (db != null) SetRef(launcher, "cardDatabase", db);
-            else Debug.LogWarning("[Scaffold] CardDatabase not found — run 'DiceCards ▸ Generate Sample Content' and re-run, or assign it on MatchLauncher.");
 
             return Save(scene, SceneNames.Game);
+        }
+
+        /// <summary>
+        /// The pass-the-device panels. The handoff panel is opaque and full-screen on purpose: it is
+        /// the privacy boundary that keeps one player's dice and claim off screen from the next.
+        /// </summary>
+        private static HotSeatOverlayView BuildHotSeatOverlay(Transform canvas)
+        {
+            var root = UiFactory.Panel(canvas, "HotSeatOverlay");
+            var overlay = root.gameObject.AddComponent<HotSeatOverlayView>();
+
+            var handoff = FullScreenPanel(root, "HandoffPanel", new Color(0.06f, 0.07f, 0.10f, 1f));
+            var handoffTitle = UiFactory.Label(handoff, "Title", "", new Vector2(0, 220), new Vector2(950, 130), 68f);
+            var handoffBody = UiFactory.Label(handoff, "Body", "", new Vector2(0, 20), new Vector2(900, 280), 36f);
+            var handoffButton = UiFactory.Button(handoff, "ReadyButton", "I have the device",
+                new Vector2(0, -260), new Vector2(680, 150));
+
+            var reveal = FullScreenPanel(root, "RevealPanel", new Color(0.07f, 0.09f, 0.13f, 0.97f));
+            UiFactory.Label(reveal, "Title", "Reveal", new Vector2(0, 320), new Vector2(900, 110), 62f);
+            var revealBody = UiFactory.Label(reveal, "Body", "", new Vector2(0, 40), new Vector2(900, 420), 34f);
+            var revealButton = UiFactory.Button(reveal, "ContinueButton", "Continue",
+                new Vector2(0, -300), new Vector2(560, 140));
+
+            var summary = FullScreenPanel(root, "SummaryPanel", new Color(0.07f, 0.09f, 0.13f, 0.97f));
+            var summaryBody = UiFactory.Label(summary, "Body", "", new Vector2(0, 60), new Vector2(900, 480), 34f);
+            var summaryButton = UiFactory.Button(summary, "NextRoundButton", "Next round",
+                new Vector2(0, -300), new Vector2(560, 140));
+
+            var gameOver = FullScreenPanel(root, "GameOverPanel", new Color(0.06f, 0.07f, 0.10f, 1f));
+            UiFactory.Label(gameOver, "Title", "Final standings", new Vector2(0, 340), new Vector2(900, 120), 62f);
+            var gameOverBody = UiFactory.Label(gameOver, "Body", "", new Vector2(0, 40), new Vector2(900, 500), 38f);
+
+            SetRef(overlay, "handoffPanel", handoff.gameObject);
+            SetRef(overlay, "revealPanel", reveal.gameObject);
+            SetRef(overlay, "summaryPanel", summary.gameObject);
+            SetRef(overlay, "gameOverPanel", gameOver.gameObject);
+            SetRef(overlay, "handoffTitle", handoffTitle);
+            SetRef(overlay, "handoffBody", handoffBody);
+            SetRef(overlay, "handoffButton", handoffButton);
+            SetRef(overlay, "revealBody", revealBody);
+            SetRef(overlay, "revealButton", revealButton);
+            SetRef(overlay, "summaryBody", summaryBody);
+            SetRef(overlay, "summaryButton", summaryButton);
+            SetRef(overlay, "gameOverBody", gameOverBody);
+
+            return overlay;
+        }
+
+        private static RectTransform FullScreenPanel(Transform parent, string name, Color color)
+        {
+            var panel = UiFactory.Panel(parent, name);
+            var image = panel.gameObject.AddComponent<Image>();
+            image.color = color;
+            panel.gameObject.SetActive(false);
+            return panel;
+        }
+
+        private static void Row(RectTransform target, float spacing)
+        {
+            var layout = target.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.spacing = spacing;
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
         }
 
         // ---------------- Building blocks ----------------
@@ -244,14 +355,20 @@ namespace Game.SceneTools
             rt.sizeDelta = new Vector2(220, 320);
             go.GetComponent<Image>().color = new Color(0.16f, 0.18f, 0.24f, 1f);
 
-            var nameLabel = UiFactory.Label(rt, "Name", "Card", new Vector2(0, 120), new Vector2(200, 60), 30f);
-            var reqLabel = UiFactory.Label(rt, "Requirement", "", new Vector2(0, 0), new Vector2(200, 120), 24f);
-            var pointsLabel = UiFactory.Label(rt, "Points", "0", new Vector2(0, -120), new Vector2(200, 60), 34f);
+            // A card has to show all three of cost, power and value — a player cannot choose without them.
+            var tierLabel = UiFactory.Label(rt, "Tier", "T1", new Vector2(-80, 138), new Vector2(60, 40), 22f);
+            var nameLabel = UiFactory.Label(rt, "Name", "Card", new Vector2(0, 108), new Vector2(200, 56), 26f);
+            var costLabel = UiFactory.Label(rt, "Cost", "", new Vector2(0, 44), new Vector2(200, 60), 22f);
+            var powerLabel = UiFactory.Label(rt, "Power", "", new Vector2(0, -30), new Vector2(200, 110), 21f);
+            var pointsLabel = UiFactory.Label(rt, "Points", "0", new Vector2(0, -128), new Vector2(200, 56), 34f);
 
             var view = go.AddComponent<CardButtonView>();
             SetRef(view, "nameText", nameLabel);
-            SetRef(view, "requirementText", reqLabel);
+            SetRef(view, "costText", costLabel);
+            SetRef(view, "powerText", powerLabel);
             SetRef(view, "pointsText", pointsLabel);
+            SetRef(view, "tierText", tierLabel);
+            SetRef(view, "background", go.GetComponent<Image>());
             SetRef(view, "button", go.GetComponent<Button>());
 
             var path = PrefabDir + "/CardButton.prefab";
@@ -259,6 +376,30 @@ namespace Game.SceneTools
             Object.DestroyImmediate(go);
 
             return prefab != null ? prefab.GetComponent<CardButtonView>() : null;
+        }
+
+        private static DieView BuildDiePrefab()
+        {
+            var go = new GameObject("Die", typeof(RectTransform), typeof(Image), typeof(Button));
+            var rt = (RectTransform)go.transform;
+            rt.sizeDelta = new Vector2(140, 140);
+
+            var image = go.GetComponent<Image>();
+            image.color = new Color(0.96f, 0.96f, 0.94f, 1f);
+
+            var faceLabel = UiFactory.Label(rt, "Face", "1", Vector2.zero, new Vector2(130, 130), 72f);
+            faceLabel.color = new Color(0.09f, 0.11f, 0.15f, 1f);
+
+            var view = go.AddComponent<DieView>();
+            SetRef(view, "faceText", faceLabel);
+            SetRef(view, "background", image);
+            SetRef(view, "button", go.GetComponent<Button>());
+
+            var path = PrefabDir + "/Die.prefab";
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, path);
+            Object.DestroyImmediate(go);
+
+            return prefab != null ? prefab.GetComponent<DieView>() : null;
         }
 
         // ---------------- Utilities ----------------

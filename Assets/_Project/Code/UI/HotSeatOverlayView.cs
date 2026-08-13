@@ -1,0 +1,183 @@
+using System;
+using System.Collections.Generic;
+using System.Text;
+using Game.Core;
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
+
+namespace Game.UI
+{
+    /// <summary>
+    /// The full-screen panels that sit over the board in a pass-the-device match: the handoff
+    /// screen, the reveal, the round summary, and the final standings.
+    ///
+    /// The handoff panel is not decoration — it is the privacy boundary. It must fully cover the
+    /// board so the previous player's dice and claim are off screen before the device changes hands.
+    /// </summary>
+    public sealed class HotSeatOverlayView : MonoBehaviour
+    {
+        [Header("Panels")]
+        [SerializeField] private GameObject handoffPanel;
+        [SerializeField] private GameObject revealPanel;
+        [SerializeField] private GameObject summaryPanel;
+        [SerializeField] private GameObject gameOverPanel;
+
+        [Header("Handoff")]
+        [SerializeField] private TMP_Text handoffTitle;
+        [SerializeField] private TMP_Text handoffBody;
+        [SerializeField] private Button handoffButton;
+
+        [Header("Reveal")]
+        [SerializeField] private TMP_Text revealBody;
+        [SerializeField] private Button revealButton;
+
+        [Header("Summary")]
+        [SerializeField] private TMP_Text summaryBody;
+        [SerializeField] private Button summaryButton;
+
+        [Header("Game over")]
+        [SerializeField] private TMP_Text gameOverBody;
+
+        private readonly StringBuilder _sb = new StringBuilder();
+
+        public event Action HandoffConfirmed;
+        public event Action RevealContinued;
+        public event Action SummaryContinued;
+
+        private void Awake()
+        {
+            if (handoffButton != null) handoffButton.onClick.AddListener(() => HandoffConfirmed?.Invoke());
+            if (revealButton != null) revealButton.onClick.AddListener(() => RevealContinued?.Invoke());
+            if (summaryButton != null) summaryButton.onClick.AddListener(() => SummaryContinued?.Invoke());
+        }
+
+        /// <summary>Shows whichever panel the stage calls for, and hides the rest.</summary>
+        public void Render(HotSeatDirector director)
+        {
+            var stage = director.Stage;
+
+            Show(handoffPanel, stage == HotSeatStage.Handoff);
+            Show(revealPanel, stage == HotSeatStage.Reveal);
+            Show(summaryPanel, stage == HotSeatStage.RoundSummary);
+            Show(gameOverPanel, stage == HotSeatStage.MatchOver);
+
+            switch (stage)
+            {
+                case HotSeatStage.Handoff: RenderHandoff(director); break;
+                case HotSeatStage.Reveal: RenderReveal(director); break;
+                case HotSeatStage.RoundSummary: RenderSummary(director); break;
+                case HotSeatStage.MatchOver: RenderGameOver(director); break;
+            }
+        }
+
+        /// <summary>True while a panel is covering the board, so the board must not accept input.</summary>
+        public bool IsBlocking(HotSeatStage stage) => stage != HotSeatStage.Acting;
+
+        private static void Show(GameObject panel, bool visible)
+        {
+            if (panel != null) panel.SetActive(visible);
+        }
+
+        private void RenderHandoff(HotSeatDirector director)
+        {
+            var actor = director.State.Find(director.CurrentActor);
+            string name = actor?.DisplayName ?? director.CurrentActor.ToString();
+
+            if (handoffTitle != null) handoffTitle.text = $"Pass to {name}";
+
+            if (handoffBody != null)
+                handoffBody.text = director.IsRepickPass
+                    ? "You lost a contested card. Pick again from what is left.\n\nEveryone else: look away."
+                    : "Everyone else: look away.\n\nTap when you are holding the device.";
+        }
+
+        private void RenderReveal(HotSeatDirector director)
+        {
+            if (revealBody == null) return;
+
+            var report = director.LastResolution;
+            _sb.Clear();
+
+            if (report == null || report.Outcomes.Count == 0)
+            {
+                _sb.Append("Nobody claimed anything.");
+            }
+            else
+            {
+                foreach (var outcome in report.Outcomes)
+                {
+                    var player = director.State.Find(outcome.Player);
+                    string name = player?.DisplayName ?? outcome.Player.ToString();
+                    string card = NameOfCard(director, outcome.Card);
+
+                    _sb.Append(name)
+                       .Append(outcome.Granted ? "  won  " : "  lost  ")
+                       .Append(card)
+                       .Append('\n');
+                }
+
+                if (report.HadContention)
+                    _sb.Append("\nContested cards go to whoever is furthest behind.");
+            }
+
+            revealBody.text = _sb.ToString().TrimEnd();
+        }
+
+        private void RenderSummary(HotSeatDirector director)
+        {
+            if (summaryBody == null) return;
+
+            _sb.Clear();
+            _sb.Append("End of round ").Append(director.State.Round).Append("\n\n");
+
+            foreach (var player in director.State.Players)
+            {
+                _sb.Append(player.DisplayName)
+                   .Append("   ").Append(player.Score).Append("vp")
+                   .Append("   ").Append(player.Sparks).Append(" sparks")
+                   .Append("   ").Append(player.Dice.Count).Append(" dice");
+
+                if (!player.GainedCardThisRound) _sb.Append("   (consolation)");
+                _sb.Append('\n');
+            }
+
+            summaryBody.text = _sb.ToString().TrimEnd();
+        }
+
+        private void RenderGameOver(HotSeatDirector director)
+        {
+            if (gameOverBody == null) return;
+
+            var standings = director.FinalScores();
+            _sb.Clear();
+
+            for (int i = 0; i < standings.Count; i++)
+            {
+                var s = standings[i];
+                _sb.Append(i + 1).Append(". ").Append(s.DisplayName)
+                   .Append("   ").Append(s.Total).Append("vp");
+
+                if (s.PowerPoints != 0)
+                    _sb.Append("  (").Append(s.CardPoints).Append(" + ").Append(s.PowerPoints).Append(" bonus)");
+
+                _sb.Append('\n');
+            }
+
+            gameOverBody.text = _sb.ToString().TrimEnd();
+        }
+
+        private static string NameOfCard(HotSeatDirector director, CardId id)
+        {
+            foreach (var card in director.State.Market)
+                if (card.Id == id) return card.DisplayName;
+
+            // Already claimed and out of the market — find it on whoever holds it.
+            foreach (var player in director.State.Players)
+                foreach (var owned in player.Owned)
+                    if (owned.Id == id) return owned.DisplayName;
+
+            return id.ToString();
+        }
+    }
+}

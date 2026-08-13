@@ -1,49 +1,57 @@
+using System;
 using Game.Core;
-using Game.Networking;
 using Game.UI;
 using UnityEngine;
 
 namespace Game.App
 {
     /// <summary>
-    /// Presenter that binds the <see cref="GameHudView"/> to an <see cref="IGameActions"/>/
-    /// <see cref="IGameStateView"/> pair. By default it finds the networked
-    /// <see cref="NetworkGameController"/> in the scene, but <see cref="Bind"/> accepts any
-    /// implementation — pass a <see cref="LocalGameSession"/> to drive the same HUD fully offline.
+    /// Binds <see cref="GameHudView"/> to an <see cref="IGameActions"/>/<see cref="IMatchView"/>
+    /// pair. Because both interfaces are implemented by the offline session and the networked
+    /// controller alike, the same HUD serves hot-seat and online play unchanged.
+    ///
+    /// The presenter owns the translation from "dice I have highlighted" to a claim, and from a
+    /// rejection code to something a person can read.
     /// </summary>
     public sealed class GameHudPresenter : MonoBehaviour
     {
         [SerializeField] private GameHudView view;
 
         private IGameActions _actions;
-        private IGameStateView _stateView;
+        private IMatchView _match;
 
-        private void Start()
-        {
-            if (_stateView == null)
-            {
-                var controller = FindFirstObjectByType<NetworkGameController>();
-                if (controller != null) Bind(controller, controller);
-            }
-        }
+        private bool _canAct;
+        private bool _shapingAllowed;
 
-        /// <summary>Wire the HUD to a session (networked or local).</summary>
-        public void Bind(IGameActions actions, IGameStateView stateView)
+        /// <summary>Raised when the player says they are finished — hot-seat uses it to move on.</summary>
+        public event Action DoneRequested;
+
+        public void Bind(IGameActions actions, IMatchView match)
         {
             Unbind();
 
             _actions = actions;
-            _stateView = stateView;
+            _match = match;
 
-            view.RollClicked += OnRoll;
-            view.EndTurnClicked += OnEndTurn;
-            view.ClaimClicked += OnClaim;
+            if (view != null)
+            {
+                view.SelectionChanged += Refresh;
+                view.RerollSelected += OnReroll;
+                view.NudgeSelected += OnNudge;
+                view.SetSelected += OnSetFace;
+                view.CardChosen += OnCardChosen;
+                view.PassClicked += OnPass;
+                view.WithdrawClicked += OnWithdraw;
+                view.DoneClicked += OnDone;
+            }
 
-            _stateView.Changed += OnStateChanged;
-            _stateView.MoveRejected += OnMoveRejected;
+            if (_match != null)
+            {
+                _match.Changed += OnMatchChanged;
+                _match.MoveRejected += OnMoveRejected;
+            }
 
-            view.SetLocalPlayer(_stateView.LocalPlayer);
-            view.Render(_stateView.Current);
+            Refresh();
         }
 
         private void OnDestroy() => Unbind();
@@ -52,38 +60,127 @@ namespace Game.App
         {
             if (view != null)
             {
-                view.RollClicked -= OnRoll;
-                view.EndTurnClicked -= OnEndTurn;
-                view.ClaimClicked -= OnClaim;
+                view.SelectionChanged -= Refresh;
+                view.RerollSelected -= OnReroll;
+                view.NudgeSelected -= OnNudge;
+                view.SetSelected -= OnSetFace;
+                view.CardChosen -= OnCardChosen;
+                view.PassClicked -= OnPass;
+                view.WithdrawClicked -= OnWithdraw;
+                view.DoneClicked -= OnDone;
             }
-            if (_stateView != null)
+
+            if (_match != null)
             {
-                _stateView.Changed -= OnStateChanged;
-                _stateView.MoveRejected -= OnMoveRejected;
+                _match.Changed -= OnMatchChanged;
+                _match.MoveRejected -= OnMoveRejected;
             }
         }
 
-        private void OnRoll() => _actions?.RequestRoll();
-        private void OnEndTurn() => _actions?.RequestEndTurn();
-        private void OnClaim(int cardId) => _actions?.RequestClaim(new CardId(cardId));
-
-        private void OnStateChanged(GameStateSnapshot snapshot)
+        /// <summary>
+        /// Sets whether the board should accept input at all. Hot-seat drives this from the
+        /// director's stage, so the board is inert during a handoff or a reveal.
+        /// </summary>
+        public void SetContext(bool canAct, bool shapingAllowed)
         {
-            view.SetLocalPlayer(_stateView.LocalPlayer);
-            view.Render(snapshot);
+            _canAct = canAct;
+            _shapingAllowed = shapingAllowed;
+            Refresh();
         }
 
-        private void OnMoveRejected(MoveFailure failure) => view.ShowMessage(FriendlyReason(failure));
+        public void ClearSelection()
+        {
+            if (view != null) view.ClearSelection();
+            Refresh();
+        }
 
-        private static string FriendlyReason(MoveFailure failure)
+        public void ShowMessage(string message)
+        {
+            if (view != null) view.ShowMessage(message);
+        }
+
+        private void Refresh()
+        {
+            if (view == null || _match == null) return;
+            view.Render(_match.Current, _canAct, _shapingAllowed);
+        }
+
+        private void OnMatchChanged(MatchSnapshot snapshot) => Refresh();
+
+        // ------------------------------------------------------------------ intents
+
+        /// <summary>
+        /// Snapshots the selection before acting. Each shape action raises Changed, which re-renders
+        /// and can prune the live selection list — iterating it directly would mutate under us.
+        /// </summary>
+        private int[] SelectionCopy()
+        {
+            var selected = view != null ? view.SelectedDice : null;
+            if (selected == null || selected.Count == 0) return Array.Empty<int>();
+
+            var copy = new int[selected.Count];
+            for (int i = 0; i < copy.Length; i++) copy[i] = selected[i];
+            return copy;
+        }
+
+        private void OnReroll()
+        {
+            foreach (int die in SelectionCopy())
+                _actions?.RequestShape(ShapeAction.Reroll(die));
+        }
+
+        private void OnNudge(int delta)
+        {
+            foreach (int die in SelectionCopy())
+                _actions?.RequestShape(ShapeAction.Nudge(die, delta));
+        }
+
+        private void OnSetFace(int face)
+        {
+            foreach (int die in SelectionCopy())
+                _actions?.RequestShape(ShapeAction.SetFace(die, face));
+        }
+
+        private void OnCardChosen(int cardId)
+        {
+            var payment = SelectionCopy();
+            if (payment.Length == 0)
+            {
+                ShowMessage("Tap the dice you want to pay with first.");
+                return;
+            }
+
+            _actions?.RequestCommit(new CardId(cardId), payment);
+        }
+
+        private void OnPass() => _actions?.RequestPass();
+
+        private void OnWithdraw()
+        {
+            _actions?.RequestWithdraw();
+            ClearSelection();
+        }
+
+        private void OnDone() => DoneRequested?.Invoke();
+
+        private void OnMoveRejected(MoveFailure failure) => ShowMessage(Explain(failure));
+
+        private static string Explain(MoveFailure failure)
         {
             switch (failure)
             {
-                case MoveFailure.NotYourTurn: return "It's not your turn.";
-                case MoveFailure.NoRollsRemaining: return "No rolls left this turn.";
-                case MoveFailure.RequirementNotMet: return "Your dice don't match that card.";
-                case MoveFailure.WrongPhase: return "Roll your dice first.";
-                case MoveFailure.CardNotInMarket: return "That card is no longer available.";
+                case MoveFailure.CostNotMet: return "Those dice don't pay for that card.";
+                case MoveFailure.NoDiceOffered: return "Tap the dice you want to pay with first.";
+                case MoveFailure.CannotAfford: return "Not enough Sparks or free actions.";
+                case MoveFailure.AlreadyCommitted: return "Withdraw first to change your mind.";
+                case MoveFailure.CardNotInMarket: return "That card has gone.";
+                case MoveFailure.DieAlreadySpent: return "That die is already spent.";
+                case MoveFailure.DuplicateDie: return "The same die can only be offered once.";
+                case MoveFailure.NudgeOutOfRange: return "A nudge moves a die one step, within 1 to 6.";
+                case MoveFailure.InvalidFace: return "Pick a face from 1 to 6.";
+                case MoveFailure.NotAContender: return "Only players who lost a card re-pick.";
+                case MoveFailure.WrongPhase: return "Not right now.";
+                case MoveFailure.MatchOver: return "The match is over.";
                 default: return string.Empty;
             }
         }

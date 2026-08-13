@@ -110,6 +110,7 @@ InitTestScene*.unity*
 # The root /[Oo]bj/ rule above is anchored, so it does not cover these.
 /tools/**/bin/
 /tools/**/obj/
+/tools/.unity-verify/
 
 # ...but tools/CoreTests.csproj is hand-written, not Unity-generated, and must be tracked.
 # The blanket *.csproj rule above exists to drop the ones Unity regenerates under the repo root.

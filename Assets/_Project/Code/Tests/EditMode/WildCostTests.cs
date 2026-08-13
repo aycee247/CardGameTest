@@ -108,6 +108,24 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void SatisfiabilityCatchesCostsNoPoolCanPay()
+        {
+            // Content validation: these are the mistakes that are cheap to type and dead in play.
+            Assert.IsFalse(CostChecker.IsSatisfiableWith(new RunRequirement(6), 5), "a run of 6 needs six dice");
+            Assert.IsTrue(CostChecker.IsSatisfiableWith(new RunRequirement(6), 6));
+
+            Assert.IsFalse(CostChecker.IsSatisfiableWith(new NOfAKindRequirement(5), 4));
+            Assert.IsTrue(CostChecker.IsSatisfiableWith(new NOfAKindRequirement(5), 5));
+
+            // Eight dice top out at 48.
+            Assert.IsFalse(CostChecker.IsSatisfiableWith(new SumRequirement(49), 8));
+            Assert.IsTrue(CostChecker.IsSatisfiableWith(new SumRequirement(48), 8));
+
+            // A run of 7 is impossible at any pool size — there are only six faces.
+            Assert.IsFalse(CostChecker.IsSatisfiableWith(new RunRequirement(7), 8));
+        }
+
+        [Test]
         public void CommitAppliesTheCommittingPlayersWilds()
         {
             var config = Make.Config(rounds: 2, marketSize: 1);
