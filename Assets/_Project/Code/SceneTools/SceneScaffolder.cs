@@ -27,7 +27,6 @@ namespace Game.SceneTools
     public static class SceneScaffolder
     {
         private const string SceneDir = "Assets/_Project/Scenes";
-        private const string PrefabDir = "Assets/_Project/Prefabs/UI";
         private const string DatabasePath = "Assets/_Project/ScriptableObjects/CardDatabase.asset";
         private static readonly Vector2 RefRes = new Vector2(1080, 1920);
 
@@ -51,17 +50,6 @@ namespace Game.SceneTools
                 return;
 
             EnsureFolder("Assets/_Project", "Scenes");
-            EnsureFolder("Assets/_Project", "Prefabs");
-            EnsureFolder("Assets/_Project/Prefabs", "UI");
-
-            BuildCardButtonPrefab();
-            BuildDiePrefab();
-
-            // Import them before wiring, then load by path below. The objects returned by
-            // SaveAsPrefabAsset do not reliably survive the NewScene calls that follow, which
-            // silently left the HUD's prefab fields null and rendered an empty board.
-            AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
 
             var paths = new List<string>
             {
@@ -160,23 +148,8 @@ namespace Game.SceneTools
             return Save(scene, SceneNames.Lobby);
         }
 
-        private static T LoadPrefabPart<T>(string prefabName) where T : Component
-        {
-            var go = AssetDatabase.LoadAssetAtPath<GameObject>($"{PrefabDir}/{prefabName}.prefab");
-            var part = go != null ? go.GetComponent<T>() : null;
-
-            if (part == null)
-                Debug.LogError($"[Scaffold] Could not load {prefabName}.prefab as {typeof(T).Name}. " +
-                               "The board will render without it.");
-
-            return part;
-        }
-
         private static string BuildGameScene()
         {
-            var cardButtonPrefab = LoadPrefabPart<CardButtonView>("CardButton");
-            var diePrefab = LoadPrefabPart<DieView>("Die");
-
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             CreateCamera();
             CreateEventSystem();
@@ -231,6 +204,16 @@ namespace Game.SceneTools
             var sparks = Bottom(UiFactory.Label(content, "Sparks", "", new Vector2(-280, 0), new Vector2(420, 60), 34f), 680);
             var allowance = Bottom(UiFactory.Label(content, "Allowance", "", new Vector2(280, 0), new Vector2(520, 60), 30f), 680);
 
+            // Row templates the HUD clones from. These are scene objects rather than prefab assets:
+            // an asset reference assigned here did not survive being saved out, leaving the board
+            // with no dice and no market, while every scene-to-scene reference serialised fine.
+            // They live under a deactivated parent, so the templates themselves never render but
+            // their clones are active the moment they are parented into a live row.
+            var templates = UiFactory.Panel(canvas.transform, "Templates");
+            var cardButtonTemplate = BuildCardButtonTemplate(templates);
+            var dieTemplate = BuildDieTemplate(templates);
+            templates.gameObject.SetActive(false);
+
             var hud = content.gameObject.AddComponent<GameHudView>();
             SetRef(hud, "roundLabel", round);
             SetRef(hud, "phaseLabel", phase);
@@ -247,8 +230,8 @@ namespace Game.SceneTools
             SetRef(hud, "passButton", pass);
             SetRef(hud, "withdrawButton", withdraw);
             SetRef(hud, "doneButton", done);
-            if (cardButtonPrefab != null) SetRef(hud, "cardButtonPrefab", cardButtonPrefab);
-            if (diePrefab != null) SetRef(hud, "diePrefab", diePrefab);
+            SetRef(hud, "cardButtonPrefab", cardButtonTemplate);
+            SetRef(hud, "diePrefab", dieTemplate);
 
             var presenter = canvas.gameObject.AddComponent<GameHudPresenter>();
             SetRef(presenter, "view", hud);
@@ -437,10 +420,11 @@ namespace Game.SceneTools
             return canvas;
         }
 
-        private static CardButtonView BuildCardButtonPrefab()
+        private static CardButtonView BuildCardButtonTemplate(Transform parent)
         {
             var go = new GameObject("CardButton", typeof(RectTransform), typeof(Image), typeof(Button));
             var rt = (RectTransform)go.transform;
+            rt.SetParent(parent, false);
             rt.sizeDelta = new Vector2(220, 320);
             go.GetComponent<Image>().color = new Color(0.16f, 0.18f, 0.24f, 1f);
 
@@ -462,17 +446,14 @@ namespace Game.SceneTools
             SetRef(view, "background", go.GetComponent<Image>());
             SetRef(view, "button", go.GetComponent<Button>());
 
-            var path = PrefabDir + "/CardButton.prefab";
-            var prefab = PrefabUtility.SaveAsPrefabAsset(go, path);
-            Object.DestroyImmediate(go);
-
-            return prefab != null ? prefab.GetComponent<CardButtonView>() : null;
+            return view;
         }
 
-        private static DieView BuildDiePrefab()
+        private static DieView BuildDieTemplate(Transform parent)
         {
             var go = new GameObject("Die", typeof(RectTransform), typeof(Image), typeof(Button));
             var rt = (RectTransform)go.transform;
+            rt.SetParent(parent, false);
             rt.sizeDelta = new Vector2(140, 140);
 
             var image = go.GetComponent<Image>();
@@ -488,11 +469,7 @@ namespace Game.SceneTools
             SetRef(view, "background", image);
             SetRef(view, "button", go.GetComponent<Button>());
 
-            var path = PrefabDir + "/Die.prefab";
-            var prefab = PrefabUtility.SaveAsPrefabAsset(go, path);
-            Object.DestroyImmediate(go);
-
-            return prefab != null ? prefab.GetComponent<DieView>() : null;
+            return view;
         }
 
         // ---------------- Utilities ----------------
