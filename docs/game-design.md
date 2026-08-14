@@ -17,7 +17,7 @@ A 10–15 minute turn-based dice game played live online is mostly spent watchin
 Every structural decision below follows from that:
 
 - The game is **simultaneous**. All players roll, shape, and commit at the same time on a shared clock. There are no turns, so nobody waits for one. Player count then costs almost nothing — a six-player match takes the same wall-clock time as a two-player one, which is what makes 2–6 viable.
-- Claimed cards **permanently modify your dice** (more dice, re-rolls, wild faces, conversions). Round 1 you have four raw dice and take what you're given; round 10 you have seven dice, two wilds and a free re-roll, and you are assembling a specific result on purpose. That compounding curve is what earns the fifteen minutes.
+- Claimed cards **permanently modify your dice** (more dice, re-rolls, wild faces, conversions). Round 1 you have four raw dice and take what you're given; by round 10 you are shaping toward a specific result on purpose — with re-rolls, a wild face, and often a larger pool. That compounding curve is what earns the fifteen minutes. Simulated matches end with players on 4–8 dice depending on how hard they committed to growing the pool.
 
 ---
 
@@ -95,17 +95,22 @@ Powers fall into five families. The tension between them is the strategic spine:
 
 ### Representative cards
 
+The full deck lives in `Game.Core.StarterDeck`; these are representative.
+
 | Tier | Card | Cost | Power | VP |
 |------|------|------|-------|----|
-| 1 | Second Cast | one pair | +1 die | 1 |
+| 1 | Rough Cast | one pair | Re-roll one die each round | 1 |
 | 1 | Whetstone | sum ≥ 12 | ±1 to one die each round | 2 |
-| 1 | Tally Board | run of 3 | +1 Spark each Upkeep | 1 |
+| 1 | Tally Board | run of 3 | +1 Spark each Upkeep | 2 |
+| 1 | Chipped Die | sum ≥ 16 | All 1s count as any face | 3 |
+| 2 | Second Cast | 3 of a kind | +1 die | 1 |
 | 2 | Loaded Die | 3 of a kind | One die is wild each round | 3 |
 | 2 | Recaster | sum ≥ 20 | Re-roll up to 2 dice free | 3 |
-| 2 | Twin Forge | two pairs | +1 die | 3 |
 | 3 | Sixes Wild | 4 of a kind | All 6s count as any face | 5 |
-| 3 | Grand Array | run of 5 | +2 VP per Manipulation card | 4 |
+| 3 | Grand Array | run of 5 | +3 VP per Manipulation card | 4 |
 | 3 | The Overwrite | 5 of a kind | Set one die to any face | 6 |
+
+> **Tier 1 holds no Capacity cards.** Dice pay every cost, so a cheap early +1 die made stacking capacity beat committing to anything else. Capacity starts at Tier 2 — see §10.
 
 | ID | Requirement |
 |----|-------------|
@@ -194,7 +199,7 @@ Ordered so the riskiest unknown — whether contested simultaneous claims are ac
 | M2 | Hot-seat playable | ✅ **built** — awaiting first playtest | All seats on one device via `HotSeatDirector`. Answers the fun question before any netcode is trusted. |
 | M3 | Online duel | ✅ **secrecy proven** — live play untested | Per-player filtered snapshots, hardened RPCs, and a differential secrecy gate. What remains is two devices over Relay. |
 | M4 | Full table | ✅ **drop handling proven** — live play untested | Six seats, server phase timers, disconnect/reconnect handling, and a per-player standings rail. |
-| M5 | Content and balance | no dominant strategy | All 48 cards authored and tuned across player counts. Round count confirmed or adjusted against real match times. |
+| M5 | Content and balance | ✅ **no dominant strategy** — simulated, not played | 48 cards tuned by simulation across every player count. Round count confirmed at 10. |
 | M6 | Polish | TestFlight build | Reveal choreography, dice and claim animation, audio, first-time-player onboarding. |
 
 ---
@@ -291,16 +296,56 @@ The rule that matters: **a disconnected player counts as decided.** `RulesEngine
 
 ---
 
-## 10. Open questions
+## 10. Balance, measured
+
+The deck is defined once, in `Game.Core.StarterDeck`. The editor generator writes ScriptableObjects from it and the balance harness plays matches against it, so a card cannot be tuned in one place and ship from another.
+
+Six caricature strategies — capacity, manipulation, economy, scoring, greedy-points, and a control that never claims anything — play thousands of simulated matches, rotating seats each time so seat order cannot be mistaken for strength. `BalanceGateTests` fails the build if any strategy exceeds 1.5× its fair share; `BalanceReportTests` prints the full picture and is opt-in:
+
+```
+FOUNDRY_BALANCE=1 tools/run-core-tests.sh Balance
+```
+
+### Where it landed
+
+| Players | Win rates | Fair share |
+|---------|-----------|------------|
+| 6 | 22 / 22 / 20 / 18 / 18 % | 20% |
+| 5 | 24 / 22 / 19 / 18 / 17 % | 20% |
+| 4 | 30 / 24 / 23 / 23 % | 25% |
+| 3 | 39 / 34 / 26 % | 33% |
+| 2 | 51 / 49 % | 50% |
+
+Nothing exceeds 1.2× fair share at any count.
+
+### What the simulation changed
+
+**Capacity was dominant — 31% at six players, 76% at two.** Dice pay every cost, so a bigger pool helps with everything, and Tier 1 sold a +1 die for any pair. The engine could be rushed in the opening rounds while it was cheap.
+
+The first attempt — fewer capacity cards, worth fewer points — made it *worse*, 36%. Cutting their value made them uncontested, so the capacity player got the engine for free. The fix was moving Capacity out of Tier 1 entirely: the opening rounds now demand a real choice, and the compounding window is shorter. That alone took it from 36% to 22%.
+
+**A counterintuitive result worth keeping:** lowering the dice ceiling makes capacity *stronger*, not weaker (27% at MaxDice 5–6 versus 22% at 8). A low ceiling is reached cheaply and instantly. MaxDice 8 is the balanced setting, and it was validated rather than assumed.
+
+### The open questions, answered
+
+**Does passing pay too well?** No. `always-pass` won **0 of 150** matches against every strategy head to head. The consolation payout does what MKT-5 intended — a round is never empty — without making inaction viable. Asserted as a regression test.
+
+**Is 10 rounds right?** Yes. Eight rounds ends on a 13-point spread, ten on 19, twelve on 29. Ten is where the engine has time to matter without the leader running away, and it holds the 11–13 minute target.
+
+**Does lowest-score priority over-correct?** Not measurably — no strategy is punished for leading, and win rates stay flat across counts. This one deserves a human playtest rather than a simulated verdict: the harness measures whether it is *fair*, not whether being caught feels bad.
+
+---
+
+## 11. Open questions
 
 **What is the game actually about?**
 Foundry is a working codename chosen to fit the engine-building metaphor. Theme, setting and art direction are undecided. They will reshape card names and reveal choreography — but not a single rule above.
 
 **Are Sparks one system too many?**
-They exist to stop bad rolls feeling dead. If M2 playtesting shows the dice-pattern economy already carries that weight, Sparks should be cut rather than tuned.
+They survived M5: the economy strategy that leans on them wins its fair share, so they are load-bearing rather than decorative. Still worth a human read on whether they *feel* worth tracking.
 
 **Is 10 rounds right at every player count?**
-Six-player rounds resolve slower in practice because contention triggers re-picks more often. The round count may need to scale with table size to hold the 10–15 minute target.
+Confirmed at 10 by simulation (§10). What simulation cannot measure is wall-clock: six-player rounds resolve slower because contention triggers re-picks more often, so the *timing* still needs a real table.
 
 **Does lowest-score priority over-correct?**
-Handing first pick to the trailing player is a strong rubber band. If it makes leading feel punishing, the fallback is rotating priority with a smaller consolation bonus.
+Not on the numbers (§10) — no strategy is punished for leading. Whether being caught *feels* bad is a human question the harness cannot answer. Fallback remains rotating priority with a smaller consolation bonus.

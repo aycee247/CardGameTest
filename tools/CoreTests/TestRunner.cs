@@ -135,7 +135,8 @@ namespace Game.Tests.Headless
             }
             catch (Exception e)
             {
-                return Describe(Unwrap(e));
+                var actual = Unwrap(e);
+                return IsSuccess(actual) ? null : Describe(actual);
             }
             finally
             {
@@ -153,6 +154,13 @@ namespace Game.Tests.Headless
             // anything else is an unexpected throw and wants its type and stack.
             if (e.GetType().Name == "AssertionException") return e.Message.Trim();
             return e.GetType().Name + ": " + e.Message + "\n" + FirstFrames(e.StackTrace, 4);
+        }
+
+        /// <summary>Assert.Pass and Assert.Ignore report by throwing; neither is a failure.</summary>
+        private static bool IsSuccess(Exception e)
+        {
+            string name = e.GetType().Name;
+            return name == "SuccessException" || name == "IgnoreException";
         }
 
         private static string FirstFrames(string stack, int count)
