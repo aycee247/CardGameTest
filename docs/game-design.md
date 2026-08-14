@@ -265,7 +265,12 @@ Deliberately *not* secret, and asserted as such: dice faces, owned cards, priori
 - A commit offering more dice than the player holds is rejected before any per-index work, so a hostile client cannot make the server scan an arbitrarily large array.
 - Everything else is already gated by `RulesEngine`, which validates phase, ownership, dice validity and cost on the server.
 
-Not yet addressed: no rate limiting on intent RPCs. A client can spam valid actions and force a re-broadcast each time.
+**Intent flooding** is bounded two ways, because the rate alone was not the problem:
+
+- `IntentLimiter` is a per-player token bucket (burst 24, sustained 12/s) that every intent passes through. Seat resolution happens *first*, so the limiter only ever allocates a bucket for a real player — otherwise an unknown peer could mint one per fake identity. Dropped intents get no reply, since answering would cost a message per drop, which is the amplification being defended against.
+- Broadcasts are **coalesced to one per frame**. Each replication costs a snapshot encode *per recipient*, so a single tap on eight dice previously cost eight rounds of encoding for the whole table. State changes now mark a flag and `LateUpdate` flushes once. Clients have no use for the intermediate states.
+
+The burst is deliberately generous — selecting eight dice and pressing a shape button legitimately sends eight intents in one frame, and doing that twice is still under the ceiling.
 
 ### Still open
 

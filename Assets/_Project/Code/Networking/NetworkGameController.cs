@@ -30,10 +30,27 @@ namespace Game.Networking
         private const float RevealBeatSeconds = 4f;
         private const float UpkeepBeatSeconds = 2.5f;
 
+        /// <summary>
+        /// Intent budget per player. Generous enough that real play never touches it — selecting
+        /// eight dice and pressing a shape button sends eight intents in one frame — while bounding
+        /// a flood to a rate the server does not care about.
+        /// </summary>
+        private const float IntentBurst = 24f;
+        private const float IntentsPerSecond = 12f;
+
         // ---- Server-only authoritative state ----
         private LocalMatchSession _server;
         private readonly Dictionary<ulong, PlayerId> _clientToPlayer = new Dictionary<ulong, PlayerId>();
+        private readonly IntentLimiter _intents = new IntentLimiter(IntentBurst, IntentsPerSecond);
         private float _phaseEndsAt;
+
+        /// <summary>
+        /// Set when state has changed and a broadcast is owed. Several intents commonly land in one
+        /// frame, and clients have no use for the intermediate states, so they are collapsed into a
+        /// single replication at end of frame. Without this one tap on eight dice costs eight
+        /// snapshot encodes per recipient.
+        /// </summary>
+        private bool _broadcastPending;
 
         // ---- Client-side view state ----
         private PlayerId _localPlayer;
@@ -93,6 +110,19 @@ namespace Game.Networking
 
             _server.Advance();
             SchedulePhaseEnd();
+            _broadcastPending = true;
+        }
+
+        /// <summary>
+        /// Flushes at most one broadcast per frame. Everything that mutates state marks the flag
+        /// rather than replicating immediately, so a burst of intents landing together costs one
+        /// round of snapshot encodes instead of one per intent.
+        /// </summary>
+        private void LateUpdate()
+        {
+            if (!IsServer || _server == null || !_broadcastPending) return;
+
+            _broadcastPending = false;
             BroadcastState();
         }
 
@@ -140,7 +170,7 @@ namespace Game.Networking
         [Rpc(SendTo.Server, RequireOwnership = false)]
         private void SubmitShapeRpc(int kind, int dieIndex, int value, RpcParams rpc = default)
         {
-            if (!TryResolvePlayer(rpc, out var player)) return;
+            if (!TryAcceptIntent(rpc, out var player)) return;
 
             ShapeAction action;
             switch ((ShapeActionKind)kind)
@@ -157,37 +187,51 @@ namespace Game.Networking
         [Rpc(SendTo.Server, RequireOwnership = false)]
         private void SubmitCommitRpc(int cardId, int[] diceIndices, RpcParams rpc = default)
         {
-            if (!TryResolvePlayer(rpc, out var player)) return;
+            if (!TryAcceptIntent(rpc, out var player)) return;
             Resolve(_server.Commit(player, new CardId(cardId), diceIndices), rpc.Receive.SenderClientId);
         }
 
         [Rpc(SendTo.Server, RequireOwnership = false)]
         private void SubmitPassRpc(RpcParams rpc = default)
         {
-            if (!TryResolvePlayer(rpc, out var player)) return;
+            if (!TryAcceptIntent(rpc, out var player)) return;
             Resolve(_server.Pass(player), rpc.Receive.SenderClientId);
         }
 
         [Rpc(SendTo.Server, RequireOwnership = false)]
         private void SubmitWithdrawRpc(RpcParams rpc = default)
         {
-            if (!TryResolvePlayer(rpc, out var player)) return;
+            if (!TryAcceptIntent(rpc, out var player)) return;
             Resolve(_server.Withdraw(player), rpc.Receive.SenderClientId);
         }
 
         /// <summary>
-        /// Maps a sender to their seat. A client that is not in the match resolves to nothing, so
-        /// an unknown peer cannot act for someone else.
+        /// Gate every intent goes through: resolve the sender's seat, then charge their budget.
+        ///
+        /// Seat resolution comes first deliberately. It bounds the limiter to actual players, so a
+        /// peer that is not in the match cannot make the server allocate a bucket per fake identity.
         /// </summary>
-        private bool TryResolvePlayer(RpcParams rpc, out PlayerId player)
+        private bool TryAcceptIntent(RpcParams rpc, out PlayerId player)
         {
             player = default;
-            return _server != null && _clientToPlayer.TryGetValue(rpc.Receive.SenderClientId, out player);
+            if (_server == null) return false;
+
+            if (!_clientToPlayer.TryGetValue(rpc.Receive.SenderClientId, out player)) return false;
+
+            if (_intents.TryConsume(player, Time.time)) return true;
+
+            // Dropped silently: answering would cost a message per dropped intent, which is exactly
+            // the amplification being defended against.
+            int dropped = _intents.DroppedFor(player);
+            if (dropped == 1 || dropped % 100 == 0)
+                Debug.LogWarning($"[Net] Throttling {player} — {dropped} intents dropped.");
+
+            return false;
         }
 
         private void Resolve(MoveResult result, ulong senderClientId)
         {
-            if (result.Success) BroadcastState();
+            if (result.Success) _broadcastPending = true;
             else RejectRpc((int)result.Failure, RpcTarget.Single(senderClientId, RpcTargetUse.Temp));
         }
 
