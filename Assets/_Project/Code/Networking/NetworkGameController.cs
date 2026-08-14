@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Core;
 using Unity.Netcode;
+using Unity.Services.Authentication;
 using UnityEngine;
 
 namespace Game.Networking
@@ -42,6 +43,11 @@ namespace Game.Networking
         private LocalMatchSession _server;
         private readonly Dictionary<ulong, PlayerId> _clientToPlayer = new Dictionary<ulong, PlayerId>();
         private readonly IntentLimiter _intents = new IntentLimiter(IntentBurst, IntentsPerSecond);
+        private readonly SeatRegistry _seats = new SeatRegistry();
+
+        /// <summary>Transport id to stable key, learned as clients announce themselves.</summary>
+        private readonly Dictionary<ulong, string> _clientToKey = new Dictionary<ulong, string>();
+
         private float _phaseEndsAt;
 
         /// <summary>
@@ -68,7 +74,11 @@ namespace Game.Networking
         /// Server-side: install the freshly built match and the seeded roller, map connected clients
         /// to seats, then start round one. Call once, on the server, after all players have joined.
         /// </summary>
-        public void ServerStartMatch(MatchState state, IDiceRoller roller, IReadOnlyList<ulong> orderedClientIds)
+        public void ServerStartMatch(
+            MatchState state,
+            IDiceRoller roller,
+            IReadOnlyList<ulong> orderedClientIds,
+            IReadOnlyList<string> orderedSeatKeys = null)
         {
             if (!IsServer) { Debug.LogError("[Net] ServerStartMatch called on a non-server peer."); return; }
 
@@ -76,7 +86,22 @@ namespace Game.Networking
             _clientToPlayer.Clear();
 
             for (int i = 0; i < orderedClientIds.Count && i < state.Players.Count; i++)
-                _clientToPlayer[orderedClientIds[i]] = state.Players[i].Id;
+            {
+                var seat = state.Players[i].Id;
+                _clientToPlayer[orderedClientIds[i]] = seat;
+
+                // The stable key is what owns the seat across a reconnect, since a returning client
+                // arrives with a brand new transport id. Prefer what the caller supplied, then what
+                // the client announced on spawn, and only then fall back to the transport id —
+                // which is safe but means reconnects will not resolve.
+                string key = orderedSeatKeys != null && i < orderedSeatKeys.Count && !string.IsNullOrEmpty(orderedSeatKeys[i])
+                    ? orderedSeatKeys[i]
+                    : _clientToKey.TryGetValue(orderedClientIds[i], out var announced) && !string.IsNullOrEmpty(announced)
+                        ? announced
+                        : orderedClientIds[i].ToString();
+
+                _seats.Bind(key, seat);
+            }
 
             foreach (var kv in _clientToPlayer)
                 AssignPlayerRpc(kv.Value.Value, RpcTarget.Single(kv.Key, RpcTargetUse.Temp));
@@ -84,6 +109,122 @@ namespace Game.Networking
             _server.Advance();          // Roll -> Shape
             SchedulePhaseEnd();
             BroadcastState();
+        }
+
+        // ---------------- connection lifecycle ----------------
+
+        public override void OnNetworkSpawn()
+        {
+            var nm = NetworkManager.Singleton;
+            if (nm == null) return;
+
+            if (IsServer) nm.OnClientDisconnectCallback += OnServerSawClientLeave;
+            else nm.OnClientDisconnectCallback += OnClientLostConnection;
+
+            // Announce who we are. Before the match this is how the server learns each player's
+            // stable key; after a drop, the very same message reclaims the seat.
+            if (IsClient) RegisterIdentityRpc(LocalSeatKey());
+        }
+
+        public override void OnNetworkDespawn()
+        {
+            var nm = NetworkManager.Singleton;
+            if (nm == null) return;
+
+            nm.OnClientDisconnectCallback -= OnServerSawClientLeave;
+            nm.OnClientDisconnectCallback -= OnClientLostConnection;
+        }
+
+        /// <summary>
+        /// A player dropped. They keep their seat, cards and score; they simply stop being waited
+        /// for, so the table carries on at full speed instead of burning a whole phase timer on a
+        /// device that is not there (NET-3).
+        /// </summary>
+        private void OnServerSawClientLeave(ulong clientId)
+        {
+            if (_server == null) return;
+            if (!_clientToPlayer.TryGetValue(clientId, out var player)) return;
+
+            _clientToPlayer.Remove(clientId);
+            _seats.MarkDisconnected(player, Time.time);
+            RulesEngine.SetConnected(_server.State, player, false);
+
+            Debug.Log($"[Net] {player} dropped; holding their seat for {_seats.ReconnectWindowSeconds:0}s.");
+            _broadcastPending = true;
+        }
+
+        /// <summary>
+        /// The host went away. There is no host migration in this build, so the match ends where it
+        /// stands and the last known standings are shown (NET-4) rather than the client hanging on a
+        /// board that will never update again.
+        /// </summary>
+        private void OnClientLostConnection(ulong clientId)
+        {
+            var nm = NetworkManager.Singleton;
+            if (nm == null || clientId != NetworkManager.ServerClientId) return;
+
+            HostLost?.Invoke(Current);
+        }
+
+        /// <summary>
+        /// Raised on a client when the host disappears, carrying the last snapshot it received.
+        /// </summary>
+        public event Action<MatchSnapshot> HostLost;
+
+        /// <summary>
+        /// The identity that survives a reconnect. The UGS authentication id is stable for the
+        /// signed-in player, where the transport id is regenerated on every connection.
+        /// </summary>
+        private static string LocalSeatKey()
+        {
+            try
+            {
+                return AuthenticationService.Instance.IsSignedIn
+                    ? AuthenticationService.Instance.PlayerId
+                    : string.Empty;
+            }
+            catch (Exception)
+            {
+                // Playing without UGS (a local NGO test, say). Reconnection then cannot resolve a
+                // seat, which is a lost feature rather than a broken match.
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Announces who this client is. Sent on spawn, so the server knows every player's stable
+        /// key before the match starts, and sent again on rejoin, where the same message is what
+        /// reclaims the seat.
+        /// </summary>
+        [Rpc(SendTo.Server, RequireOwnership = false)]
+        private void RegisterIdentityRpc(string seatKey, RpcParams rpc = default)
+        {
+            ulong clientId = rpc.Receive.SenderClientId;
+            if (!string.IsNullOrEmpty(seatKey)) _clientToKey[clientId] = seatKey;
+
+            // Before the match starts there is no seat to take yet; the key is simply remembered
+            // so ServerStartMatch can bind it.
+            if (_server == null) return;
+
+            if (!_seats.TryResolve(seatKey, out var player))
+            {
+                Debug.LogWarning("[Net] A client announced a key that owns no seat; ignoring.");
+                return;
+            }
+
+            // Drop any stale binding for this seat before rebinding, so a seat is never owned by
+            // two transport ids at once.
+            foreach (var existing in new List<ulong>(_clientToPlayer.Keys))
+                if (_clientToPlayer[existing] == player) _clientToPlayer.Remove(existing);
+
+            _clientToPlayer[clientId] = player;
+            _seats.MarkConnected(player);
+            RulesEngine.SetConnected(_server.State, player, true);
+
+            AssignPlayerRpc(player.Value, RpcTarget.Single(clientId, RpcTargetUse.Temp));
+
+            Debug.Log($"[Net] {player} took their seat back.");
+            _broadcastPending = true;
         }
 
         // ---------------- server phase clock ----------------
@@ -247,7 +388,7 @@ namespace Game.Networking
 
             foreach (var kv in _clientToPlayer)
             {
-                var snapshot = MatchSnapshot.For(_server.State, kv.Value);
+                var snapshot = MatchSnapshot.For(_server.State, kv.Value, _seats, Time.time);
                 StateRpc(SnapshotCodec.Encode(snapshot), secondsLeft, RpcTarget.Single(kv.Key, RpcTargetUse.Temp));
             }
         }

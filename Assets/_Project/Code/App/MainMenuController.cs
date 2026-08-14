@@ -14,6 +14,11 @@ namespace Game.App
     {
         [SerializeField] private MainMenuView view;
 
+        [Tooltip("Seats the hosted session allows. Simultaneous play means six costs no more " +
+                 "wall-clock time than two.")]
+        [Range(2, 6)]
+        [SerializeField] private int maxPlayers = 6;
+
         private SessionManager _session;
         private SceneFlowService _sceneFlow;
 
@@ -48,7 +53,7 @@ namespace Game.App
             {
                 view.SetInteractable(false);
                 view.SetStatus("Creating match…");
-                var code = await _session.CreateSessionAsync(maxPlayers: 2);
+                var code = await _session.CreateSessionAsync(maxPlayers);
                 view.SetJoinCode(code);
                 view.SetStatus("Match created. Waiting for players…");
                 _sceneFlow.LoadLobby();

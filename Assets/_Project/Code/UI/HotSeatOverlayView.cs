@@ -74,6 +74,46 @@ namespace Game.UI
         /// <summary>True while a panel is covering the board, so the board must not accept input.</summary>
         public bool IsBlocking(HotSeatStage stage) => stage != HotSeatStage.Acting;
 
+        /// <summary>
+        /// Ends an online match that lost its host (NET-4), showing the standings from the last
+        /// snapshot this client received. Those standings are card points only — the end-of-match
+        /// scoring powers are resolved by the server, which is exactly what has gone away — so the
+        /// screen says as much rather than presenting a total it cannot stand behind.
+        /// </summary>
+        public void ShowAbandonedMatch(MatchSnapshot lastKnown)
+        {
+            Show(handoffPanel, false);
+            Show(revealPanel, false);
+            Show(summaryPanel, false);
+            Show(gameOverPanel, true);
+
+            if (gameOverBody == null) return;
+
+            _sb.Clear();
+            _sb.Append("The host left the match.\n\n");
+
+            var players = lastKnown.Players;
+            if (players == null || players.Length == 0)
+            {
+                _sb.Append("No standings were received.");
+            }
+            else
+            {
+                _sb.Append("Standings after round ").Append(lastKnown.Round).Append(":\n\n");
+
+                var ordered = new List<PlayerSnapshot>(players);
+                ordered.Sort((a, b) => b.Score.CompareTo(a.Score));
+
+                for (int i = 0; i < ordered.Count; i++)
+                    _sb.Append(i + 1).Append(". ").Append(ordered[i].DisplayName)
+                       .Append("   ").Append(ordered[i].Score).Append("vp\n");
+
+                _sb.Append("\nCard points only — end-of-match bonuses were never scored.");
+            }
+
+            gameOverBody.text = _sb.ToString().TrimEnd();
+        }
+
         private static void Show(GameObject panel, bool visible)
         {
             if (panel != null) panel.SetActive(visible);

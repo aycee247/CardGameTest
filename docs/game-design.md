@@ -193,7 +193,7 @@ Ordered so the riskiest unknown — whether contested simultaneous claims are ac
 | M1 | Rules core | ✅ **done** — 67 tests green | Round clock, Spark economy, powers, priority, contention resolver. Pure C#, fully unit-tested, no editor required. |
 | M2 | Hot-seat playable | ✅ **built** — awaiting first playtest | All seats on one device via `HotSeatDirector`. Answers the fun question before any netcode is trusted. |
 | M3 | Online duel | ✅ **secrecy proven** — live play untested | Per-player filtered snapshots, hardened RPCs, and a differential secrecy gate. What remains is two devices over Relay. |
-| M4 | Full table | 6 players, drops survived | Scale to six, server phase timers, disconnect and auto-pass handling, opponent rail at full width. |
+| M4 | Full table | ✅ **drop handling proven** — live play untested | Six seats, server phase timers, disconnect/reconnect handling, and a per-player standings rail. |
 | M5 | Content and balance | no dominant strategy | All 48 cards authored and tuned across player counts. Round count confirmed or adjusted against real match times. |
 | M6 | Polish | TestFlight build | Reveal choreography, dice and claim animation, audio, first-time-player onboarding. |
 
@@ -272,9 +272,19 @@ Deliberately *not* secret, and asserted as such: dice faces, owned cards, priori
 
 The burst is deliberately generous — selecting eight dice and pressing a shape button legitimately sends eight intents in one frame, and doing that twice is still under the ceiling.
 
+### Surviving a drop (NET-3, NET-4)
+
+The rule that matters: **a disconnected player counts as decided.** `RulesEngine.AllDecided` treats them as having answered, so the phase closes immediately instead of burning a full timer on a device that is not there. They keep their seat, cards and score, and are auto-passed each window — proven by `DisconnectTests`, including that they still appear in the final standings.
+
+**Seats survive reconnects** because a seat is owned by a *stable key*, not a transport id — a returning client arrives with a brand new one. `SeatRegistry` maps the UGS authentication id to a seat; clients announce that key on spawn, and the identical message reclaims the seat on rejoin. Reconnecting is allowed even after the 45-second window closes: refusing would only punish someone whose connection took a while to come back, and the seat is still theirs. What the window governs is what everyone is *told* — `Reconnecting` (with a countdown) versus `left` — which the rail shows.
+
+**If the host drops**, there is no migration in this build. Clients end the match where it stands and show the standings from the last snapshot they received (NET-4). Those are card points only, and the screen says so: the end-of-match scoring powers are resolved by the server, which is exactly what has gone away.
+
+> **Trust note.** A client claims its seat by sending its own authentication id, so a malicious peer that learned another player's id could claim their seat. Fine for a friends-by-code demo; a public release should verify the key server-side against the session's player list instead of taking the client's word.
+
 ### Still open
 
-- **UI-1 is only partly met.** The standings rail is a formatted text block, not per-player chips. Fine for hot-seat, wants revisiting for online at six players.
+- **UI-1 is met by per-player rows** in the rail, ordered by priority, showing score, dice, Sparks, cards and decided/connection state.
 - **UI-2, the phase countdown, is wired but only visible online.** Hot-seat has no clock, so `SecondsLeft` is negative there and the label hides itself.
 - **UI-4, the reveal beat, is a static list.** It says who won and lost what; it does not animate.
 - The deck is 36 cards, not the specced 48, and is unbalanced by design until M5.

@@ -259,6 +259,21 @@ namespace Game.Core
         }
 
         /// <summary>
+        /// Records whether a player is currently present. Only the server calls this, from the
+        /// transport's connection callbacks; the rules layer never discovers it on its own.
+        ///
+        /// A disconnected player keeps their seat, their cards and their score (NET-3) — they simply
+        /// stop being waited for.
+        /// </summary>
+        public static void SetConnected(MatchState state, PlayerId playerId, bool connected)
+        {
+            var player = state.Find(playerId);
+            if (player == null) return;
+
+            player.IsConnected = connected;
+        }
+
+        /// <summary>
         /// Marks every player who has neither committed nor passed as passed. The server calls this
         /// when a phase timer expires so one stalled or disconnected device cannot hold the table
         /// (CORE-2, NET-3).
@@ -277,20 +292,27 @@ namespace Game.Core
 
         /// <summary>
         /// True once every player who still has a decision to make has made it. Lets a driver close
-        /// a window early instead of waiting out the clock — which is how hot-seat play advances.
+        /// a window early instead of waiting out the clock — which is how hot-seat play advances,
+        /// and how a table stops waiting on someone whose connection dropped.
+        ///
+        /// A disconnected player counts as decided. Waiting out the full phase timer for a device
+        /// that is not there is exactly the stall NET-3 exists to prevent.
         /// </summary>
         public static bool AllDecided(MatchState state)
         {
             if (state.Phase == RoundPhase.Shape || state.Phase == RoundPhase.Commit)
-                return state.Players.All(p => p.Pending.HasValue || p.HasPassed);
+                return state.Players.All(HasDecided);
 
             if (state.Phase == RoundPhase.Repick)
                 return state.RepickContenders
                     .Select(state.Find)
-                    .All(p => p == null || p.Pending.HasValue || p.HasPassed);
+                    .All(p => p == null || HasDecided(p));
 
             return false;
         }
+
+        private static bool HasDecided(PlayerState player) =>
+            !player.IsConnected || player.Pending.HasValue || player.HasPassed;
 
         // ------------------------------------------------------------------ internals
 

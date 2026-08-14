@@ -48,6 +48,12 @@ namespace Game.Core
         public bool[] DiceSpent;
         public bool IsConnected;
 
+        /// <summary>How present this player is. Public — the rail shows who has dropped (NET-3).</summary>
+        public SeatStatus Status;
+
+        /// <summary>Seconds left on their reconnect window, or zero when not applicable.</summary>
+        public float ReconnectSecondsLeft;
+
         /// <summary>Priority position, 0 = first pick. Public — the whole table reasons about it.</summary>
         public int PriorityRank;
 
@@ -103,8 +109,12 @@ namespace Game.Core
         /// <summary>
         /// Builds the view <paramref name="observer"/> is allowed to see. Callers must build one per
         /// recipient — never build once and broadcast.
+        ///
+        /// <paramref name="seats"/> is optional and only the server has one; without it a player
+        /// reads simply as connected or not, rather than distinguishing a seat that may still come
+        /// back from one that has gone.
         /// </summary>
-        public static MatchSnapshot For(MatchState state, PlayerId observer)
+        public static MatchSnapshot For(MatchState state, PlayerId observer, SeatRegistry seats = null, float now = 0f)
         {
             if (state == null) throw new ArgumentNullException(nameof(state));
 
@@ -123,7 +133,7 @@ namespace Game.Core
                 TotalRounds = state.Config.Rounds,
 
                 Players = state.Players
-                    .Select(p => BuildPlayer(state, p, observer, commitsArePublic))
+                    .Select(p => BuildPlayer(state, p, observer, commitsArePublic, seats, now))
                     .ToArray(),
 
                 Market = state.Market
@@ -139,10 +149,16 @@ namespace Game.Core
             };
         }
 
-        private static PlayerSnapshot BuildPlayer(MatchState state, PlayerState p, PlayerId observer, bool commitsArePublic)
+        private static PlayerSnapshot BuildPlayer(
+            MatchState state, PlayerState p, PlayerId observer, bool commitsArePublic,
+            SeatRegistry seats, float now)
         {
             bool isObserver = p.Id == observer;
             bool maySeeCommit = isObserver || commitsArePublic;
+
+            var status = seats != null
+                ? seats.StatusOf(p.Id, now)
+                : (p.IsConnected ? SeatStatus.Connected : SeatStatus.Abandoned);
 
             var snapshot = new PlayerSnapshot
             {
@@ -155,6 +171,8 @@ namespace Game.Core
                 DiceFaces = p.Dice.FacesCopy(),
                 DiceSpent = p.Dice.SpentCopy(),
                 IsConnected = p.IsConnected,
+                Status = status,
+                ReconnectSecondsLeft = seats != null ? seats.ReconnectSecondsLeft(p.Id, now) : 0f,
                 PriorityRank = state.PriorityRank(p.Id),
 
                 // Whether someone has locked in is public — it is what the opponent rail shows (UI-1).

@@ -68,6 +68,7 @@ namespace Game.App
             }
 
             presenter.Bind(networkController, networkController);
+            networkController.HostLost += OnHostLost;
 
             // Online there is no handoff, so the board is always live for the local player. What
             // they may actually do is still gated by the rules engine on the server.
@@ -81,6 +82,31 @@ namespace Game.App
                 // Only the host builds the match; clients receive it.
                 var nm = NetworkManager.Singleton;
                 if (nm == null || !nm.IsServer) matchLauncher.enabled = false;
+            }
+        }
+
+        private void OnDestroy()
+        {
+            if (networkController != null) networkController.HostLost -= OnHostLost;
+        }
+
+        /// <summary>
+        /// There is no host migration in this build (NET-4), so the match ends where it stands and
+        /// the last standings this client received are shown. The alternative is leaving the player
+        /// on a board that will never update again, which reads as a freeze rather than an ending.
+        /// </summary>
+        private void OnHostLost(Game.Core.MatchSnapshot lastKnown)
+        {
+            if (presenter != null)
+            {
+                presenter.SetContext(canAct: false, shapingAllowed: false);
+                presenter.ShowMessage("The host left. Final standings below.");
+            }
+
+            if (hotSeatOverlay != null)
+            {
+                hotSeatOverlay.gameObject.SetActive(true);
+                hotSeatOverlay.ShowAbandonedMatch(lastKnown);
             }
         }
     }

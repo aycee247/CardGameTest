@@ -166,9 +166,11 @@ namespace Game.SceneTools
             // Online only: hidden whenever there is no phase clock (UI-2).
             var timer = Top(UiFactory.Label(content, "Timer", "", new Vector2(430, 0), new Vector2(180, 70), 44f), -50);
 
-            // Standings rail. Left-aligned because it is a column of names and numbers, not prose.
-            var rail = Top(UiFactory.Label(content, "Rail", "", Vector2.zero, new Vector2(1000, 240), 28f,
-                TextAlignmentOptions.TopLeft), -290);
+            // Standings rail: one row per player, stacked. Sized for six on the narrowest device.
+            var railRoot = UiFactory.Panel(content, "Rail", stretch: false);
+            railRoot.sizeDelta = new Vector2(1000, 300);
+            Top(railRoot, -300);
+            Column(railRoot, spacing: 6);
 
             var marketRoot = UiFactory.Panel(content, "Market", stretch: false);
             marketRoot.sizeDelta = new Vector2(1020, 400);
@@ -215,6 +217,7 @@ namespace Game.SceneTools
             var templates = UiFactory.Panel(canvas.transform, "Templates");
             var cardButtonTemplate = BuildCardButtonTemplate(templates);
             var dieTemplate = BuildDieTemplate(templates);
+            var playerRowTemplate = BuildPlayerRowTemplate(templates);
             templates.gameObject.SetActive(false);
 
             var hud = content.gameObject.AddComponent<GameHudView>();
@@ -223,8 +226,9 @@ namespace Game.SceneTools
             SetRef(hud, "sparksLabel", sparks);
             SetRef(hud, "allowanceLabel", allowance);
             SetRef(hud, "messageLabel", message);
-            SetRef(hud, "railLabel", rail);
             SetRef(hud, "timerLabel", timer);
+            SetRef(hud, "railRoot", railRoot);
+            SetRef(hud, "playerRowPrefab", playerRowTemplate);
             SetRef(hud, "diceRoot", diceRoot);
             SetRef(hud, "marketRoot", marketRoot);
             SetRef(hud, "faceButtonsRoot", faceRoot);
@@ -378,6 +382,15 @@ namespace Game.SceneTools
             layout.childForceExpandHeight = false;
         }
 
+        private static void Column(RectTransform target, float spacing)
+        {
+            var layout = target.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.spacing = spacing;
+            layout.childAlignment = TextAnchor.UpperCenter;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+        }
+
         /// <summary>
         /// Pins a size for something living inside a layout group. Without this the group asks the
         /// child for its preferred size, a plain Image answers zero, and the row renders empty —
@@ -460,6 +473,49 @@ namespace Game.SceneTools
             SetRef(view, "tierText", tierLabel);
             SetRef(view, "background", go.GetComponent<Image>());
             SetRef(view, "button", go.GetComponent<Button>());
+
+            return view;
+        }
+
+        private static PlayerRowView BuildPlayerRowTemplate(Transform parent)
+        {
+            // Six of these have to stack legibly, so the row is short and reads left to right:
+            // who, how well they are doing, what they hold, and whether they have acted.
+            const float RowWidth = 1000f;
+            const float RowHeight = 46f;
+
+            var go = new GameObject("PlayerRow", typeof(RectTransform), typeof(Image));
+            var rt = (RectTransform)go.transform;
+            rt.SetParent(parent, false);
+            rt.sizeDelta = new Vector2(RowWidth, RowHeight);
+            FixedSize(go, RowWidth, RowHeight);
+
+            var background = go.GetComponent<Image>();
+            background.color = new Color(0.13f, 0.15f, 0.19f, 1f);
+
+            // A thin bar marking who currently holds first pick.
+            var markerGo = new GameObject("PriorityMarker", typeof(RectTransform), typeof(Image));
+            var markerRt = (RectTransform)markerGo.transform;
+            markerRt.SetParent(rt, false);
+            markerRt.sizeDelta = new Vector2(8, RowHeight);
+            markerRt.anchoredPosition = new Vector2(-(RowWidth / 2f) + 4, 0);
+            var marker = markerGo.GetComponent<Image>();
+            marker.color = new Color(0.85f, 0.68f, 0.30f, 1f);
+
+            var nameLabel = UiFactory.Label(rt, "Name", "Player", new Vector2(-310, 0), new Vector2(320, 40), 24f,
+                TextAlignmentOptions.Left);
+            var scoreLabel = UiFactory.Label(rt, "Score", "0", new Vector2(-110, 0), new Vector2(90, 40), 28f);
+            var detailLabel = UiFactory.Label(rt, "Detail", "", new Vector2(60, 0), new Vector2(240, 40), 22f);
+            var stateLabel = UiFactory.Label(rt, "State", "", new Vector2(340, 0), new Vector2(300, 40), 22f,
+                TextAlignmentOptions.Right);
+
+            var view = go.AddComponent<PlayerRowView>();
+            SetRef(view, "nameText", nameLabel);
+            SetRef(view, "scoreText", scoreLabel);
+            SetRef(view, "detailText", detailLabel);
+            SetRef(view, "stateText", stateLabel);
+            SetRef(view, "background", background);
+            SetRef(view, "priorityMarker", marker);
 
             return view;
         }

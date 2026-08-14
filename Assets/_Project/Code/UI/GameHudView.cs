@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Text;
 using Game.Core;
 using TMPro;
 using UnityEngine;
@@ -27,8 +26,11 @@ namespace Game.UI
         [SerializeField] private TMP_Text sparksLabel;
         [SerializeField] private TMP_Text allowanceLabel;
         [SerializeField] private TMP_Text messageLabel;
-        [SerializeField] private TMP_Text railLabel;
         [SerializeField] private TMP_Text timerLabel;
+
+        [Header("Standings rail")]
+        [SerializeField] private Transform railRoot;
+        [SerializeField] private PlayerRowView playerRowPrefab;
 
         [Header("Dice tray")]
         [SerializeField] private Transform diceRoot;
@@ -51,8 +53,9 @@ namespace Game.UI
 
         private readonly List<DieView> _dice = new List<DieView>();
         private readonly List<CardButtonView> _cards = new List<CardButtonView>();
+        private readonly List<PlayerRowView> _rows = new List<PlayerRowView>();
+        private readonly List<int> _order = new List<int>();
         private readonly List<int> _selected = new List<int>();
-        private readonly StringBuilder _sb = new StringBuilder();
 
         private bool _canAct;
 
@@ -136,14 +139,44 @@ namespace Game.UI
             if (phaseLabel != null) phaseLabel.text = DescribePhase(snapshot);
             if (sparksLabel != null) sparksLabel.text = $"Sparks {me.Sparks}";
             if (allowanceLabel != null) allowanceLabel.text = DescribeAllowance(me);
-            if (railLabel != null) railLabel.text = DescribeRail(snapshot);
 
+            RenderRail(snapshot);
             RenderDice(me, canAct && shapingAllowed);
             RenderMarket(snapshot, canAct);
             RenderControls(me, canAct, shapingAllowed);
         }
 
         // ------------------------------------------------------------------ sections
+
+        /// <summary>
+        /// One row per player, ordered by priority so the player about to win a contested card is
+        /// always at the top. Rows are pooled rather than rebuilt, since this redraws every frame
+        /// while a phase clock is running.
+        /// </summary>
+        private void RenderRail(in MatchSnapshot snapshot)
+        {
+            if (railRoot == null || playerRowPrefab == null) return;
+
+            var players = snapshot.Players ?? Array.Empty<PlayerSnapshot>();
+
+            while (_rows.Count < players.Length)
+                _rows.Add(Instantiate(playerRowPrefab, railRoot));
+
+            // Sorting a copy of the indices keeps the snapshot itself untouched.
+            _order.Clear();
+            for (int i = 0; i < players.Length; i++) _order.Add(i);
+            _order.Sort((a, b) => players[a].PriorityRank.CompareTo(players[b].PriorityRank));
+
+            for (int i = 0; i < _rows.Count; i++)
+            {
+                bool active = i < players.Length;
+                _rows[i].gameObject.SetActive(active);
+                if (!active) continue;
+
+                var player = players[_order[i]];
+                _rows[i].Set(player, player.PlayerId == snapshot.ObserverId);
+            }
+        }
 
         private void RenderDice(in PlayerSnapshot me, bool interactable)
         {
@@ -243,28 +276,6 @@ namespace Game.UI
             if (me.NudgesLeft > 0) parts.Add($"{me.NudgesLeft} nudge");
             if (me.SetsLeft > 0) parts.Add($"{me.SetsLeft} set");
             return parts.Count == 0 ? "No free actions" : "Free: " + string.Join(", ", parts);
-        }
-
-        private string DescribeRail(in MatchSnapshot s)
-        {
-            if (s.Players == null) return string.Empty;
-
-            _sb.Clear();
-            foreach (var p in s.Players)
-            {
-                if (_sb.Length > 0) _sb.Append('\n');
-
-                // ASCII only — the default LiberationSans font has no arrow glyphs and TMP logs a
-                // fallback warning for every character it cannot find.
-                _sb.Append(p.PriorityRank == 0 ? "> " : "  ");
-                _sb.Append(p.DisplayName);
-                _sb.Append("  ").Append(p.Score).Append("vp");
-                _sb.Append("  ").Append(p.CardCount).Append(p.CardCount == 1 ? " card" : " cards");
-                _sb.Append("  ").Append(p.DiceFaces?.Length ?? 0).Append(" dice");
-                _sb.Append("  ").Append(p.Sparks).Append("sp");
-                if (p.HasDecided) _sb.Append("   [ready]");
-            }
-            return _sb.ToString();
         }
 
         // ------------------------------------------------------------------ input
