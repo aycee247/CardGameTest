@@ -13,7 +13,11 @@ machine" is not a state this project recognises.
 - [ ] Public types and non-obvious logic have XML doc comments explaining *why*
 - [ ] No `UnityEngine` reference has leaked into `Game.Core`
 - [ ] `.meta` files for all new assets are committed
-- [ ] Branch merged via PR with at least one review
+- [ ] CI is green
+- [ ] Self-review done: the full diff read end-to-end, tests exist for the
+      change, any doc this touches was updated
+- [ ] Netcode, migration, or secrecy-surface changes went through a story
+      branch and PR; everything else may land on `main` directly
 
 ## Logic and rules changes
 
@@ -39,7 +43,9 @@ machine" is not a state this project recognises.
 - [ ] Tested with a mid-match disconnect and rejoin
 - [ ] Host and client behave identically in the host-plus-client case
 - [ ] Covered by a PlayMode integration test — the networking layer's standing
-      gap is that it has none
+      gap is that it has none. **Bootstrap clause:** until STORY-2.1 lands the
+      PlayMode suite, networked changes are instead verified manually with two
+      editor instances, and the commit/PR says so explicitly.
 
 ## Content and data changes
 
@@ -52,4 +58,6 @@ machine" is not a state this project recognises.
 
 - Commented-out code left "for later"
 - A `TODO` with no story id next to it
-- A test marked `[Ignore]` without a linked story explaining why
+- A test marked `[Ignore]` without a linked story explaining why. (The
+  `FOUNDRY_BALANCE`-gated balance report's `Assert.Ignore` is the sanctioned
+  exception — it is opt-in by design.)

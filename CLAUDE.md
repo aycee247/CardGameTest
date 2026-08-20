@@ -234,6 +234,8 @@ with Authentication, Relay and Lobby enabled.
   (CORE-n, MKT-n, CARD-n, NET-n, UI-n) are referenced throughout the code.
 - State which assembly a new system belongs in, and why, before writing it.
 - Run `tools/run-core-tests.sh` before claiming anything works.
+- Story status lives on the GitHub Issues board, not in markdown. The epic
+  files under `docs/backlog/` are design context.
 - Don't add a package without a stated reason. Addressables is already installed
   and entirely unused; `com.unity.ai.assistant` is a pre-release. Both are
   removal candidates, not precedents.

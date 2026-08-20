@@ -4,18 +4,15 @@
 
 ---
 
-### STORY-6.1: CI
-There is none — no `.github/`, no workflow, no yml anywhere.
-`tools/run-core-tests.sh` runs 119 tests in ~2s with no Editor, so there is no
-excuse for the core suite.
+### STORY-6.1: Nightly PlayMode lane
+Per-push CI for the core suite moved to STORY-0.6. What remains here is the
+slow lane.
 
-- AC1 Core tests run on every push and block merge on red.
-- AC2 The runner emits machine-readable output — `TestRunner` currently prints
-  human text only, so nothing can report on a PR.
-- AC3 The Unity-Hub macOS path assumption is removed or made configurable.
-- AC4 PlayMode/netcode tests (STORY-2.1) run nightly, not per-push.
+- AC1 PlayMode/netcode tests (STORY-2.1) run nightly in CI, not per-push.
+- AC2 A red nightly run is visible without opening the Actions tab (badge or
+  notification).
 
-**L**
+**M**
 
 ### STORY-6.2: iOS build readiness
 Player settings are partly filled in but the project is not build-ready.
@@ -29,6 +26,10 @@ Player settings are partly filled in but the project is not build-ready.
   `[Serializable]` save types under IL2CPP stripping.
 - AC6 `applicationIdentifier.Standalone` no longer carries the template's
   `com.DefaultCompany.2D-URP`.
+- AC7 Apple privacy compliance: a privacy manifest (`PrivacyInfo.xcprivacy`)
+  ships in the Xcode project, and the App Store Connect data-collection
+  declarations cover what UGS actually collects (auth identifiers, IP for
+  Relay). Unity 6 generates much of this — verify rather than assume.
 
 **L**
 
@@ -79,5 +80,7 @@ save/resume, replay and bug-report reproduction later.
 - AC2 A full online match completes on two physical devices from TestFlight
   builds.
 - AC3 Release checklist written and dry-run once.
+- AC4 Export compliance answered in App Store Connect (standard HTTPS-only
+  encryption → exempt), so TestFlight builds don't stall on the questionnaire.
 
 **M**

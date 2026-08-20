@@ -41,6 +41,9 @@ rail always shows generic names even online.
 - AC1 The player can set a display name.
 - AC2 It is used for their seat in hot-seat and online.
 - AC3 Empty or whitespace falls back to a seat default.
+- AC4 Online, the name travels to the host via `RegisterIdentityRpc` (a
+  protocol change) and is treated as **untrusted client input** — length-capped
+  and sanitized server-side before it reaches the rail.
 
 **M**
 

@@ -28,6 +28,16 @@ Undecided per §11 of the design doc. Per the user's decision, **build the syste
 now against placeholder art** so that choosing a direction later is a content
 change rather than a code change.
 
+## Scope decisions for the demo
+
+- **Generation-time theming is the deliverable.** `UiFactory` and
+  `SceneScaffolder` read the `ThemeAsset` when scenes are generated. Runtime
+  theme *switching* is optional for the demo — build it only if it falls out
+  free.
+- **Everything is unlocked.** All skins and cards are available to every
+  player; there is no meta-economy, no earn/grant mechanism, and therefore no
+  IAP review surface. `OwnedDiceSkinIds` simply contains everything.
+
 ---
 
 ### STORY-5.1: Theme asset and token vocabulary

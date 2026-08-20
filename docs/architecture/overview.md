@@ -40,6 +40,7 @@ what lets one HUD serve hot-seat and online without a branch.
 > coverage of any kind. The secrecy and disconnect tests prove
 > `MatchSnapshot.For` and `SeatRegistry` *in isolation*, never the RPC plumbing
 > that calls them.
+> Closed by **STORY-2.1**.
 
 ## The rules core
 
@@ -142,6 +143,7 @@ There are **zero uses of `UnityEngine.Random`** in the repo.
 > 3. Deck shuffling uses `System.Random` in `MatchFactory` and `CardDatabase`,
 >    not the portable xorshift, so deck order is not reproducible from a seed the
 >    way dice are.
+> All three are **STORY-6.5** (optional for the demo).
 
 ## Presentation
 
@@ -161,6 +163,7 @@ references did not survive save.
 > is `false`, **pressing Play on it produces a dead board.** Re-run both
 > generators and commit the results after touching `SceneScaffolder` or
 > `StarterDeck`.
+> Fixing the current staleness is **STORY-0.1**.
 
 ### The binding
 
@@ -224,6 +227,7 @@ snapshot and say so (NET-4).
 > depends on an unenforced race with `RegisterIdentityRpc`; and
 > `autoStartOnServer` fires on `Start()` with no ready-up gate, so a late
 > scene-loader gets no seat.
+> Both are **STORY-2.2**.
 
 ## Persistence
 
@@ -235,6 +239,7 @@ defaults on a read failure. `GameBootstrap` flushes on iOS pause and quit.
 > no call sites outside the service itself. Settings are read once at boot and
 > can never be changed; `DisplayName` is ignored in favour of hard-coded
 > `"Player 1..N"`.
+> Fixed by **STORY-4.2** (settings) and **STORY-4.3** (name).
 
 ## Tooling
 
@@ -248,4 +253,5 @@ and **exits 2 rather than reporting green** if it finds `[TestCase]`,
 `[UnityTest]` or similar. That refusal is the point: silent skipping is worse
 than failing.
 
-**There is no CI.** No `.github/`, no workflow, no yml anywhere in the repo.
+**CI is STORY-0.6.** The core suite needs no Unity licence — .NET 8 plus
+NUnit from NuGet runs it on any hosted runner.

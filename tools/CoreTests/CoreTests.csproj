@@ -33,11 +33,19 @@
     <Compile Include="../../Assets/_Project/Code/Tests/EditMode/**/*.cs" />
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(NUnitPath)' != ''">
     <Reference Include="nunit.framework">
       <HintPath>$(NUnitPath)</HintPath>
       <Private>true</Private>
     </Reference>
+  </ItemGroup>
+
+  <!-- When no Unity-bundled NUnit is supplied (e.g. CI, or any machine without
+       Unity installed), restore NUnit from NuGet instead. Keep this at 3.x —
+       NUnit 4 removed APIs TestRunner.cs and the test suite rely on, and Unity
+       itself bundles NUnit 3. -->
+  <ItemGroup Condition="'$(NUnitPath)' == ''">
+    <PackageReference Include="NUnit" Version="3.14.0" />
   </ItemGroup>
 
 </Project>

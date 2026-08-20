@@ -45,12 +45,16 @@ playtesting says to restructure is wasted work. P4 and P5 both touch
 | ID | Epic | Phase | Detail |
 |---|---|---|---|
 | E0 | Unblock the build | P0 | [file](E0-unblock.md) |
-| E1 | Documentation truth pass | P1 | this commit |
+| E1 | Documentation truth pass | P1 | ✅ done |
 | E2 | Netcode coverage & live validation | P2 | [file](E2-validation.md) |
 | E3 | M6 polish | P3 | [file](E3-polish.md) |
 | E4 | Settings | P4 | [file](E4-settings.md) |
 | E5 | Theming & skinning | P5 | [file](E5-skinning.md) |
 | E6 | Ship | P6 | [file](E6-ship.md) |
+
+CI for the core suite lives in **E0** (STORY-0.6), not E6 — it needs no Unity
+licence and protects everything after it. E6 keeps only the nightly PlayMode
+lane.
 
 ## What is deliberately not in scope
 

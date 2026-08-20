@@ -69,3 +69,19 @@ misleading as a setup checklist.
 - AC2 Setup steps followed end to end on a clean clone.
 
 **S**
+
+### STORY-0.6: CI for the core suite
+Moved forward from E6 — the core suite needs no Unity licence, so there is no
+reason to wait. `tools/CoreTests` is plain .NET 8 plus `nunit.framework.dll`;
+with a NuGet fallback for NUnit it runs on any machine and any hosted runner.
+
+- AC1 `tools/CoreTests/CoreTests.csproj` restores NUnit from NuGet when
+  `NUnitPath` is not supplied, and keeps the Unity-bundled DLL when it is.
+- AC2 `tools/run-core-tests.sh` falls back to `dotnet` on PATH when no Unity
+  Hub install is found, and runs without a `Library/` folder.
+- AC3 A GitHub Actions workflow runs the suite on every push and PR; a red
+  suite blocks merge.
+- AC4 Machine-readable test output (for PR annotations) — may ship later; the
+  exit code alone gates CI correctly today.
+
+**M**

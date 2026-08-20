@@ -69,9 +69,13 @@ works. It is Done when it meets that checklist in full.
 
 ## 5. Branching and commits
 
-- One branch per story: `feat/E3.1-reveal-choreography`,
-  `fix/E2.8-per-frame-hud-refresh`
-- Branch from the default branch; never stack onto a merged branch
+- **Trunk-based.** Direct commits to `main` are fine for `S`/`M` stories once
+  the core suite is green locally (`tools/run-core-tests.sh`).
+- **A story branch + PR is required** for netcode changes, save-format
+  migrations, or anything touching surfaces covered by `SecrecyGateTests` —
+  the classes of change where the diff deserves a second read. Branch names:
+  `feat/E3.1-reveal-choreography`, `fix/E2.8-per-frame-hud-refresh`
+- Branch from `main`; never stack onto a merged branch
 - Conventional-style commit subjects, imperative mood:
   `feat(ui): stage the reveal beat`
 - Reference the story id in the commit body, not the subject
@@ -96,21 +100,35 @@ These exist because Unity punishes teams that ignore them.
   reassigns the GUID on the next import and silently breaks every reference.
 - Assembly definition changes require a full recompile — batch them.
 
-## 7. Ceremonies
+## 7. Process: kanban
 
-Kept minimal:
+No sprints. Work flows through a board; the backlog is ranked; there is exactly
+one "next story."
 
-- **Sprint length: 2 weeks.**
-- **Planning** — pull from the top of the ranked backlog; only Ready stories.
-- **Demo** — every sprint ends with a build that runs. A sprint with no
-  runnable build is a failed sprint, regardless of story points closed.
-- **Playtest** — the project's standing risk is that everything is proven under
-  test and unproven by a player. Put a human on the build every sprint.
-- **Retro** — 15 minutes, three columns: keep / drop / try.
+- **Board columns:** Ready → In progress → Verify → Done.
+- **WIP limit: 2.** At most two stories in "In progress" at once. Finishing
+  beats starting.
+- **Verify** means the acceptance criteria are being checked against a running
+  build, not that the code compiles.
+- **The one standing ceremony is a weekly playtest.** The project's standing
+  risk is that everything is proven under test and unproven by a player — put a
+  human on the build every week and write down what they hit.
+- Every story that lands leaves `main` in a state where the game runs.
+
+### Tracking
+
+Stories live as **GitHub issues**, one per story, labeled `epic:E0` … `epic:E6`
+and `size:XS` … `size:XL`. The epic files under `docs/backlog/` are design
+context; **the issue board is the live truth for status.** Commits close
+stories with `Closes #n` in the body.
+
+Board setup (one-time, manual — the API doesn't expose Projects): GitHub →
+Projects → New project → Board; columns Ready / In progress / Verify / Done;
+enable auto-add for repository issues.
 
 ## 8. Backlog hygiene
 
 - The backlog is ranked, not prioritized into buckets. There is exactly one
   "next story."
-- Anything not touched in 3 sprints gets deleted or moved to
+- Anything untouched for a month gets deleted or moved to
   `docs/backlog/icebox.md`. Stale backlogs hide real work.

@@ -19,8 +19,11 @@
 
 ## Status
 
-M1–M5 complete; **M6 (polish) remaining**. See
-[`backlog/roadmap.md`](backlog/roadmap.md) for the path to TestFlight.
+M1–M5 complete; **M6 (polish) remaining**. Live story status is tracked on the
+repo's GitHub Issues board; the path to TestFlight is
+[`backlog/roadmap.md`](backlog/roadmap.md). The milestone table in
+`game-design.md` §8 is the historical record — never update status in two
+places.
 
 Two caveats worth knowing before you trust the milestone table:
 
