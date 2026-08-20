@@ -1,98 +1,145 @@
-# Dice-and-Card Game — Scaffold
+# Foundry
 
-An iOS-targeted, online-multiplayer dice-and-card game built on **Unity 6.5 (6000.5.0f1)**, URP 2D, the new Input System, Netcode for GameObjects 2.x, and Unity Gaming Services (Multiplayer Services / Sessions).
+An iOS-targeted, online-multiplayer **simultaneous-roll dice engine builder**,
+built on Unity 6.5 (6000.5.0f1), URP 2D, the new Input System, Netcode for
+GameObjects 2.x, and Unity Gaming Services (Multiplayer Sessions).
 
-**Game loop:** each player owns 6 dice. On your turn you roll (up to N times, Yahtzee-style), then claim a market card whose dice requirement your roll satisfies. Points accumulate; first to the target score wins. Dice are **server-authoritative** — clients only send intent, never dice values.
+**The loop:** all players roll at once, every round, on a server-owned clock.
+You shape your dice with powers and Sparks, then secretly commit one market card
+and the exact dice paying for it. Commits flip together at Reveal; contested
+cards go to the lowest-scoring claimant and losers re-pick. Cards permanently
+modify your dice — more dice, free re-rolls, wild faces — so by round 10 you are
+shaping toward a result on purpose. Ten rounds, highest points wins.
+
+**Dice are server-authoritative.** Clients send intent and never generate,
+predict, or re-derive a roll.
+
+📖 **`docs/game-design.md` is the canonical spec.** `/CLAUDE.md` is the working
+reference for conventions.
 
 ---
 
 ## Architecture
 
-Assemblies, with dependencies pointing **downward** (each layer only knows the ones below it):
+Assemblies, dependencies pointing **downward**:
 
 ```
-Game.App          composition root / bootstrap / presenters   (refs everything below + NGO/UGS)
-  Game.UI         passive views (TMP), safe-area/orientation   (refs Core, Data, Audio)
-  Game.Networking NGO + MPS Sessions adapter, host authority    (refs Core, Data + NGO/UGS)
-  Game.Persistence Newtonsoft JSON save/load                    (refs Core, Data)
-  Game.Audio      AudioManager + mixer                          (refs Core, Data)
-  Game.Data       ScriptableObjects (cards, dice, database)     (refs Core)
-  Game.Core       PURE C# rules engine — no Unity, no netcode   (noEngineReferences = true)
+Game.App          composition root, presenters, bootstrap, scene flow
+  Game.UI         passive uGUI/TMP views, safe area      (Core, Data, Audio)
+  Game.Networking NGO + UGS Sessions, host authority     (Core, Data + NGO/UGS)
+  Game.Persistence Newtonsoft JSON profile save/load     (Core, Data)
+  Game.Audio      AudioManager + mixer                   (Core, Data)
+  Game.Data       ScriptableObjects (cards, dice skins)  (Core)
+  Game.Core       PURE C# rules — no Unity, no netcode   (noEngineReferences)
 ```
 
-**Why this shape:** `Game.Core` is compiler-guaranteed free of Unity/netcode (`noEngineReferences`), so the rules are deterministic and unit-testable, and the exact same rules run on host, dedicated server, or an offline mock. UI depends on the `IGameActions` / `IGameStateView` interfaces in Core — never on Networking — so every screen runs identically online and offline (bind it to `LocalGameSession` with zero networking).
+`Game.Core` is compiler-guaranteed free of Unity, so the rules are deterministic,
+unit-testable without the Editor, and identical on host, client and headless
+harness. `Game.UI` depends on `IGameActions` / `IMatchView` in Core — never on
+`Game.Networking` — which is why every screen runs identically online and offline.
 
 ### Key types
-- `Game.Core.RulesEngine` — the single authority over state transitions (roll / claim / end-turn), validates turn + phase before mutating.
-- `Game.Core.GameState` / `PlayerState` / `GameConfig` — authoritative mutable match state.
-- `Game.Core.ICardRequirement` + matchers (`NOfAKind`, `Run`, `Sum`, `ContainsFaces`, `Composite`).
-- `Game.Core.SeededDiceRoller` — portable, deterministic xorshift PRNG (server owns the seed).
-- `Game.Core.GameStateSnapshot` — serializable read-only projection for UI + network replication.
-- `Game.Core.LocalGameSession` — offline hot-seat session implementing the UI boundary.
-- `Game.Networking.NetworkGameController` — host-authoritative `NetworkBehaviour`; clients send intent RPCs, server broadcasts snapshots.
-- `Game.Networking.SessionManager` — UGS init + MPS Sessions (create/join by code).
-- `Game.App.GameBootstrap` — initializes services, loads Main Menu, saves on iOS pause/quit.
+
+- `Game.Core.RulesEngine` — the single authority over state transitions
+- `Game.Core.MatchState` / `PlayerState` / `MatchConfig` — round-indexed match
+  state; there is no "current player", because play is simultaneous
+- `Game.Core.RoundPhase` — `Roll → Shape → Commit → Reveal → Repick → Upkeep`
+- `Game.Core.CardPower` / `PowerKind` / `PowerFamily` — powers are **data**
+- `Game.Core.ICardRequirement` + matchers (`NOfAKind`, `Run`, `Sum`,
+  `ContainsFaces`, `Composite`) — card costs
+- `Game.Core.StarterDeck` — the single definition of all 48 cards
+- `Game.Core.SeededDiceRoller` — portable deterministic xorshift64*
+- `Game.Core.MatchSnapshot.For(state, observer, …)` — **per-recipient** view with
+  hidden-information filtering
+- `Game.Core.LocalMatchSession` / `HotSeatDirector` — offline hot-seat
+- `Game.Networking.NetworkGameController` — host-authoritative `NetworkBehaviour`
+- `Game.App.GameSceneBootstrap` — picks hot-seat vs online at scene load
 
 ---
 
-## First-time setup (in the Unity Editor)
+## Setup
 
-1. **Open the project.** On first open, Package Manager resolves the packages added to `Packages/manifest.json` — all from Unity's **official registry**: NGO, `com.unity.services.multiplayer`, Authentication, Addressables, Newtonsoft. (No third-party or scoped-registry packages are used.) Wait for compilation to finish with a clean Console. If any package version reports "not found for 6000.5", accept the nearest patch **within the same major**.
+1. **Open the project.** Package Manager resolves everything from Unity's
+   official registry — NGO, `com.unity.services.multiplayer`, Authentication,
+   Addressables, Newtonsoft. No third-party or scoped registries.
 
-2. **Import TMP essentials:** **Window ▸ TextMeshPro ▸ Import TMP Essential Resources** (needed so generated text has a default font).
+2. **Import TMP essentials:** Window ▸ TextMeshPro ▸ Import TMP Essential Resources.
 
-3. **Generate starter content:** menu **DiceCards ▸ Generate Sample Content**. Creates 8 `CardDefinition` assets + a `CardDatabase` under `Assets/_Project/ScriptableObjects/`.
+3. **Foundry ▸ Generate Starter Deck** — writes the 48 `CardDefinition` assets and
+   the `CardDatabase`. Validates as it goes and errors on any cost no legal dice
+   pool could pay.
 
-4. **Generate scenes (one click):** menu **DiceCards ▸ Generate Scenes & Build Settings**. This creates and fully wires the Boot / MainMenu / Lobby / Game scenes (cameras, EventSystem, Canvas + safe area, all our components, a CardButton prefab) and sets the Build Settings list in order `Boot(0) → MainMenu → Lobby → Game`. Run *after* step 3 so the Game scene can bind the CardDatabase. Then remove the template `Assets/Scenes/SampleScene`. (The manual scene layout below is documented for reference / customization.)
+4. **Foundry ▸ Generate Scenes & Build Settings** — rebuilds Boot / MainMenu /
+   Lobby / Game, wires every component reference, and sets the build list in
+   order. Run *after* step 3 so the Game scene can bind the database.
 
-5. **Configure Unity Gaming Services** (needed for online play): **Edit ▸ Project Settings ▸ Services** — link a Unity project/organization, then enable **Authentication**, **Relay**, and **Lobby** in the Unity Cloud dashboard. Anonymous sign-in is used by default (`SessionManager.InitializeAsync`).
+5. **Unity Gaming Services** (online only): Edit ▸ Project Settings ▸ Services —
+   link a project, then enable Authentication, Relay and Lobby in the Unity Cloud
+   dashboard. Anonymous sign-in is used by default.
 
----
+> ⚠️ **Scenes are generated, not hand-authored.** Never edit a generated scene
+> directly — change `SceneScaffolder` and regenerate. If the board does not start
+> when you press Play, the committed scenes are behind the generator: re-run
+> steps 3 and 4 and commit the results.
 
-## Scenes to author (editor-only; code is already wired)
+## Playing
 
-These require the editor because they compose prefabs/components that depend on the resolved packages.
+**Hot-seat:** open the Game scene and press Play. `HotSeatHost.playerCount` sets
+2–6 seats; `fixedSeed` replays an exact match. The handoff screen is load-bearing
+— the director moves the private view to the next seat *before* the panel goes
+up, so the previous player's commit is out of the snapshot before the device
+changes hands.
 
-- **Boot** — an empty GameObject with `GameBootstrap` + an `AudioManager`, plus a `NetworkManager` (with `UnityTransport`) on a persistent object. Bootstrap loads Main Menu after UGS init.
-- **MainMenu** — a Canvas with a `MainMenuView` (Host button, Join button, join-code `TMP_InputField`, status + code labels) and a `MainMenuController` referencing it. Wrap UI in a panel with `SafeAreaFitter`.
-- **Lobby** — shows the join code and a Host-only "Start" button. On start, the host calls `SceneFlowService.LoadNetworkedGame()` (NGO replicates the Game scene to clients).
-- **Game** — a Canvas with `GameHudView` (turn/phase/rolls/dice/score labels, Roll + End-Turn buttons, a market container + a `CardButtonView` prefab) and a `GameHudPresenter`. Add a `MatchLauncher` (with `CardDatabase` + `NetworkGameController` references); the host calls `MatchLauncher.ServerBeginMatch()` once players are in.
-
-### Prefabs to create
-- **NetworkManager** prefab: `NetworkManager` + `UnityTransport`; register the `NetworkGameController` prefab in its Network Prefabs list.
-- **NetworkGameController** prefab: an empty GameObject with `NetworkObject` + `NetworkGameController`, spawned by the host at match start.
-- **CardButton** prefab: `Button` + `CardButtonView` (name/requirement/points TMP texts, optional artwork `Image`).
-
-### Audio
-Create an `AudioMixer` with exposed float params `MasterVolume` / `MusicVolume` / `SfxVolume` and assign it to the `AudioManager`.
-
----
-
-## iOS build
-
-- Bundle id is set to `com.aaroncornwell.dicecards` and company to `AaronCornwell` (change in **Project Settings ▸ Player** if desired).
-- Orientation is already **auto-rotate** (portrait + landscape); UI uses `SafeAreaFitter` for notch handling and `OrientationWatcher` for responsive reflow.
-- iOS uses **IL2CPP** + **.NET Standard 2.1** (defaults). Start with **Managed Stripping Level = Low**; if you raise it, add a `link.xml` preserving `Newtonsoft.Json`, `Unity.Services.*`, and your `[Serializable]` save types.
-- No camera/mic/location usage strings are needed. A default launch storyboard is generated by Unity.
-- Build: **File ▸ Build Profiles ▸ iOS**, switch platform, build the Xcode project, sign, run on device/simulator.
-
----
+**Online:** Boot → MainMenu → Host (shows a join code) or Join by code → Lobby →
+host presses Start. Both modes share the entire presentation layer, because
+`LocalMatchSession` and `NetworkGameController` implement the same
+`IGameActions`/`IMatchView` pair. The only difference is who advances the phases
+— the player, or the server's clock.
 
 ## Testing
 
-- **EditMode tests** (`Assets/_Project/Code/Tests/EditMode/`) cover the requirement matchers, deterministic roller, the full rules flow, and the offline `LocalGameSession`. Run via **Window ▸ General ▸ Test Runner ▸ EditMode**, or headless:
-  ```
-  /Applications/Unity/Hub/Editor/6000.5.0f1/Unity.app/Contents/MacOS/Unity \
-    -batchmode -projectPath . -runTests -testPlatform EditMode -logFile -
-  ```
-- **PlayMode tests** (`Tests/PlayMode/`) are set up for the networked host-authoritative flow (NGO test harness).
-- **Multiplayer smoke test:** open two editor instances (Multiplayer Play Mode, or a ParrelSync clone) — one Host, one Join-by-code. Verify a roll requested out of turn is rejected and dice values come only from the server.
+```
+tools/run-core-tests.sh              # 119 tests, ~2s, no Editor needed
+tools/run-core-tests.sh Contention   # substring filter
+FOUNDRY_BALANCE=1 tools/run-core-tests.sh Balance    # full balance report
+tools/verify-unity-compile.sh        # type-check while the Editor holds its lock
+```
 
----
+`tools/CoreTests` compiles **the same source files** the Unity assemblies do, so
+the headless run and Unity's Test Runner execute one suite, not two. The runner
+supports only `[Test]`/`[TestFixture]`/`[SetUp]`/`[TearDown]` and exits with code
+2 rather than silently reporting green on richer attributes it cannot run.
+
+`verify-unity-compile.sh` verifies **types, not asmdef boundaries** — everything
+compiles into one assembly, so a script reaching across an undeclared reference
+passes there and fails in Unity.
+
+Notable suites: `SecrecyGateTests` (two matches differing only in a secret commit
+must produce byte-identical opponent snapshots, compared by reflective dump),
+`BalanceGateTests` (no strategy exceeds 1.5× fair share), `DisconnectTests`,
+`ContentionTests`.
+
+## iOS build
+
+- Bundle id `com.aaroncornwell.dicecards`, company `AaronCornwell`, min iOS 15.0
+- IL2CPP + .NET Standard 2.1. Start at Managed Stripping Level = Low; if you
+  raise it, add a `link.xml` preserving `Newtonsoft.Json`, `Unity.Services.*`
+  and the `[Serializable]` save types.
+- `SafeAreaFitter` handles notches. The Game scene is laid out for portrait
+  1080×1920 — see `docs/backlog/E6-ship.md` on locking orientation.
+- Build: File ▸ Build Profiles ▸ iOS, switch platform, build the Xcode project.
 
 ## Extending
 
-- **New card rules:** add an `ICardRequirement` in `Game.Core` and a `CardRequirementSpec.Kind` case in `Game.Data`. The rules engine and UI pick it up automatically.
-- **Apple Sign-In:** swap `SignInAnonymouslyAsync` in `SessionManager` for the Apple provider (upgrade the anonymous account).
-- **Dedicated server:** the host-authoritative `NetworkGameController` moves to a Multiplay dedicated server with no changes to `Game.Core`.
-- **Animations:** use registered/first-party options only — Unity's built-in **Animation/Animator** clips, or lightweight coroutine `Mathf.Lerp`/`SmoothStep` tweens, for dice-roll and card-claim motion in the views. (Avoid third-party tween libraries to keep the dependency set to the official registry.)
+- **New card:** add a line to `Game.Core.StarterDeck`, then re-run Generate
+  Starter Deck. Never hand-edit a generated card asset — the deck is defined
+  once so the balance harness and the shipped assets cannot diverge.
+- **New cost pattern:** add an `ICardRequirement` in `Game.Core` and a
+  `CardRequirementSpec.Kind` case in `Game.Data`.
+- **New power:** add a `PowerKind` case and handle it in the consumers that
+  switch on it (`PlayerState`, `RulesEngine`, `CostChecker`, `Scoring`).
+- **Animations:** Unity's Animator or coroutine `Mathf.Lerp`/`SmoothStep` only —
+  no third-party tween libraries, deliberately, to keep the dependency set on the
+  official registry.
+- **Dedicated server:** `NetworkGameController` moves to Multiplay with no
+  changes to `Game.Core`.

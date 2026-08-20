@@ -6,39 +6,47 @@ machine" is not a state this project recognises.
 ## Universal (every story)
 
 - [ ] Acceptance criteria all demonstrably met
+- [ ] `tools/run-core-tests.sh` is green
+- [ ] `tools/verify-unity-compile.sh` is green if Unity assemblies changed —
+      remembering it checks types, **not** asmdef boundaries
 - [ ] Code compiles with **zero warnings** in the affected assemblies
-- [ ] No new `Debug.Log` left in runtime code paths (use the logging wrapper)
-- [ ] Public types and non-obvious logic have XML doc comments
-- [ ] No `UnityEngine` reference has leaked into the rules core assembly
+- [ ] Public types and non-obvious logic have XML doc comments explaining *why*
+- [ ] No `UnityEngine` reference has leaked into `Game.Core`
 - [ ] `.meta` files for all new assets are committed
 - [ ] Branch merged via PR with at least one review
 
 ## Logic and rules changes
 
-- [ ] EditMode unit tests cover the new behaviour, including edge cases
+- [ ] EditMode tests cover the new behaviour, including edge cases
+- [ ] Tests are plain `[Test]` methods — the headless runner rejects
+      `[TestCase]`, `[UnityTest]` and friends with exit code 2
 - [ ] Tests are deterministic — no wall-clock time, no unseeded RNG
-- [ ] Existing test suite is green
+- [ ] `SecrecyGateTests` and `BalanceGateTests` still pass, and neither was
+      weakened to make them
 
 ## Presentation and UI changes
 
 - [ ] Works at 16:9 and 4:3, and at 1280x720 through 3840x2160
-- [ ] Works under both themes (light/dark or whatever the theme set is)
-- [ ] Keyboard and gamepad navigation reach every interactive element
-- [ ] No hard-coded colours or fonts — all values come from the theme asset
-- [ ] No hard-coded user-facing strings — all routed through localization
+- [ ] Legible at **six players on the narrowest supported device** (UI-1)
+- [ ] No state communicated by colour alone
+- [ ] No `new Color(...)` literal added
+- [ ] Scenes regenerated and committed if `SceneScaffolder` changed
 
 ## Networked changes
 
 - [ ] Validated on the server; client cannot force an illegal state
 - [ ] Hidden information is never sent to a client that must not see it
-- [ ] Tested with simulated latency and packet loss
 - [ ] Tested with a mid-match disconnect and rejoin
 - [ ] Host and client behave identically in the host-plus-client case
+- [ ] Covered by a PlayMode integration test — the networking layer's standing
+      gap is that it has none
 
 ## Content and data changes
 
-- [ ] Data validates against the content validator with no errors
-- [ ] Save data written by the previous build still loads (or a migration exists)
+- [ ] `StarterDeck` was edited, not the generated card assets
+- [ ] Generators re-run and assets committed with their `.meta` files
+- [ ] `BalanceGateTests` still passes; the full report reviewed with
+      `FOUNDRY_BALANCE=1 tools/run-core-tests.sh Balance`
 
 ## Definitely not Done
 

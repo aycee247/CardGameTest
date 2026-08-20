@@ -1,32 +1,44 @@
-# CardGameTest Documentation
+# Foundry Documentation
+
+**Foundry** (working codename) — a simultaneous-roll dice engine builder for iOS.
+2–6 players, 10 rounds, ~12 minutes, real-time online with friends by code.
 
 ## Start here
 
 | If you want to… | Read |
 |---|---|
-| Understand the code structure | [`architecture/overview.md`](architecture/overview.md) |
+| Know the rules and requirements | [`game-design.md`](game-design.md) — **canonical** |
+| Understand the code | [`architecture/overview.md`](architecture/overview.md) |
+| Find work to do | [`backlog/roadmap.md`](backlog/roadmap.md) |
 | Know how we work | [`agile/working-agreement.md`](agile/working-agreement.md) |
 | Know when something is finished | [`agile/definition-of-done.md`](agile/definition-of-done.md) |
-| See the plan | [`backlog/roadmap.md`](backlog/roadmap.md) |
-| Find work to do | [`backlog/epics.md`](backlog/epics.md) |
-| Know the game's rules | [`design/gameplay.md`](design/gameplay.md) — **stub** |
 | Build a screen | [`design/ui-conventions.md`](design/ui-conventions.md) |
 | Add a colour | [`design/theming.md`](design/theming.md) |
 
-`/CLAUDE.md` in the repository root is the condensed working reference. This
-directory is the detail behind it.
+`/CLAUDE.md` at the repository root is the condensed working reference.
 
-## Current status
+## Status
 
-Pre-alpha. The repository is a Unity 6 2D/URP template with no gameplay code;
-these documents describe the code that is about to be written.
+M1–M5 complete; **M6 (polish) remaining**. See
+[`backlog/roadmap.md`](backlog/roadmap.md) for the path to TestFlight.
 
-**The game's rules are not yet defined.** `design/gameplay.md` lists the
-questions that need answers. Backlog items are tagged by their dependency on
-those answers:
+Two caveats worth knowing before you trust the milestone table:
 
-- **`none`** — buildable today
-- **`partial`** — framework buildable today, content blocked
-- **`blocking`** — cannot start
+1. **Everything is proven under test, not by a player.** M2 awaits its first
+   playtest; M3 and M4 say live play is untested; M5 is simulated.
+2. **The proof stops at the assembly boundary.** `Game.EditModeTests` references
+   only `Game.Core` and `Game.Data`, and `Tests/PlayMode/` holds an asmdef with
+   no test files — so the networking layer has no automated coverage at all.
 
-Roughly two thirds of the alpha is buildable before the rules are settled.
+## Running it
+
+```
+tools/run-core-tests.sh          # 119 tests, ~2s, no Editor
+tools/verify-unity-compile.sh    # type-check Unity assemblies
+```
+
+In the Editor: **Foundry ▸ Generate Starter Deck**, then **Foundry ▸ Generate
+Scenes & Build Settings**, then open the Game scene and press Play.
+
+> The committed scenes may be behind the generator. If the board does not start,
+> re-run both generators — see [`backlog/E0-unblock.md`](backlog/E0-unblock.md).

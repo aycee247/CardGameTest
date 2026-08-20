@@ -19,7 +19,7 @@ If you cannot demo it, it is not a Story.
 ### Story format
 
 ```
-STORY-<epic>.<n>: <short title>
+STORY-<epic>.<n>: <short title>   e.g. STORY-3.1
 
 As a <role>
 I want <capability>
@@ -29,17 +29,15 @@ Acceptance Criteria
   AC1  Given <context>, when <action>, then <observable outcome>
   AC2  ...
 
-Genre dependency: none | partial | blocking
+Epic: E0 | E2 | E3 | E4 | E5 | E6
+Implements: CORE-n, UI-n, ...   (design-doc requirement ids, if any)
 Depends on: STORY-x.y, ...
 Estimate: XS | S | M | L | XL
 ```
 
-**Genre dependency** is specific to this project. The game's rules are not yet
-defined (see `docs/design/gameplay.md`), so every story is tagged:
-
-- `none` — buildable today, no knowledge of the rules required
-- `partial` — the framework is buildable today; the content it carries is not
-- `blocking` — cannot start until the game design lands
+Stories carry their **epic id** (`E0`–`E6`) and their dependencies. The rules are
+fully specced in `docs/game-design.md` — cite its requirement ids (CORE-n, MKT-n,
+CARD-n, NET-n, UI-n) in acceptance criteria wherever a story implements one.
 
 ## 2. Estimation
 
@@ -58,10 +56,11 @@ Relative sizes, not hours. Anchor: **S = one focused day.**
 A story may not be started until:
 
 - [ ] Acceptance criteria are written and testable
-- [ ] Genre dependency is tagged and is not `blocking`
 - [ ] Dependencies are listed and are already `Done`
 - [ ] It is `L` or smaller
-- [ ] The core/presentation split is clear (which assembly does this live in?)
+- [ ] The assembly it belongs in is decided — and if that is `Game.Core`, it
+      carries no Unity types
+- [ ] Any design-doc requirement it implements is cited by id
 
 ## 4. Definition of Done
 
@@ -70,11 +69,11 @@ works. It is Done when it meets that checklist in full.
 
 ## 5. Branching and commits
 
-- One branch per story: `feat/STORY-3.2-card-drag-drop`,
-  `fix/STORY-7.1-theme-swap-flicker`
+- One branch per story: `feat/E3.1-reveal-choreography`,
+  `fix/E2.8-per-frame-hud-refresh`
 - Branch from the default branch; never stack onto a merged branch
 - Conventional-style commit subjects, imperative mood:
-  `feat(rules): add discard pile shuffle-back on empty draw`
+  `feat(ui): stage the reveal beat`
 - Reference the story id in the commit body, not the subject
 - **Never commit Unity `Library/`, `Temp/`, `Logs/`, or `.csproj`/`.sln` output** —
   `.gitignore` already covers these; do not override it
@@ -83,9 +82,12 @@ works. It is Done when it meets that checklist in full.
 
 These exist because Unity punishes teams that ignore them.
 
-- **Scenes and prefabs are binary-ish merge hazards.** Only one person edits a
-  given scene at a time. Prefer prefabs over scene objects; prefer
-  ScriptableObjects over prefabs for data.
+- **Scenes are generated, not authored.** `SceneScaffolder` builds all four.
+  Never hand-edit a generated scene — change the scaffolder, regenerate, and
+  commit the result. A committed scene that has fallen behind the generator has
+  already broken the board once.
+- **Regenerate after touching `SceneScaffolder` or `StarterDeck`**, and commit
+  the regenerated scenes and card assets together.
 - **Force Text serialization and visible meta files are mandatory** and already
   set. Never change them.
 - **Never delete a `.meta` file by hand.** Delete assets through the Unity
@@ -102,6 +104,8 @@ Kept minimal:
 - **Planning** — pull from the top of the ranked backlog; only Ready stories.
 - **Demo** — every sprint ends with a build that runs. A sprint with no
   runnable build is a failed sprint, regardless of story points closed.
+- **Playtest** — the project's standing risk is that everything is proven under
+  test and unproven by a player. Put a human on the build every sprint.
 - **Retro** — 15 minutes, three columns: keep / drop / try.
 
 ## 8. Backlog hygiene

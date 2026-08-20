@@ -1,67 +1,72 @@
 # Theming
 
-One `ThemeDefinitionAsset` is the authority. Two thin adapters render it — USS
-variables for UI Toolkit, `ThemeBinder` components for uGUI.
+> **Status: not built.** This describes the intended design for E5. Today every
+> colour in the game is a hard-coded literal.
+
+## The problem
+
+Colours live in two independent places that must be kept in step by hand:
+
+**Runtime views** (serialized defaults, tweakable per instance, no shared source
+of truth):
+- `UI/DieView.cs` — idle / selected / spent
+- `UI/CardButtonView.cs` — affordable / unaffordable
+- `UI/PlayerRowView.cs` — row / observer row / ready / thinking / trouble
+
+**The editor generator** (duplicating the same values independently):
+- `SceneTools/SceneScaffolder.cs` — camera background, card fill, row fill,
+  priority marker, die fill, die face text, handoff / reveal / summary panels
+- `SceneTools/UiFactory.cs` — **every button in the game** is
+  `new Color(0.20f, 0.42f, 0.85f, 1f)`
+
+Restyling means editing five files and hoping the two sources stay in sync.
+
+## The design
+
+One `ThemeAsset` ScriptableObject is the authority. `UiFactory` and
+`SceneScaffolder` read it at generation time; the runtime views read it through a
+binder and re-read on theme change.
+
+Because scenes are generated rather than authored, the generator is the natural
+place to apply theming — but the runtime views still need binders, since a theme
+can change at runtime and a regenerated scene cannot.
 
 ## Token naming
 
 Tokens are **semantic**, describing role rather than appearance:
 
 ```
-✅  surface.base      surface.raised     surface.overlay
-    text.primary      text.muted         text.inverse
-    state.danger      state.success      state.disabled
-    accent.primary    accent.secondary
-    card.frame        card.back          board.felt
+✅  surface.base     surface.raised     surface.overlay
+    text.primary     text.muted         text.inverse
+    state.affordable state.unaffordable state.spent
+    state.ready      state.thinking     state.trouble
+    accent.priority
 
-❌  offWhite    blue2    darkGrey    theRedOne
+❌  blue2   offWhite   theOrangeOne
 ```
 
-A literal token (`offWhite`) survives exactly until the first redesign. A
-semantic one (`text.muted`) survives the redesign unchanged — that is the whole
-point.
-
-## Adding a token
-
-1. Add it to `ThemeDefinitionAsset` and assign a value in **every** shipped theme
-2. Regenerate the USS variable block via the Editor tool
-3. Consume it — `var(--color-text-muted)` in USS, or a `ThemeBinder` in uGUI
-4. The parity test confirms both stacks agree
-
-## The failure mode this system exists to prevent
-
-**Token drift between the two stacks is the number one failure mode of hybrid
-UI.** The menus slowly stop matching the board, and nobody notices until a
-screenshot goes out.
-
-The defence is mechanical, not diligence-based: the Editor tool *generates* the
-USS `:root { --… }` block from the theme asset, and an EditMode test regenerates
-and compares. A failing test on commit is the cheapest possible version of this
-problem. If full generation is deferred, the minimum viable version is a parity
-test asserting the token key set in the asset equals the `--` variable set in the
-USS.
+A literal name survives until the first redesign; a semantic one survives it.
 
 ## What is not themed
 
-**Card art is not a theme token.** Card faces come from the card database and are
-content, not chrome. Only frames, backs, table surface, and UI chrome are themed —
-otherwise a theme change silently reskins the game's actual content.
+**Dice face values and card costs are not styling.** A skin may change how a die
+looks but never what it is worth — the rules engine only ever deals in face
+values, and `DiceSkin` is documented as cosmetic for exactly this reason.
 
-## Shipped themes
+Card art is content, not chrome. Only frames, backs, board surface and UI chrome
+are themed.
 
-| Theme | Purpose |
-|---|---|
-| `default` | The primary look |
-| `dark` | Low-light play |
-| `highcontrast` | Accessibility (EPIC-13) |
-| `protanopia` / `deuteranopia` / `tritanopia` | Colour-blind palettes |
+## Accessibility constraint
 
-Colour-blind support ships as themes rather than as a shader post-process,
-because the palettes need per-token judgement, not a global filter.
+`DieView` currently distinguishes idle / selected / spent **by colour alone**, and
+`CardButtonView` does the same for affordability. Whatever the theme, those
+states must also differ by shape, border or icon — see E4 STORY-4.5.
 
-## Rule that makes it all work
+## Skins vs themes
 
-> **No component anywhere holds a colour, font, or chrome sprite of its own.**
+- A **theme** restyles the UI chrome. One active at a time, a player setting.
+- A **skin** is unlockable cosmetic content for dice and cards, tracked per
+  player in `PlayerProfile.OwnedDiceSkinIds` / `SelectedDiceSkinId`.
 
-Enforced by CI: a themed uGUI graphic without a binder fails, and a literal hex
-in USS outside the generated block fails.
+In online play each player sees their own chosen skins. A cosmetic must never
+convey hidden information.

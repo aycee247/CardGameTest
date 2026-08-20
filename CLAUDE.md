@@ -1,258 +1,239 @@
-# CLAUDE.md — CardGameTest
+# CLAUDE.md — Foundry
 
 Guidance for Claude Code and for humans working in this repository.
 
-## Project state
+## What this is
 
-**Pre-alpha, greenfield.** As of this document the repository is a Unity 6
-"2D (URP)" template with no gameplay code. Everything below is the contract for
-the code that is about to be written, not a description of code that exists.
+**Foundry** (working codename) — a **simultaneous-roll dice engine builder for
+iOS**. 2–6 players, 10 fixed rounds, 11–13 minutes, real-time online with
+friends by code.
 
-- **Unity 6000.5.0f1** — do not change the version without a team decision
-- **URP 17.5.0, 2D Renderer**
-- **New Input System only** — the legacy Input Manager is disabled; never use
-  `Input.GetKey`
-- **Hybrid UI** — uGUI + TextMeshPro for the board, UI Toolkit for menus
-- **Multiplayer is in the MVP** — server-authoritative, NGO
+`docs/game-design.md` is the **canonical spec**. If this file and it disagree,
+it wins and this file needs fixing.
 
-## ⚠️ The game's rules are not yet defined
-
-`docs/design/gameplay.md` is a stub. Until it is filled in:
-
-- Do **not** invent game rules, card names, costs, or mechanics
-- Do **not** implement anything tagged `blocking` in the backlog
-- Work tagged `none` or `partial` is fair game and is roughly two thirds of the
-  alpha
-
-If a task requires knowing how the game plays, stop and ask rather than guessing.
-
-## Read these first
-
-| Document | What it covers |
-|---|---|
-| `docs/architecture/overview.md` | Assembly graph, core patterns, netcode, testing. **The authority.** |
-| `docs/agile/working-agreement.md` | Epics/stories, estimation, branching, Unity process rules |
-| `docs/agile/definition-of-done.md` | What "Done" means here |
-| `docs/backlog/roadmap.md` | Phasing and sequencing rationale |
-| `docs/backlog/epics.md` | Epic index |
-| `docs/design/gameplay.md` | Game rules — **stub, pending design** |
-
----
+- **Unity 6000.5.0f1** · URP 17.5.0 (2D Renderer) · **New Input System only**
+- **uGUI + TextMeshPro only.** There is no UI Toolkit in this project — no
+  `.uxml`, no `.uss`, no `UIDocument`. Do not introduce one.
+- **Netcode for GameObjects 2.13** + Unity Gaming Services (Multiplayer Sessions)
+- Milestones M1–M5 complete; **M6 (polish) is the remaining specced milestone**
 
 ## The one architectural rule
 
 > **The rules are a pure C# library that happens to run inside Unity.**
 
-`CardGame.Core` has `noEngineReferences: true`. It cannot see `UnityEngine`, and
-that is deliberate — determinism, fast tests, server authority, save/resume,
-replay and hidden-information safety all depend on it.
+`Game.Core` sets `noEngineReferences: true` with `references: []`. It cannot see
+`UnityEngine`, and that is load-bearing: determinism, a 2-second headless test
+suite, server authority, and hidden-information safety all depend on it.
 
-**In Core you may not use:** `Debug.Log`, `Vector2`/`Vector3`, `Mathf`,
-`UnityEngine.Random`, `System.Random`, `[SerializeField]`, `MonoBehaviour`,
-`ScriptableObject`, `Coroutine`, `Time.*`, `JsonUtility`.
+**Never** add a Unity reference to `Game.Core` to solve a problem. The problem
+belongs on the other side of the boundary.
 
-**Use instead:** `ILogSink`, plain structs, `System.Math`, `IRandomSource`,
-plain C# properties, `IClock`, Newtonsoft JSON.
+In Core: no `Debug.Log`, no `Vector2`, no `Mathf`, no `UnityEngine.Random`, no
+`System.Random`, no `[SerializeField]`, no `MonoBehaviour`, no `Coroutine`, no
+`Time.*`, no `JsonUtility`. Use `System.Math`, `IDiceRoller`, plain properties,
+and let the caller pass `now` for anything time-shaped (see `IntentLimiter`,
+`SeatRegistry` — both pure, both therefore headless-testable).
 
-Adding a `UnityEngine` reference to Core to solve a problem is never the answer.
-The problem belongs on the other side of the boundary.
-
-## Dependency direction
-
-```
-Core ← Data, Persistence, Net, Presentation, UI ← App
-```
-
-- Arrows point **upward only**. `App` is the sole composition root; nothing
-  references `App`.
-- `Presentation` (uGUI) and `UI` (UI Toolkit) **never reference each other**.
-- `Net` never references `Presentation`.
-- Service interfaces live in **Core**, because they are pure. Presentation calls
-  `IGameSession.Submit(cmd)` and cannot tell whether the implementation is a
-  local loopback or a network client. That indirection is what makes multiplayer
-  a swap rather than a rewrite — do not bypass it.
-
-## The command/event loop
-
-Every state change follows exactly this path. There are no shortcuts.
+## Assemblies
 
 ```
-player input → intent → command → Core validation → state change → event → view update
+Game.App          composition root, presenters, bootstrap, scene flow
+ ├ Game.UI        uGUI views (TMP)          ├ Game.Networking  NGO + UGS
+ ├ Game.Audio     AudioManager + mixer      ├ Game.Persistence JSON profile
+ ├ Game.Data      ScriptableObjects         └ Game.SceneTools  scene generation (Editor)
+ └ Game.Core      PURE C# rules — noEngineReferences: true
 ```
 
-- A view **never** mutates game state. It raises an intent.
-- A view **never** updates itself optimistically ahead of Core's confirmation.
-  In single-player that is a bug; in multiplayer it is a desync.
-- Events describe **what happened**, never what to draw. There is no
-  `PlayCardAnimationEvent` — there is `CardMoved`, and presentation decides that
-  hand→board means a 0.25 s arc.
-- Events buffer during `Execute` and publish only after the command commits. A
-  subscriber must never observe half-applied state.
-- Presentation consumes **batches** — one command's events are one animation
-  sequence.
+Dependencies point **downward only**. `Game.UI` never references
+`Game.Networking` — that is what lets one HUD serve both hot-seat and online.
+`Game.SceneTools` and `Game.EditorTools` are Editor-only.
 
-## Reusable patterns (use these; do not invent alternatives)
+## The round
 
-### Card data: three types, not two
+Six phases, not five. `Repick` is a real phase and is easy to forget.
 
 ```
-CardDefinitionAsset (Unity SO)  →  CardDefinition (Core)  →  CardInstance (Core)
-authored, has Sprite/AudioClip     immutable content        runtime identity+state
+Roll → Shape → Commit → Reveal → Repick → Upkeep    ×10 rounds → MatchOver
+auto   20s      15s      ~8s      10s      auto
 ```
 
-**Never store runtime state on a ScriptableObject.** Playing a match in the
-Editor would permanently edit your content asset — silently. Runtime state lives
-on `CardInstance`, keyed by `InstanceId`.
+- Play is **simultaneous**. There is no turn order and no per-player phase.
+- **Core never ticks a clock.** `MatchConfig` carries the durations so the server
+  timer and the UI agree, but the rules layer is pure and synchronous. The driver
+  (`LocalMatchSession.Advance()` offline, the server clock online) calls the
+  engine.
+- Commits are **secret until Reveal**. Contested cards go to priority (lowest
+  score, then fewest cards, then seat order); losers keep their dice and get one
+  re-pick pass.
+- A player may commit during **Shape** as well as Commit (CORE-5) — that is what
+  collapses hot-seat from eight device handoffs per round to one.
 
-Card ids are **stable GUID strings, never array indices** — reordering a list
-must not invalidate saves.
+## The command/event path
 
-### Commands
+```
+view event → presenter → IGameActions intent → RulesEngine validation → state → snapshot → view
+```
 
-Serializable, with a stable string `CommandTypeId` (`"core.play_card"`), never a
-reflected C# type name — a refactor must not break stored replays.
+- A view **never** mutates match state and **never** predicts. `GameHudView`
+  raises events; `GameHudPresenter` turns them into intents.
+- `IGameActions` + `IMatchView` (both in `Core/IGameActions.cs`) are the whole
+  boundary. `LocalMatchSession` and `NetworkGameController` each implement both,
+  which is why the board is identical online and offline. **Do not bypass this.**
+- Rejections come back as `MoveFailure` and are rendered by
+  `GameHudPresenter.Explain` — a single place for that copy.
 
-`Validate()` returns a localization key, never a formatted sentence.
+## Patterns in use (follow these; don't invent alternatives)
 
-**Undo is snapshot + replay-to-N, not inverse commands.** Inverse commands are a
-lie the moment an effect involves randomness or hidden information, and they
-double the surface area of every card.
+### Cards are data, not code
 
-### Phases
+`PowerKind` / `PowerFamily` enums + a `CardPower` readonly struct. A designer
+adds a card by picking a cost pattern and a power — no recompile, no subclass
+per card (CARD-2).
 
-`PhaseMachine` holds a **stack**, not a single current phase — nested decisions
-are pushes. The core **blocks on a `PendingDecision`** rather than asking a
-player object for input; `IDecisionProvider` is then implemented identically by
-human UI, AI, network, tests and tutorials.
+Costs are the polymorphic half: `ICardRequirement` with `NOfAKind`, `Run`, `Sum`,
+`ContainsFaces`, `Composite` matchers.
 
-### Randomness
+`StarterDeck` in `Core/CardBlueprint.cs` is the **single definition of the 48
+cards**, written in a fluent DSL:
 
-`RngHub` with named streams: `Shuffle`, `Effects`, `Ai`, `Cosmetic`.
+```csharp
+Def(1, "Whetstone", tier: 1, points: 2, PowerFamily.Manipulation).Sum(12).Nudge(1),
+```
 
-- **Never** `System.Random` (implementation differs across Mono/IL2CPP/CoreCLR —
-  same seed, different platform, different sequence) or `UnityEngine.Random`
-  (a global static shared with particle systems; a cosmetic call perturbs the
-  next shuffle).
-- Cosmetic randomness uses `RngStream.Cosmetic`, always. One shared generator
-  means adding a card-wiggle offset invalidates every stored replay.
-- **The shuffle seed is a secret.** Never send it to a client, never log it
-  client-side, never write it into a client-side save of a multiplayer match.
-- Save the RNG **state**, not the seed — restoring from a seed replays the draw
-  sequence from turn 1.
+The editor generator writes ScriptableObjects from it and the balance harness
+simulates against it, so a card cannot be tuned in one place and ship from
+another. **Edit `StarterDeck`, then regenerate — never hand-edit a card asset.**
 
-### Theming
+### Powers are derived, never cached
 
-Components reference **semantic tokens** (`surface.raised`, `text.muted`), never
-raw colours. UI Toolkit consumes them as USS variables; uGUI consumes them via
-`ThemeBinder` components. A hard-coded hex in either stack is a review rejection.
+`PlayerState.SumPower/WildFaces/DiceCapacity/...` recompute from `OwnedCards`
+every call. Do not add mutable counters that can drift out of sync with the card
+list.
+
+### Determinism
+
+`IDiceRoller` is the only entropy source in Core. `SeededDiceRoller` is a
+hand-rolled xorshift64\* — portable across platform and runtime, which
+`System.Random` is not (its algorithm has changed across .NET versions, so the
+same seed yields different sequences on Mono vs IL2CPP vs CoreCLR).
+
+`UnityEngine.Random` is never acceptable in gameplay: it is a global static
+shared with particle systems, so a cosmetic call perturbs the next roll.
 
 ### Hidden information
 
-`CardId` is the secret; `InstanceId` is safe. A hidden card projects with
-`Definition == null`, which is exactly what a card view renders as a card back.
+`MatchSnapshot.For(state, observer, seats, now)` builds **one snapshot per
+recipient**. `PendingCardId` is `-1` and `PendingDice` empty for everyone but the
+owner until `Reveal`.
 
-Never send data the client shouldn't see and hide it in the UI — an obfuscated
-packet is one cheat away from a wallhack, and it will be found.
+Deliberately **not** secret, and asserted as such: dice faces, owned cards,
+priority order, and the fact that a player has decided. Reading that an opponent
+rolled a pair of 5s is the whole basis for deciding whether to contest — only the
+choice is hidden.
 
----
-
-## The uGUI / UI Toolkit boundary
-
-> **If the element must be spatially interleaved with, anchored to, or
-> drag-and-drop hit-tested against 2D sprite content in the board's sorting
-> layers, it is uGUI. Everything else is UI Toolkit.**
-
-Apply in order, stop at the first yes:
-
-1. Renders between sprite sorting layers? → uGUI
-2. Follows a world position every frame? → uGUI
-3. Drag source or drop target for cards? → uGUI
-4. Shares per-frame material/shader effects with cards? → uGUI
-5. Otherwise → **UI Toolkit**
-
-Menu scenes contain zero `Canvas`. The board hierarchy contains zero
-`UIDocument` outside the designated full-screen overlay root.
-
-If you find yourself wanting a reference between `CardGame.UI` and
-`CardGame.Presentation`, something is on the wrong side of the boundary.
-
----
-
-## C# conventions
-
-- **Namespaces** mirror assemblies: `CardGame.Core.Commands`, `CardGame.Presentation.Board`
-- `PascalCase` for types/methods/properties; `camelCase` for locals and
-  parameters; `_camelCase` for private fields
-- **`readonly` and immutability by default** in Core — mutation happens through
-  `GameStateMutator`, not by assigning to state objects
-- Prefer `record` for events and DTOs, `readonly struct` for ids
-- **No `null` returns for "not found"** — use `TryGet` or an explicit result type
-- **No static mutable state.** Ever. It breaks determinism, tests, and multiple
-  simultaneous sessions (host + client in one process)
-- XML doc comments on public types and any non-obvious logic
-- One type per file, named for the file
-
-### Unity-specific
-
-- `[SerializeField] private` over `public` fields
-- Cache component lookups in `Awake`; never `GetComponent` in `Update`
-- Never `Find`, `FindObjectOfType`, or `SendMessage`
-- Unsubscribe every event in `OnDisable`/`OnDestroy` — a leaked subscription
-  across a scene load is the most common Unity memory bug
-- No allocation in the match loop; verify with the Profiler, don't assume
-- MonoBehaviours are thin: they bind, animate, and forward input. Logic lives in
-  Core.
-
----
+Never send data a client shouldn't see and hide it in the UI. If you add a field
+to `MatchSnapshot`, `SecrecyGateTests` covers it automatically — it compares a
+reflective dump of two matches differing only in a secret commit. Do not weaken
+that test.
 
 ## Testing
 
-| Suite | Speed | Contents |
-|---|---|---|
-| `CardGame.Core.Tests` (EditMode) | **< 5 s total** | All rules logic. `new`s objects directly — no scene, no play mode. |
-| `CardGame.EditMode.Tests` | seconds | Content/asset validation, scene audits, the Core-purity guardrail |
-| `CardGame.PlayMode.Tests` | slow | Binder fidelity, input, scene flow, NGO integration |
+```
+tools/run-core-tests.sh              # 119 tests, ~2s, no Editor needed
+tools/run-core-tests.sh Contention   # substring filter on Fixture.Method
+FOUNDRY_BALANCE=1 tools/run-core-tests.sh Balance   # full balance report
+tools/verify-unity-compile.sh        # type-check Unity assemblies while the Editor holds its lock
+```
 
-**Write rules tests in `Core.Tests`.** If a rules test needs a scene, the logic
-is in the wrong assembly.
+`tools/CoreTests` compiles **the same source files** Unity does — it does not
+fork them — and runs the same NUnit `[Test]` methods by reflection.
 
-Required test categories, all of which exist because of the architecture:
+The runner supports only `[Test]`, `[TestFixture]`, `[SetUp]`, `[TearDown]`, and
+**exits with code 2 rather than silently reporting green** if it finds
+`[TestCase]`, `[UnityTest]`, or similar. So: write plain `[Test]` methods.
 
-- **RNG golden vectors** — fixed seed → hard-coded outputs. This test exists
-  solely to fail loudly if someone "optimizes" the generator, which would
-  silently invalidate every stored replay and save.
-- **Determinism** — same seed + commands twice ⇒ identical state hash.
-- **Hidden-information leak tests** — assert on the serialized **bytes**, not the
-  structure. A structural assertion misses leaks through newly added fields.
-- **Fuzz/invariant walker** — a seeded random legal-move chooser plays thousands
-  of matches asserting invariants after every command. ~60 lines, and it finds
-  rule-interaction bugs no hand-written test will. Store failing seeds as
-  regression fixtures.
+`verify-unity-compile.sh` checks **types, not asmdef boundaries** — everything
+compiles into one assembly, so a script reaching across an undeclared assembly
+reference passes there and fails in Unity. Green means "no type errors", not
+"Unity is happy".
 
-CI gates merges on EditMode only. Gate on the slow suite and contributors start
-skipping tests.
+Rules tests go in `Tests/EditMode`. If a rules test needs a scene, the logic is
+in the wrong assembly.
 
----
+## Running the game
+
+Scenes are **generated by code**, not hand-authored — `Game.SceneTools`.
+
+1. **Foundry ▸ Generate Starter Deck** — writes the 48 card assets + `CardDatabase`
+2. **Foundry ▸ Generate Scenes & Build Settings** — rebuilds Boot / MainMenu /
+   Lobby / Game and sets the build list
+3. Open **Game** and press Play. `HotSeatHost.playerCount` sets seats;
+   `fixedSeed` replays an exact match.
+
+**Re-run both generators after touching `SceneScaffolder` or `StarterDeck`, and
+commit the regenerated assets.** A stale committed scene means the board does not
+start — this has already happened once.
+
+Online: Boot → MainMenu → Host/Join by code → Lobby → Start. Requires UGS linked
+with Authentication, Relay and Lobby enabled.
+
+## Conventions
+
+- Namespaces mirror assemblies: `Game.Core`, `Game.UI`, `Game.Networking`
+- `PascalCase` types/methods/properties, `camelCase` locals/params,
+  `_camelCase` private fields
+- `readonly struct` for ids and value types; `internal` mutators on state so only
+  `RulesEngine` can drive transitions
+- XML doc comments on public types and any non-obvious logic — the existing code
+  does this well and explains *why*, not *what*. Match that.
+- **No static mutable state.** It breaks determinism, tests, and host+client in
+  one process.
+
+### Unity-specific
+
+- `[SerializeField] private` over public fields
+- Cache lookups in `Awake`; never `GetComponent` in `Update`
+- Never `Find`, `FindObjectOfType`, or `SendMessage`
+- Unsubscribe every event in `OnDisable`/`OnDestroy`
+- **No third-party tween libraries.** Use Unity's Animator or coroutine
+  `Mathf.Lerp`/`SmoothStep`. This keeps the dependency set to the official
+  registry and is a deliberate project policy.
+- MonoBehaviours stay thin: bind, animate, forward input. Logic lives in Core.
+
+## Netcode
+
+- **All dice originate on the server** (NET-1). Clients send intent only and
+  never generate, predict, or re-derive a roll.
+- NGO 2.x universal `[Rpc]` attribute — no legacy `[ServerRpc]`/`[ClientRpc]`.
+- Every client→server RPC resolves `SenderClientId` → seat **before** anything
+  else, so a client can only ever act as itself.
+- Every server→client RPC checks `FromServer(rpc)`. Nothing in the transport
+  stops a peer sending one directly to another client.
+- Broadcasts are **coalesced to one per frame** in `LateUpdate`. Each replication
+  costs a snapshot encode *per recipient*; do not replicate inline from a
+  mutation path.
+- A disconnected player **counts as decided** so the phase closes immediately
+  instead of burning a full timer on an absent device.
+- Seats are owned by a **stable key** (the UGS auth id), not a transport id —
+  that is what makes reconnect work.
+- **No host migration.** Out of scope (NET-4).
 
 ## Git and process
 
-- Branch per story: `feat/STORY-3.2-card-drag-drop`
-- `feat(rules): add discard shuffle-back on empty draw` — imperative, scoped;
-  story id in the body, not the subject
-- **Never commit `Library/`, `Temp/`, `Logs/`, or generated `.csproj`/`.sln`**
+- Branch per story: `feat/M6.1-reveal-choreography`
+- `feat(ui): stage the reveal beat` — imperative, scoped; story id in the body
+- Never commit `Library/`, `Temp/`, `Logs/`, or generated `.csproj`/`.sln`
 - **A new asset's `.meta` file is part of the commit.** A missing meta file
-  reassigns the GUID on next import and silently breaks every reference to it.
-- **Never hand-delete a `.meta` file.**
-- One person edits a given scene at a time. Prefer prefabs over scene objects,
-  and ScriptableObjects over prefabs, for anything data-shaped.
+  reassigns the GUID on next import and silently breaks every reference.
+- Never hand-delete a `.meta` file.
+- Regenerated scenes and card assets are commits like any other — see above.
 
 ## Working notes for Claude
 
-- Check the story's **genre dependency** tag before starting. `blocking` means
-  stop.
-- The architecture doc is the authority; if this file and it disagree, the
-  architecture doc wins and this file needs fixing.
-- When adding a new system, state which assembly it belongs in and why, before
-  writing code.
-- Don't add a package without a stated reason — `docs/architecture/overview.md`
-  lists what's approved and what is explicitly rejected, with rationale.
+- Read `docs/game-design.md` before touching rules or UI. The requirement ids
+  (CORE-n, MKT-n, CARD-n, NET-n, UI-n) are referenced throughout the code.
+- State which assembly a new system belongs in, and why, before writing it.
+- Run `tools/run-core-tests.sh` before claiming anything works.
+- Don't add a package without a stated reason. Addressables is already installed
+  and entirely unused; `com.unity.ai.assistant` is a pre-release. Both are
+  removal candidates, not precedents.
