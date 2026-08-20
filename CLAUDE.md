@@ -239,3 +239,28 @@ with Authentication, Relay and Lobby enabled.
 - Don't add a package without a stated reason. Addressables is already installed
   and entirely unused; `com.unity.ai.assistant` is a pre-release. Both are
   removal candidates, not precedents.
+
+## Communicating locations
+
+The user did not author this project and does not know where things live in
+it. A bare relative path (`.github/workflows/core-tests.yml`) assumes context
+they don't have. When telling them where something is, always give:
+
+1. **The platform** — GitHub, the local repo, GitHub Actions, GitHub Issues,
+   the Unity Editor, etc. "In the repo" is not enough; say which surface.
+2. **The exact repo** — `aycee247/CardGameTest`, spelled out, not implied.
+3. **The full path from the repo root**, not a filename or a truncated path.
+4. **A clickable link whenever one exists.** Build it from the known base —
+   `https://github.com/aycee247/CardGameTest/blob/main/<path>` for a file,
+   `.../issues/<n>` for an issue, `.../actions/runs/<id>` for a workflow run,
+   `.../tree/main/<path>` for a folder — rather than leaving the user to
+   construct it.
+
+Bad: "It's in `.github/workflows/core-tests.yml`."
+Good: "In GitHub, in `aycee247/CardGameTest`, at
+`.github/workflows/core-tests.yml`:
+https://github.com/aycee247/CardGameTest/blob/main/.github/workflows/core-tests.yml"
+
+This applies to Unity asset paths too — say `Assets/_Project/Code/Core/RulesEngine.cs`,
+never just `RulesEngine.cs`, since the same class name can exist in more than
+one folder and the user has no mental map of the tree yet.
