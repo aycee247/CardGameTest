@@ -105,11 +105,11 @@ These exist because Unity punishes teams that ignore them.
 No sprints. Work flows through a board; the backlog is ranked; there is exactly
 one "next story."
 
-- **Board columns:** Ready → In progress → Verify → Done.
+- **Board columns:** Ready → In progress → In Testing → Done.
 - **WIP limit: 2.** At most two stories in "In progress" at once. Finishing
   beats starting.
-- **Verify** means the acceptance criteria are being checked against a running
-  build, not that the code compiles.
+- **In Testing** means the acceptance criteria are being checked against a
+  running build, not that the code compiles.
 - **The one standing ceremony is a weekly playtest.** The project's standing
   risk is that everything is proven under test and unproven by a player — put a
   human on the build every week and write down what they hit.
@@ -123,7 +123,7 @@ context; **the issue board is the live truth for status.** Commits close
 stories with `Closes #n` in the body.
 
 Board setup (one-time, manual — the API doesn't expose Projects): GitHub →
-Projects → New project → Board; columns Ready / In progress / Verify / Done;
+Projects → New project → Board; columns Ready / In progress / In Testing / Done;
 enable auto-add for repository issues.
 
 ## 8. Backlog hygiene
