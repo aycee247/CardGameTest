@@ -17,6 +17,13 @@ namespace Game.App
         public void LoadBoot() => SceneManager.LoadSceneAsync(SceneNames.Boot, LoadSceneMode.Single);
 
         /// <summary>
+        /// Local (hot-seat) load of the Game scene. No NGO session is involved, so
+        /// <see cref="GameSceneBootstrap"/> sees no live NetworkManager and starts the hot-seat
+        /// match. Works with UGS entirely unavailable.
+        /// </summary>
+        public void LoadGame() => SceneManager.LoadSceneAsync(SceneNames.Game, LoadSceneMode.Single);
+
+        /// <summary>
         /// Server-only: load the Game scene for all clients via NGO. Safe to call only once the
         /// NetworkManager is listening (a session is active and this peer is the server/host).
         /// </summary>

@@ -37,7 +37,13 @@ namespace Game.App
 
             view.HostClicked += OnHost;
             view.JoinClicked += OnJoin;
-            view.SetStatus("Ready");
+            view.PassPlayClicked += OnPassPlay;
+
+            if (GameServices.Locator.TryGet<BootStatus>(out var boot) && boot.OnlineFailed)
+                view.SetStatus("Online unavailable — couldn't reach Unity services. " +
+                               "Host/Join will retry; Pass & Play works offline.");
+            else
+                view.SetStatus("Ready");
         }
 
         private void OnDestroy()
@@ -45,6 +51,16 @@ namespace Game.App
             if (view == null) return;
             view.HostClicked -= OnHost;
             view.JoinClicked -= OnJoin;
+            view.PassPlayClicked -= OnPassPlay;
+        }
+
+        private void OnPassPlay()
+        {
+            // Hot-seat is fully local (NET-5): no session, no UGS — just load the Game scene and
+            // let GameSceneBootstrap start the pass-the-device match.
+            view.SetInteractable(false);
+            view.SetStatus("Starting pass & play…");
+            _sceneFlow.LoadGame();
         }
 
         private async void OnHost()

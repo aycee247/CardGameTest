@@ -44,14 +44,17 @@ namespace Game.App
             {
                 var session = GameServices.Locator.Get<SessionManager>();
                 await session.InitializeAsync();
-
-                GameServices.Locator.Get<SceneFlowService>().LoadMainMenu();
             }
             catch (Exception e)
             {
-                Debug.LogError($"[Bootstrap] Initialization failed: {e}");
-                // TODO: surface a retry/offline UI instead of hanging on the Boot scene.
+                // Online is optional at boot: hot-seat shares no UGS code (NET-5), and Host/Join
+                // re-attempt init through SessionManager. Record why it failed for the menu to
+                // show, and keep going — stalling here bricked first runs without UGS.
+                Debug.LogError($"[Bootstrap] Online services unavailable: {e}");
+                GameServices.Locator.Get<BootStatus>().ReportOnlineFailure(e.Message);
             }
+
+            GameServices.Locator.Get<SceneFlowService>().LoadMainMenu();
         }
 
         private void BuildServiceGraph()
@@ -76,6 +79,9 @@ namespace Game.App
 
             // Scene flow
             locator.Register(new SceneFlowService());
+
+            // Boot outcome, for the menu to explain a degraded (offline) start.
+            locator.Register(new BootStatus());
 
             GameServices.Locator = locator;
         }

@@ -44,7 +44,10 @@ namespace Game.SceneTools
                 return;
             }
 
-            if (!EditorUtility.DisplayDialog("Generate Scenes",
+            // In batchmode the dialog can't be answered and cancels the run, so skip it there —
+            // a headless invocation (-executeMethod) has already opted in.
+            if (!Application.isBatchMode &&
+                !EditorUtility.DisplayDialog("Generate Scenes",
                 "This creates/overwrites Boot, MainMenu, Lobby and Game scenes under " + SceneDir +
                 " and sets the Build Settings scene list. Continue?", "Generate", "Cancel"))
                 return;
@@ -109,12 +112,14 @@ namespace Game.SceneTools
             var host = UiFactory.Button(content, "HostButton", "Host Game", new Vector2(0, 300), new Vector2(560, 130));
             var codeInput = UiFactory.InputField(content, "JoinCodeInput", "Enter join code", new Vector2(0, 120), new Vector2(560, 110));
             var join = UiFactory.Button(content, "JoinButton", "Join Game", new Vector2(0, -40), new Vector2(560, 130));
-            var status = UiFactory.Label(content, "Status", "", new Vector2(0, -240), new Vector2(900, 80), 36f);
-            var codeLabel = UiFactory.Label(content, "JoinCode", "", new Vector2(0, -360), new Vector2(900, 80), 36f);
+            var passPlay = UiFactory.Button(content, "PassPlayButton", "Pass & Play", new Vector2(0, -220), new Vector2(560, 130));
+            var status = UiFactory.Label(content, "Status", "", new Vector2(0, -400), new Vector2(900, 80), 36f);
+            var codeLabel = UiFactory.Label(content, "JoinCode", "", new Vector2(0, -520), new Vector2(900, 80), 36f);
 
             var view = content.gameObject.AddComponent<MainMenuView>();
             SetRef(view, "hostButton", host);
             SetRef(view, "joinButton", join);
+            SetRef(view, "passPlayButton", passPlay);
             SetRef(view, "joinCodeInput", codeInput);
             SetRef(view, "statusLabel", status);
             SetRef(view, "joinCodeLabel", codeLabel);
