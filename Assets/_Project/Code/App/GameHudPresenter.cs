@@ -107,12 +107,15 @@ namespace Game.App
 
         /// <summary>
         /// Online the phase clock ticks between server messages, so the countdown has to be redrawn
-        /// per frame rather than only when a snapshot arrives. Offline SecondsLeft is negative and
-        /// this does nothing visible.
+        /// per frame rather than only when a snapshot arrives. This only touches the timer label
+        /// (STORY-2.8) — the rest of the board re-renders on <see cref="OnMatchChanged"/>, not here.
+        /// Offline SecondsLeft is negative and this does nothing visible.
         /// </summary>
         private void Update()
         {
-            if (_match != null && _match.SecondsLeft >= 0f) Refresh();
+            if (view == null || _match == null) return;
+            float secondsLeft = _match.SecondsLeft;
+            if (secondsLeft >= 0f) view.Tick(secondsLeft, _match.Current.IsMatchOver);
         }
 
         private void OnMatchChanged(MatchSnapshot snapshot) => Refresh();
