@@ -13,6 +13,7 @@ namespace Game.Core
         public string CostText;
         public string PowerText;
         public int Points;
+        public PowerFamily Family;
 
         /// <summary>True if the observing player's unspent dice could pay for it right now (UI-3).</summary>
         public bool AffordableNow;
@@ -26,6 +27,44 @@ namespace Game.Core
         public string DisplayName;
         public string PowerText;
         public int Points;
+        public PowerFamily Family;
+    }
+
+    /// <summary>
+    /// One claimed market card during <see cref="RoundPhase.Reveal"/> — who contests it and who
+    /// will take it. A projection of <see cref="RulesEngine.PreviewResolution"/>, present only
+    /// while commits are public anyway, so it reveals nothing the phase has not (NET-2).
+    /// </summary>
+    [Serializable]
+    public struct RevealSnapshot
+    {
+        public int CardId;
+        public string DisplayName;
+        public int Tier;
+        public int Points;
+        public string PowerText;
+        public PowerFamily Family;
+
+        /// <summary>Everyone who committed to this card, best priority first — the winner leads.</summary>
+        public int[] ClaimantIds;
+        public int WinnerId;
+        public bool Contested;
+    }
+
+    /// <summary>One row of the final standings, tie-breaks already applied (CARD-3).</summary>
+    [Serializable]
+    public struct FinalScoreSnapshot
+    {
+        public int PlayerId;
+        public string DisplayName;
+        public int CardPoints;
+        public int PowerPoints;
+        public int Total;
+        public int Sparks;
+        public int CardCount;
+
+        /// <summary>0 = winner. Ordering matches <see cref="Scoring.FinalScores"/> exactly.</summary>
+        public int Rank;
     }
 
     /// <summary>
@@ -74,6 +113,12 @@ namespace Game.Core
         public int NudgesLeft;
         public int SetsLeft;
 
+        /// <summary>Faces this player's Wild powers let stand in for anything. Observer-only.</summary>
+        public int[] WildFaces;
+
+        /// <summary>How many dice this player may float to any face. Observer-only.</summary>
+        public int WildDice;
+
         public OwnedCardSnapshot[] Owned;
     }
 
@@ -105,6 +150,21 @@ namespace Game.Core
 
         public bool IsMatchOver;
         public int WinnerId;
+
+        /// <summary>
+        /// Match rules echo, identical for every observer, so the client and server agree on caps,
+        /// costs and phase durations without a second source of truth (CORE-2).
+        /// </summary>
+        public MatchConfig Config;
+
+        /// <summary>
+        /// The pending resolution, one entry per claimed card. Populated only during
+        /// <see cref="RoundPhase.Reveal"/> — the same gate that makes commits public.
+        /// </summary>
+        public RevealSnapshot[] Reveals;
+
+        /// <summary>Final standings, winner first. Populated only once the match is over.</summary>
+        public FinalScoreSnapshot[] Standings;
 
         /// <summary>
         /// Builds the view <paramref name="observer"/> is allowed to see. Callers must build one per
@@ -145,8 +205,90 @@ namespace Game.Core
                 RepickContenders = state.RepickContenders.Select(id => id.Value).ToArray(),
 
                 IsMatchOver = state.Phase == RoundPhase.MatchOver,
-                WinnerId = winner?.Value ?? -1
+                WinnerId = winner?.Value ?? -1,
+
+                Config = state.Config,
+                Reveals = state.Phase == RoundPhase.Reveal
+                    ? BuildReveals(state)
+                    : Array.Empty<RevealSnapshot>(),
+                Standings = state.Phase == RoundPhase.MatchOver
+                    ? BuildStandings(state)
+                    : Array.Empty<FinalScoreSnapshot>()
             };
+        }
+
+        private static RevealSnapshot[] BuildReveals(MatchState state)
+        {
+            var report = RulesEngine.PreviewResolution(state);
+            if (report.Outcomes.Count == 0) return Array.Empty<RevealSnapshot>();
+
+            var reveals = new System.Collections.Generic.List<RevealSnapshot>();
+
+            // Outcomes arrive grouped per card, winner first — walk the runs.
+            for (int start = 0; start < report.Outcomes.Count;)
+            {
+                var cardId = report.Outcomes[start].Card;
+                int end = start;
+                while (end < report.Outcomes.Count && report.Outcomes[end].Card.Value == cardId.Value) end++;
+
+                var claimants = new int[end - start];
+                int winnerId = -1;
+                for (int i = start; i < end; i++)
+                {
+                    claimants[i - start] = report.Outcomes[i].Player.Value;
+                    if (report.Outcomes[i].Granted) winnerId = report.Outcomes[i].Player.Value;
+                }
+
+                var reveal = new RevealSnapshot
+                {
+                    CardId = cardId.Value,
+                    DisplayName = string.Empty,
+                    PowerText = string.Empty,
+                    ClaimantIds = claimants,
+                    WinnerId = winnerId,
+                    Contested = claimants.Length > 1
+                };
+
+                // The card is still in the market during Reveal; it only leaves when the pass resolves.
+                var card = state.Market.FirstOrDefault(c => c.Id.Value == cardId.Value);
+                if (card != null)
+                {
+                    reveal.DisplayName = card.DisplayName;
+                    reveal.Tier = card.Tier;
+                    reveal.Points = card.Points;
+                    reveal.PowerText = card.Power.Describe();
+                    reveal.Family = card.Family;
+                }
+
+                reveals.Add(reveal);
+                start = end;
+            }
+
+            return reveals.ToArray();
+        }
+
+        private static FinalScoreSnapshot[] BuildStandings(MatchState state)
+        {
+            var finals = Scoring.FinalScores(state);
+            var standings = new FinalScoreSnapshot[finals.Count];
+
+            for (int i = 0; i < finals.Count; i++)
+            {
+                var s = finals[i];
+                standings[i] = new FinalScoreSnapshot
+                {
+                    PlayerId = s.Player.Value,
+                    DisplayName = s.DisplayName,
+                    CardPoints = s.CardPoints,
+                    PowerPoints = s.PowerPoints,
+                    Total = s.Total,
+                    Sparks = s.Sparks,
+                    CardCount = s.CardCount,
+                    Rank = i
+                };
+            }
+
+            return standings;
         }
 
         private static PlayerSnapshot BuildPlayer(
@@ -181,13 +323,15 @@ namespace Game.Core
 
                 PendingCardId = -1,
                 PendingDice = Array.Empty<int>(),
+                WildFaces = Array.Empty<int>(),
 
                 Owned = p.Owned.Select(c => new OwnedCardSnapshot
                 {
                     CardId = c.Id.Value,
                     DisplayName = c.DisplayName,
                     PowerText = c.Power.Describe(),
-                    Points = c.Points
+                    Points = c.Points,
+                    Family = c.Family
                 }).ToArray()
             };
 
@@ -203,6 +347,8 @@ namespace Game.Core
                 snapshot.RerollsLeft = p.Allowance.Rerolls;
                 snapshot.NudgesLeft = p.Allowance.Nudges;
                 snapshot.SetsLeft = p.Allowance.Sets;
+                snapshot.WildFaces = p.WildFaces().OrderBy(f => f).ToArray();
+                snapshot.WildDice = p.WildDice();
             }
 
             return snapshot;
@@ -226,6 +372,7 @@ namespace Game.Core
                 CostText = card.DescribeCost(),
                 PowerText = card.Power.Describe(),
                 Points = card.Points,
+                Family = card.Family,
                 AffordableNow = affordable
             };
         }

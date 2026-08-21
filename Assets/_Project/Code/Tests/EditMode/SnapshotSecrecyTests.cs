@@ -101,6 +101,24 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void WildPowersAreOnlyReportedToTheirOwner()
+        {
+            // Knowing an opponent holds a wild lets you price their reach into every contest —
+            // same class of leak as the free allowances above.
+            Make.Grant(_state.Players[0], Make.Pair(91, power: CardPower.WildFace(6), family: PowerFamily.Wild));
+            Make.Grant(_state.Players[0], Make.Pair(92, power: CardPower.WildDie(1), family: PowerFamily.Wild));
+
+            var asP0 = MatchSnapshot.For(_state, new PlayerId(0));
+            var asP1 = MatchSnapshot.For(_state, new PlayerId(1));
+
+            CollectionAssert.AreEqual(new[] { 6 }, asP0.Observer.WildFaces);
+            Assert.AreEqual(1, asP0.Observer.WildDice);
+
+            Assert.IsEmpty(RowFor(asP1, 0).WildFaces);
+            Assert.AreEqual(0, RowFor(asP1, 0).WildDice);
+        }
+
+        [Test]
         public void AffordabilityIsComputedAgainstTheObserversOwnDice()
         {
             var threeOfAKind = Make.Card(3, new NOfAKindRequirement(3));

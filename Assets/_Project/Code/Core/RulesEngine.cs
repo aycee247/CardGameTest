@@ -358,11 +358,12 @@ namespace Game.Core
         }
 
         /// <summary>
-        /// Resolves every pending commit. Cards drawing more than one claimant go to the player with
-        /// the best priority — lowest score first (MKT-3, MKT-4). Losers keep their dice and are
-        /// returned so the caller can offer them a re-pick.
+        /// Computes what resolving the pending commits would produce, without mutating anything.
+        /// The reveal UI shows this during <see cref="RoundPhase.Reveal"/> — before outcomes land —
+        /// and because it shares grouping and priority logic with <see cref="ResolveOnePass"/> the
+        /// preview can never disagree with the engine (UI-4).
         /// </summary>
-        private static ResolutionReport ResolveOnePass(MatchState state)
+        public static ResolutionReport PreviewResolution(MatchState state)
         {
             var outcomes = new List<ClaimOutcome>();
             var losers = new List<PlayerId>();
@@ -383,34 +384,47 @@ namespace Game.Core
                 if (contenders.Count > 1) hadContention = true;
 
                 var cardId = new CardId(group.Key);
-                var card = state.TakeFromMarket(cardId);
 
-                if (card == null)
+                // Defensive: the market is only drained by ResolveOnePass, so a missing card should
+                // be unreachable; if it happens, every contender loses.
+                bool inMarket = state.Market.Any(c => c.Id.Value == group.Key);
+
+                for (int i = 0; i < contenders.Count; i++)
                 {
-                    // Defensive: the market is only drained here, so this should be unreachable.
-                    foreach (var p in contenders)
-                    {
-                        outcomes.Add(new ClaimOutcome(p.Id, cardId, false));
-                        losers.Add(p.Id);
-                    }
-                    continue;
-                }
-
-                var winner = contenders[0];
-                winner.OwnedCards.Add(card);
-                winner.Dice.MarkSpent(winner.Pending.Value.DiceIndices);
-                winner.GainedCardThisRound = true;
-                outcomes.Add(new ClaimOutcome(winner.Id, cardId, true));
-
-                for (int i = 1; i < contenders.Count; i++)
-                {
-                    outcomes.Add(new ClaimOutcome(contenders[i].Id, cardId, false));
-                    losers.Add(contenders[i].Id);
+                    bool granted = inMarket && i == 0;
+                    outcomes.Add(new ClaimOutcome(contenders[i].Id, cardId, granted));
+                    if (!granted) losers.Add(contenders[i].Id);
                 }
             }
 
-            state.ClearPendingCommits();
             return new ResolutionReport(outcomes, losers, hadContention);
+        }
+
+        /// <summary>
+        /// Resolves every pending commit. Cards drawing more than one claimant go to the player with
+        /// the best priority — lowest score first (MKT-3, MKT-4). Losers keep their dice and are
+        /// returned so the caller can offer them a re-pick. The decisions come verbatim from
+        /// <see cref="PreviewResolution"/>; this step only applies them.
+        /// </summary>
+        private static ResolutionReport ResolveOnePass(MatchState state)
+        {
+            var report = PreviewResolution(state);
+
+            foreach (var outcome in report.Outcomes)
+            {
+                if (!outcome.Granted) continue;
+
+                var winner = state.Find(outcome.Player);
+                var card = state.TakeFromMarket(outcome.Card);
+                if (winner == null || card == null) continue;   // preview checked; unreachable
+
+                winner.OwnedCards.Add(card);
+                winner.Dice.MarkSpent(winner.Pending.Value.DiceIndices);
+                winner.GainedCardThisRound = true;
+            }
+
+            state.ClearPendingCommits();
+            return report;
         }
     }
 }

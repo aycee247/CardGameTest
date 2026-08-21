@@ -61,6 +61,33 @@ namespace Game.Core
         public int CommitSeconds = 15;
         public int RepickSeconds = 10;
 
+        /// <summary>
+        /// Automatic-phase beats in seconds. Reveal scales with the number of claimed cards so the
+        /// one-contest-at-a-time reveal sequence fits inside the phase (UI-4).
+        /// </summary>
+        public float RollSeconds = 1.5f;
+        public float RevealBaseSeconds = 2.5f;
+        public float RevealPerClaimSeconds = 2.4f;
+        public float UpkeepSeconds = 4f;
+
+        /// <summary>
+        /// Full duration of a phase. The server clock and the client's timer ring both read this,
+        /// so neither side ever guesses a denominator (CORE-2).
+        /// </summary>
+        public float DurationOf(RoundPhase phase, int revealClaims = 0)
+        {
+            switch (phase)
+            {
+                case RoundPhase.Roll: return RollSeconds;
+                case RoundPhase.Shape: return ShapeSeconds;
+                case RoundPhase.Commit: return CommitSeconds;
+                case RoundPhase.Reveal: return RevealBaseSeconds + RevealPerClaimSeconds * revealClaims;
+                case RoundPhase.Repick: return RepickSeconds;
+                case RoundPhase.Upkeep: return UpkeepSeconds;
+                default: return float.PositiveInfinity;
+            }
+        }
+
         public static MatchConfig Default => new MatchConfig();
     }
 }

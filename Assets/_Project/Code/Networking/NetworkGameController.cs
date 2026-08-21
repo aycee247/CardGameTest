@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Game.Core;
 using Unity.Netcode;
 using Unity.Services.Authentication;
@@ -26,10 +27,6 @@ namespace Game.Networking
     /// </summary>
     public sealed class NetworkGameController : NetworkBehaviour, IGameActions, IMatchView
     {
-        /// <summary>Seconds the automatic phases linger, so players can read what happened.</summary>
-        private const float RollBeatSeconds = 1.5f;
-        private const float RevealBeatSeconds = 4f;
-        private const float UpkeepBeatSeconds = 2.5f;
 
         /// <summary>
         /// Intent budget per player. Generous enough that real play never touches it — selecting
@@ -269,21 +266,16 @@ namespace Game.Networking
 
         private void SchedulePhaseEnd()
         {
-            var config = _server.State.Config;
-            float duration;
+            var state = _server.State;
 
-            switch (_server.State.Phase)
-            {
-                case RoundPhase.Roll: duration = RollBeatSeconds; break;
-                case RoundPhase.Shape: duration = config.ShapeSeconds; break;
-                case RoundPhase.Commit: duration = config.CommitSeconds; break;
-                case RoundPhase.Reveal: duration = RevealBeatSeconds; break;
-                case RoundPhase.Repick: duration = config.RepickSeconds; break;
-                case RoundPhase.Upkeep: duration = UpkeepBeatSeconds; break;
-                default: duration = float.PositiveInfinity; break;
-            }
+            // Reveal lasts long enough for the client's per-claim beats (UI-4); the count feeds
+            // the same DurationOf the clients read from the config echo, so both ends agree.
+            int revealClaims = state.Phase == RoundPhase.Reveal
+                ? state.Players.Where(p => p.Pending.HasValue)
+                    .Select(p => p.Pending.Value.CardId.Value).Distinct().Count()
+                : 0;
 
-            _phaseEndsAt = Time.time + duration;
+            _phaseEndsAt = Time.time + state.Config.DurationOf(state.Phase, revealClaims);
         }
 
         // ---------------- IGameActions (called by the UI on the local client) ----------------
