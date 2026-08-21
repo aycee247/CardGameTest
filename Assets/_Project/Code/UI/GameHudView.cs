@@ -141,7 +141,11 @@ namespace Game.UI
             if (allowanceLabel != null) allowanceLabel.text = DescribeAllowance(me);
 
             RenderRail(snapshot);
-            RenderDice(me, canAct && shapingAllowed);
+            // Dice selection tracks "can I act" (Shape, Commit, or Repick — CORE-5, MKT-3), not
+            // "can I shape": shapingAllowed only gates the free reroll/nudge/set powers below,
+            // which are Shape-only. Tying it to dice interactivity here disabled the whole tray
+            // during a re-pick pass, since HotSeatHost forces shapingAllowed false there.
+            RenderDice(me, canAct);
             RenderMarket(snapshot, canAct);
             RenderControls(me, canAct, shapingAllowed);
         }
