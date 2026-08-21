@@ -109,6 +109,19 @@ namespace Game.UI
             _selected.Clear();
         }
 
+        /// <summary>
+        /// Updates only the countdown label. Online the clock ticks between server snapshots, so
+        /// this runs every frame; the rest of the board only changes on a new snapshot and should
+        /// not be rebuilt that often (STORY-2.8).
+        /// </summary>
+        public void Tick(float secondsLeft, bool matchOver)
+        {
+            if (timerLabel == null) return;
+            bool ticking = secondsLeft >= 0f && !matchOver;
+            timerLabel.gameObject.SetActive(ticking);
+            if (ticking) timerLabel.text = Mathf.CeilToInt(secondsLeft).ToString();
+        }
+
         /// <summary>Renders with no phase clock — the hot-seat case.</summary>
         public void Render(in MatchSnapshot snapshot, bool canAct, bool shapingAllowed) =>
             Render(snapshot, canAct, shapingAllowed, -1f);
@@ -122,12 +135,7 @@ namespace Game.UI
         {
             _canAct = canAct;
 
-            if (timerLabel != null)
-            {
-                bool ticking = secondsLeft >= 0f && !snapshot.IsMatchOver;
-                timerLabel.gameObject.SetActive(ticking);
-                if (ticking) timerLabel.text = Mathf.CeilToInt(secondsLeft).ToString();
-            }
+            Tick(secondsLeft, snapshot.IsMatchOver);
 
             var me = snapshot.Observer;
 
