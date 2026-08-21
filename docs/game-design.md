@@ -233,7 +233,7 @@ It gathers references three ways, because Unity uses three mechanisms: `<HintPat
 
 ### Playing a hot-seat match
 
-1. **Foundry ▸ Generate Starter Deck** — 36 cards over three tiers, plus the `CardDatabase`. It validates as it goes and logs an error for any cost no legal dice pool could pay.
+1. **Foundry ▸ Generate Starter Deck** — 48 cards over three tiers, plus the `CardDatabase`. It validates as it goes and logs an error for any cost no legal dice pool could pay.
 2. **Foundry ▸ Generate Scenes & Build Settings** — rebuilds Boot / MainMenu / Lobby / Game.
 3. Open the **Game** scene and press play. `HotSeatHost` starts a match immediately; set `playerCount` on it for 2–6 seats, or `fixedSeed` to replay an exact match.
 
@@ -292,7 +292,6 @@ The rule that matters: **a disconnected player counts as decided.** `RulesEngine
 - **UI-1 is met by per-player rows** in the rail, ordered by priority, showing score, dice, Sparks, cards and decided/connection state.
 - **UI-2, the phase countdown, is wired but only visible online.** Hot-seat has no clock, so `SecondsLeft` is negative there and the label hides itself.
 - **UI-4, the reveal beat, is a static list.** It says who won and lost what; it does not animate.
-- The deck is 36 cards, not the specced 48, and is unbalanced by design until M5.
 
 ---
 

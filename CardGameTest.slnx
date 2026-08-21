@@ -2,11 +2,12 @@
   <Project Path="Game.Data.csproj" />
   <Project Path="Game.UI.csproj" />
   <Project Path="Game.Core.csproj" />
-  <Project Path="Game.App.csproj" />
   <Project Path="Game.EditModeTests.csproj" />
+  <Project Path="Game.App.csproj" />
   <Project Path="Game.Audio.csproj" />
   <Project Path="Game.SceneTools.csproj" />
   <Project Path="Game.Networking.csproj" />
   <Project Path="Game.Persistence.csproj" />
   <Project Path="Game.EditorTools.csproj" />
+  <Project Path="Game.PlayModeTests.csproj" />
 </Solution>

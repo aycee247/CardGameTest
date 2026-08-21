@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c07d15a1f2a754f7fa8389e89b0fe167, type: 3}
+  m_Name: Card_15_Ledger_Stone
+  m_EditorClassIdentifier: Game.Data::Game.Data.CardDefinition
+  cardId: 15
+  displayName: Ledger Stone
+  artwork: {fileID: 0}
+  tier: 1
+  family: 4
+  points: 2
+  power:
+    kind: 9
+    magnitude: 2
+    face: 0
+    countsFamily: 0
+  combineMode: 0
+  requirements:
+  - kind: 1
+    n: 0
+    face: 0
+    runLength: 3
+    sumTarget: 0
+    sumComparison: 1
+    requiredFaces: 
