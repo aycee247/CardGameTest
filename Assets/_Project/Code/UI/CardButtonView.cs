@@ -1,5 +1,6 @@
 using System;
 using Game.Core;
+using Game.Data;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -24,11 +25,8 @@ namespace Game.UI
         [SerializeField] private Image background;
         [SerializeField] private Button button;
 
-        // Both stay dark: the labels are light, so a light "affordable" fill renders white on white.
-        // Affordability reads as a lift in brightness against the dimmed state, not as a colour flip.
-        [Header("State colours")]
-        [SerializeField] private Color affordableColor = new Color(0.22f, 0.27f, 0.36f);
-        [SerializeField] private Color unaffordableColor = new Color(0.13f, 0.14f, 0.18f);
+        [Tooltip("Colour tokens, re-read every render so a theme swap shows without regenerating.")]
+        [SerializeField] private ThemeAsset theme;
 
         public int CardId { get; private set; }
 
@@ -55,8 +53,13 @@ namespace Game.UI
             if (tierText != null) tierText.text = "T" + card.Tier;
             if (artwork != null && art != null) artwork.sprite = art;
 
-            if (background != null)
-                background.color = card.AffordableNow ? affordableColor : unaffordableColor;
+            // Affordable reads as the paper lift; unaffordable recedes into the board at half
+            // strength. The border-and-opacity treatment the design specifies lands with the
+            // blueprint frame; until then the fill change carries the state.
+            if (background != null && theme != null)
+                background.color = card.AffordableNow
+                    ? theme.surfaceBase
+                    : new Color(theme.surfaceRaised.r, theme.surfaceRaised.g, theme.surfaceRaised.b, 0.5f);
 
             if (button != null) button.interactable = interactable;
         }

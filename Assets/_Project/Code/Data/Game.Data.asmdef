@@ -2,7 +2,8 @@
     "name": "Game.Data",
     "rootNamespace": "Game.Data",
     "references": [
-        "Game.Core"
+        "Game.Core",
+        "Unity.TextMeshPro"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -78,6 +78,19 @@ namespace Game.Core
         public bool IsFinalRound => Round >= Config.Rounds;
 
         /// <summary>
+        /// Distinct market cards with at least one pending commit — how many beats the Reveal
+        /// sequence will play. Public because the server clock sizes the Reveal window with it
+        /// while the commits themselves stay internal.
+        /// </summary>
+        public int PendingClaimCount()
+        {
+            var seen = new HashSet<int>();
+            for (int i = 0; i < _players.Count; i++)
+                if (_players[i].Pending.HasValue) seen.Add(_players[i].Pending.Value.CardId.Value);
+            return seen.Count;
+        }
+
+        /// <summary>
         /// Orders players by lowest score first, then fewest cards, then seat index. Handing first
         /// pick to whoever is behind is the catch-up mechanism, built into the core loop (MKT-4).
         /// Seat index makes the order total, so the same state always yields the same order on

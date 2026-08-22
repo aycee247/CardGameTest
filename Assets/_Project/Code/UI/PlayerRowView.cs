@@ -1,4 +1,5 @@
 using Game.Core;
+using Game.Data;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -22,12 +23,8 @@ namespace Game.UI
         [SerializeField] private Image background;
         [SerializeField] private Image priorityMarker;
 
-        [Header("Colours")]
-        [SerializeField] private Color rowColor = new Color(0.13f, 0.15f, 0.19f, 1f);
-        [SerializeField] private Color observerRowColor = new Color(0.19f, 0.23f, 0.30f, 1f);
-        [SerializeField] private Color readyColor = new Color(0.42f, 0.76f, 0.55f);
-        [SerializeField] private Color thinkingColor = new Color(0.62f, 0.65f, 0.70f);
-        [SerializeField] private Color troubleColor = new Color(0.90f, 0.55f, 0.35f);
+        [Tooltip("Colour tokens, re-read every render so a theme swap shows without regenerating.")]
+        [SerializeField] private ThemeAsset theme;
 
         public void Set(in PlayerSnapshot player, bool isObserver)
         {
@@ -37,7 +34,8 @@ namespace Game.UI
             if (detailText != null)
                 detailText.text = $"{player.DiceFaces?.Length ?? 0}d   {player.Sparks}sp   {player.CardCount}c";
 
-            if (background != null) background.color = isObserver ? observerRowColor : rowColor;
+            if (background != null && theme != null)
+                background.color = isObserver ? theme.Accent(100) : theme.surfaceRaised;
 
             // Priority is public and worth reading at a glance: it is who wins a contested card.
             if (priorityMarker != null) priorityMarker.enabled = player.PriorityRank == 0;
@@ -51,20 +49,24 @@ namespace Game.UI
 
         private string DescribeState(in PlayerSnapshot player, out Color color)
         {
+            var trouble = theme != null ? theme.stateTrouble : Color.white;
+
             switch (player.Status)
             {
                 case SeatStatus.Reconnecting:
-                    color = troubleColor;
+                    color = trouble;
                     return player.ReconnectSecondsLeft > 0f
                         ? $"reconnecting {Mathf.CeilToInt(player.ReconnectSecondsLeft)}s"
                         : "reconnecting";
 
                 case SeatStatus.Abandoned:
-                    color = troubleColor;
+                    color = trouble;
                     return "left";
             }
 
-            color = player.HasDecided ? readyColor : thinkingColor;
+            color = theme == null ? Color.white
+                : player.HasDecided ? theme.stateReady
+                : theme.stateThinking;
             return player.HasDecided ? "ready" : "thinking";
         }
     }

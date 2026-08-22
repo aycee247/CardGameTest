@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Game.Core;
 using Unity.Netcode;
 using Unity.Services.Authentication;
@@ -270,10 +269,7 @@ namespace Game.Networking
 
             // Reveal lasts long enough for the client's per-claim beats (UI-4); the count feeds
             // the same DurationOf the clients read from the config echo, so both ends agree.
-            int revealClaims = state.Phase == RoundPhase.Reveal
-                ? state.Players.Where(p => p.Pending.HasValue)
-                    .Select(p => p.Pending.Value.CardId.Value).Distinct().Count()
-                : 0;
+            int revealClaims = state.Phase == RoundPhase.Reveal ? state.PendingClaimCount() : 0;
 
             _phaseEndsAt = Time.time + state.Config.DurationOf(state.Phase, revealClaims);
         }

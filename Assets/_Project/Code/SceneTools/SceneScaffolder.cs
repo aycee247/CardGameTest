@@ -30,6 +30,9 @@ namespace Game.SceneTools
         private const string DatabasePath = "Assets/_Project/ScriptableObjects/CardDatabase.asset";
         private static readonly Vector2 RefRes = new Vector2(1080, 1920);
 
+        /// <summary>The active theme, loaded and validated at the top of every generation run.</summary>
+        private static ThemeAsset _theme;
+
         [MenuItem("Foundry/Generate Scenes & Build Settings")]
         public static void Generate()
         {
@@ -51,6 +54,17 @@ namespace Game.SceneTools
                 "This creates/overwrites Boot, MainMenu, Lobby and Game scenes under " + SceneDir +
                 " and sets the Build Settings scene list. Continue?", "Generate", "Cancel"))
                 return;
+
+            // Every colour and typeface below comes from the theme; refuse to build without one.
+            _theme = AssetDatabase.LoadAssetAtPath<ThemeAsset>(ThemeGenerator.ThemePath);
+            if (_theme == null)
+            {
+                Debug.LogError($"[Scaffold] No theme at {ThemeGenerator.ThemePath} — run " +
+                               "Foundry ▸ Generate Font Assets, then Foundry ▸ Generate Theme, then this.");
+                return;
+            }
+            ThemeValidator.ValidateOrThrow(_theme);
+            UiFactory.Theme = _theme;
 
             EnsureFolder("Assets/_Project", "Scenes");
 
@@ -295,26 +309,33 @@ namespace Game.SceneTools
             var root = UiFactory.Panel(canvas, "HotSeatOverlay");
             var overlay = root.gameObject.AddComponent<HotSeatOverlayView>();
 
-            var handoff = FullScreenPanel(root, "HandoffPanel", new Color(0.06f, 0.07f, 0.10f, 1f));
-            var handoffTitle = UiFactory.Label(handoff, "Title", "", new Vector2(0, 220), new Vector2(950, 130), 68f);
-            var handoffBody = UiFactory.Label(handoff, "Body", "", new Vector2(0, 20), new Vector2(900, 280), 36f);
+            var handoff = FullScreenPanel(root, "HandoffPanel", _theme.surfaceOverlay);
+            var handoffTitle = UiFactory.Label(handoff, "Title", "", new Vector2(0, 220), new Vector2(950, 130), 68f,
+                TextAlignmentOptions.Center, FontRole.HeadingBold, _theme.textInverse);
+            var handoffBody = UiFactory.Label(handoff, "Body", "", new Vector2(0, 20), new Vector2(900, 280), 36f,
+                TextAlignmentOptions.Center, FontRole.Body, _theme.textInverse);
             var handoffButton = UiFactory.Button(handoff, "ReadyButton", "I have the device",
                 new Vector2(0, -260), new Vector2(680, 150));
 
-            var reveal = FullScreenPanel(root, "RevealPanel", new Color(0.07f, 0.09f, 0.13f, 0.97f));
-            UiFactory.Label(reveal, "Title", "Reveal", new Vector2(0, 320), new Vector2(900, 110), 62f);
-            var revealBody = UiFactory.Label(reveal, "Body", "", new Vector2(0, 40), new Vector2(900, 420), 34f);
+            var reveal = FullScreenPanel(root, "RevealPanel", UiFactory.WithAlpha(_theme.surfaceOverlay, 0.97f));
+            UiFactory.Label(reveal, "Title", "Reveal", new Vector2(0, 320), new Vector2(900, 110), 62f,
+                TextAlignmentOptions.Center, FontRole.HeadingBold, _theme.textInverse);
+            var revealBody = UiFactory.Label(reveal, "Body", "", new Vector2(0, 40), new Vector2(900, 420), 34f,
+                TextAlignmentOptions.Center, FontRole.Body, _theme.textInverse);
             var revealButton = UiFactory.Button(reveal, "ContinueButton", "Continue",
                 new Vector2(0, -300), new Vector2(560, 140));
 
-            var summary = FullScreenPanel(root, "SummaryPanel", new Color(0.07f, 0.09f, 0.13f, 0.97f));
-            var summaryBody = UiFactory.Label(summary, "Body", "", new Vector2(0, 60), new Vector2(900, 480), 34f);
+            var summary = FullScreenPanel(root, "SummaryPanel", UiFactory.WithAlpha(_theme.surfaceOverlay, 0.97f));
+            var summaryBody = UiFactory.Label(summary, "Body", "", new Vector2(0, 60), new Vector2(900, 480), 34f,
+                TextAlignmentOptions.Center, FontRole.Body, _theme.textInverse);
             var summaryButton = UiFactory.Button(summary, "NextRoundButton", "Next round",
                 new Vector2(0, -300), new Vector2(560, 140));
 
-            var gameOver = FullScreenPanel(root, "GameOverPanel", new Color(0.06f, 0.07f, 0.10f, 1f));
-            UiFactory.Label(gameOver, "Title", "Final standings", new Vector2(0, 340), new Vector2(900, 120), 62f);
-            var gameOverBody = UiFactory.Label(gameOver, "Body", "", new Vector2(0, 40), new Vector2(900, 500), 38f);
+            var gameOver = FullScreenPanel(root, "GameOverPanel", _theme.surfaceOverlay);
+            UiFactory.Label(gameOver, "Title", "Final standings", new Vector2(0, 340), new Vector2(900, 120), 62f,
+                TextAlignmentOptions.Center, FontRole.HeadingBold, _theme.textInverse);
+            var gameOverBody = UiFactory.Label(gameOver, "Body", "", new Vector2(0, 40), new Vector2(900, 500), 38f,
+                TextAlignmentOptions.Center, FontRole.Body, _theme.textInverse);
 
             SetRef(overlay, "handoffPanel", handoff.gameObject);
             SetRef(overlay, "revealPanel", reveal.gameObject);
@@ -419,7 +440,7 @@ namespace Game.SceneTools
             var cam = go.AddComponent<Camera>();
             cam.orthographic = true;
             cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = new Color(0.09f, 0.10f, 0.14f, 1f);
+            cam.backgroundColor = _theme.surfaceBase;
             go.AddComponent<AudioListener>();
             return cam;
         }
@@ -459,7 +480,7 @@ namespace Game.SceneTools
             var rt = (RectTransform)go.transform;
             rt.SetParent(parent, false);
             rt.sizeDelta = new Vector2(CardWidth, CardHeight);
-            go.GetComponent<Image>().color = new Color(0.16f, 0.18f, 0.24f, 1f);
+            go.GetComponent<Image>().color = _theme.surfaceRaised;
 
             // A card has to show all three of cost, power and value — a player cannot choose without them.
             var tierLabel = UiFactory.Label(rt, "Tier", "T1", new Vector2(-64, 138), new Vector2(56, 40), 22f);
@@ -478,6 +499,7 @@ namespace Game.SceneTools
             SetRef(view, "tierText", tierLabel);
             SetRef(view, "background", go.GetComponent<Image>());
             SetRef(view, "button", go.GetComponent<Button>());
+            SetRef(view, "theme", _theme);
 
             return view;
         }
@@ -496,7 +518,7 @@ namespace Game.SceneTools
             FixedSize(go, RowWidth, RowHeight);
 
             var background = go.GetComponent<Image>();
-            background.color = new Color(0.13f, 0.15f, 0.19f, 1f);
+            background.color = _theme.surfaceRaised;
 
             // A thin bar marking who currently holds first pick.
             var markerGo = new GameObject("PriorityMarker", typeof(RectTransform), typeof(Image));
@@ -505,7 +527,7 @@ namespace Game.SceneTools
             markerRt.sizeDelta = new Vector2(8, RowHeight);
             markerRt.anchoredPosition = new Vector2(-(RowWidth / 2f) + 4, 0);
             var marker = markerGo.GetComponent<Image>();
-            marker.color = new Color(0.85f, 0.68f, 0.30f, 1f);
+            marker.color = _theme.accentPriority;
 
             var nameLabel = UiFactory.Label(rt, "Name", "Player", new Vector2(-310, 0), new Vector2(320, 40), 24f,
                 TextAlignmentOptions.Left);
@@ -521,6 +543,7 @@ namespace Game.SceneTools
             SetRef(view, "stateText", stateLabel);
             SetRef(view, "background", background);
             SetRef(view, "priorityMarker", marker);
+            SetRef(view, "theme", _theme);
 
             return view;
         }
@@ -533,10 +556,10 @@ namespace Game.SceneTools
             rt.sizeDelta = new Vector2(140, 140);
 
             var image = go.GetComponent<Image>();
-            image.color = new Color(0.96f, 0.96f, 0.94f, 1f);
+            image.color = _theme.surfaceBase;
 
-            var faceLabel = UiFactory.Label(rt, "Face", "1", Vector2.zero, new Vector2(130, 130), 72f);
-            faceLabel.color = new Color(0.09f, 0.11f, 0.15f, 1f);
+            var faceLabel = UiFactory.Label(rt, "Face", "1", Vector2.zero, new Vector2(130, 130), 72f,
+                TextAlignmentOptions.Center, FontRole.HeadingBold);
 
             FixedSize(go, 140, 140);
 
@@ -544,6 +567,7 @@ namespace Game.SceneTools
             SetRef(view, "faceText", faceLabel);
             SetRef(view, "background", image);
             SetRef(view, "button", go.GetComponent<Button>());
+            SetRef(view, "theme", _theme);
 
             return view;
         }

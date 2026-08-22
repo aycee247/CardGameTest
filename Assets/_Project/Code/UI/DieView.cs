@@ -1,4 +1,5 @@
 using System;
+using Game.Data;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -16,10 +17,8 @@ namespace Game.UI
         [SerializeField] private Button button;
         [SerializeField] private Image background;
 
-        [Header("State colours")]
-        [SerializeField] private Color idleColor = new Color(0.96f, 0.96f, 0.94f);
-        [SerializeField] private Color selectedColor = new Color(0.94f, 0.72f, 0.29f);
-        [SerializeField] private Color spentColor = new Color(0.55f, 0.57f, 0.60f);
+        [Tooltip("Colour tokens, re-read every render so a theme swap shows without regenerating.")]
+        [SerializeField] private ThemeAsset theme;
 
         public int Index { get; private set; }
 
@@ -34,11 +33,18 @@ namespace Game.UI
         {
             Index = index;
 
-            if (faceText != null) faceText.text = face.ToString();
+            if (faceText != null)
+            {
+                faceText.text = face.ToString();
+                if (theme != null) faceText.color = selected ? theme.textInverse : theme.textPrimary;
+            }
+
             if (button != null) button.interactable = interactable && !spent;
 
-            if (background != null)
-                background.color = spent ? spentColor : selected ? selectedColor : idleColor;
+            if (background != null && theme != null)
+                background.color = spent ? theme.stateSpent
+                    : selected ? theme.accentPriority
+                    : theme.surfaceBase;
         }
     }
 }
