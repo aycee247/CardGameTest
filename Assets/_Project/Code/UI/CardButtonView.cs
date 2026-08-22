@@ -24,6 +24,8 @@ namespace Game.UI
         [SerializeField] private Image artwork;
         [SerializeField] private Image background;
         [SerializeField] private Button button;
+        [SerializeField] private BlueprintFrame frame;
+        [SerializeField] private CanvasGroup fade;
 
         [Tooltip("Colour tokens, re-read every render so a theme swap shows without regenerating.")]
         [SerializeField] private ThemeAsset theme;
@@ -53,13 +55,24 @@ namespace Game.UI
             if (tierText != null) tierText.text = "T" + card.Tier;
             if (artwork != null && art != null) artwork.sprite = art;
 
-            // Affordable reads as the paper lift; unaffordable recedes into the board at half
-            // strength. The border-and-opacity treatment the design specifies lands with the
-            // blueprint frame; until then the fill change carries the state.
-            if (background != null && theme != null)
-                background.color = card.AffordableNow
-                    ? theme.surfaceBase
-                    : new Color(theme.surfaceRaised.r, theme.surfaceRaised.g, theme.surfaceRaised.b, 0.5f);
+            // Affordability is opacity + border + fill together — never colour alone (UI-3,
+            // theming.md's accessibility constraint): payable cards sit at full strength on paper
+            // with an accent border; unpayable ones recede to half opacity behind a hairline.
+            if (fade != null) fade.alpha = card.AffordableNow ? 1f : 0.5f;
+
+            if (theme != null)
+            {
+                if (frame != null)
+                    frame.SetBorderColor(card.AffordableNow ? theme.Accent(400) : theme.divider,
+                        theme.accentPriority);
+
+                if (background != null)
+                {
+                    var fill = theme.surfaceBase;
+                    if (!card.AffordableNow) fill.a = 0f;
+                    background.color = fill;
+                }
+            }
 
             if (button != null) button.interactable = interactable;
         }

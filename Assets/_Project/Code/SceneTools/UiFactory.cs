@@ -1,4 +1,5 @@
 using Game.Data;
+using Game.UI;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -137,6 +138,73 @@ namespace Game.SceneTools
             rt.anchorMax = Vector2.one;
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
+        }
+
+        /// <summary>
+        /// The Industry system's signature motif: a hairline border plus four "+" corner
+        /// registration marks, straddling the host's corners. One builder for every screen.
+        /// </summary>
+        public static BlueprintFrame BlueprintFrame(RectTransform host,
+            FrameEmphasis emphasis = FrameEmphasis.Divider, bool marks = true)
+        {
+            const float edge = 3f;        // ~1 handoff px
+            const float markLength = 19f; // ~7 px
+            const float markThick = 3f;
+
+            var frameRt = Panel(host, "Frame");
+
+            var edges = new Image[4];
+            edges[0] = EdgeImage(frameRt, "EdgeTop", new Vector2(0, 1), new Vector2(1, 1), new Vector2(0.5f, 1f), new Vector2(0, edge));
+            edges[1] = EdgeImage(frameRt, "EdgeBottom", new Vector2(0, 0), new Vector2(1, 0), new Vector2(0.5f, 0f), new Vector2(0, edge));
+            edges[2] = EdgeImage(frameRt, "EdgeLeft", new Vector2(0, 0), new Vector2(0, 1), new Vector2(0f, 0.5f), new Vector2(edge, 0));
+            edges[3] = EdgeImage(frameRt, "EdgeRight", new Vector2(1, 0), new Vector2(1, 1), new Vector2(1f, 0.5f), new Vector2(edge, 0));
+
+            var markImages = new Image[8];
+            var corners = new[] { new Vector2(0, 1), new Vector2(1, 1), new Vector2(0, 0), new Vector2(1, 0) };
+            for (int i = 0; i < corners.Length; i++)
+            {
+                markImages[i * 2] = CornerBar(frameRt, $"Mark{i}H", corners[i], new Vector2(markLength, markThick));
+                markImages[i * 2 + 1] = CornerBar(frameRt, $"Mark{i}V", corners[i], new Vector2(markThick, markLength));
+            }
+
+            var frame = frameRt.gameObject.AddComponent<BlueprintFrame>();
+            frame.Bind(edges, markImages, Theme);
+            frame.SetEmphasis(emphasis);
+            frame.SetMarksVisible(marks);
+            return frame;
+        }
+
+        private static Image EdgeImage(RectTransform parent, string name,
+            Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot, Vector2 size)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image));
+            var rt = (RectTransform)go.transform;
+            rt.SetParent(parent, false);
+            rt.anchorMin = anchorMin;
+            rt.anchorMax = anchorMax;
+            rt.pivot = pivot;
+            rt.sizeDelta = size;
+            rt.anchoredPosition = Vector2.zero;
+
+            var image = go.GetComponent<Image>();
+            image.raycastTarget = false;
+            return image;
+        }
+
+        private static Image CornerBar(RectTransform parent, string name, Vector2 corner, Vector2 size)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image));
+            var rt = (RectTransform)go.transform;
+            rt.SetParent(parent, false);
+            rt.anchorMin = corner;
+            rt.anchorMax = corner;
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = size;
+            rt.anchoredPosition = Vector2.zero;
+
+            var image = go.GetComponent<Image>();
+            image.raycastTarget = false;
+            return image;
         }
 
         public static TMP_FontAsset FontFor(FontRole role)

@@ -464,6 +464,9 @@ namespace Game.SceneTools
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
             scaler.matchWidthOrHeight = 0.5f;
 
+            // The one tween router every animating view in the scene shares (ui-conventions.md).
+            go.AddComponent<UiAnimationService>();
+
             // Safe-area panel that all content lives under.
             content = UiFactory.Panel(go.transform, "SafeArea");
             content.gameObject.AddComponent<SafeAreaFitter>();
@@ -491,6 +494,9 @@ namespace Game.SceneTools
 
             FixedSize(go, CardWidth, CardHeight);
 
+            var frame = UiFactory.BlueprintFrame(rt);
+            var fade = go.AddComponent<CanvasGroup>();
+
             var view = go.AddComponent<CardButtonView>();
             SetRef(view, "nameText", nameLabel);
             SetRef(view, "costText", costLabel);
@@ -499,6 +505,8 @@ namespace Game.SceneTools
             SetRef(view, "tierText", tierLabel);
             SetRef(view, "background", go.GetComponent<Image>());
             SetRef(view, "button", go.GetComponent<Button>());
+            SetRef(view, "frame", frame);
+            SetRef(view, "fade", fade);
             SetRef(view, "theme", _theme);
 
             return view;
@@ -550,23 +558,63 @@ namespace Game.SceneTools
 
         private static DieView BuildDieTemplate(Transform parent)
         {
-            var go = new GameObject("Die", typeof(RectTransform), typeof(Image), typeof(Button));
+            // The handoff's 62px die, square-cornered, pips not digits. The Body child holds
+            // everything visible so the selected-state lift moves the visuals while the hit area
+            // stays put in the layout row.
+            float size = DesignTokens.Px(62);
+
+            var go = new GameObject("Die", typeof(RectTransform), typeof(Button));
             var rt = (RectTransform)go.transform;
             rt.SetParent(parent, false);
-            rt.sizeDelta = new Vector2(140, 140);
+            rt.sizeDelta = new Vector2(size, size);
+            FixedSize(go, size, size);
 
-            var image = go.GetComponent<Image>();
-            image.color = _theme.surfaceBase;
+            var body = UiFactory.Panel(rt, "Body");
 
-            var faceLabel = UiFactory.Label(rt, "Face", "1", Vector2.zero, new Vector2(130, 130), 72f,
-                TextAlignmentOptions.Center, FontRole.HeadingBold);
+            var bgGo = new GameObject("Background", typeof(RectTransform), typeof(Image));
+            var bgRt = (RectTransform)bgGo.transform;
+            bgRt.SetParent(body, false);
+            UiFactory.Stretch(bgRt);
+            var background = bgGo.GetComponent<Image>();
+            background.color = _theme.surfaceBase;
 
-            FixedSize(go, 140, 140);
+            var frame = UiFactory.BlueprintFrame(body, marks: false);
+            frame.SetBorderColor(_theme.Accent(700));
+
+            // 3×3 pip grid, centres ±16px (handoff scale) around the middle.
+            var pipsRt = UiFactory.Panel(body, "Pips");
+            float pipSize = DesignTokens.Px(10);
+            float pipStep = DesignTokens.Px(16);
+            var pipImages = new Image[9];
+            for (int row = 0; row < 3; row++)
+            for (int col = 0; col < 3; col++)
+            {
+                var pipGo = new GameObject($"Pip{row * 3 + col}", typeof(RectTransform), typeof(Image));
+                var pipRt = (RectTransform)pipGo.transform;
+                pipRt.SetParent(pipsRt, false);
+                pipRt.sizeDelta = new Vector2(pipSize, pipSize);
+                pipRt.anchoredPosition = new Vector2((col - 1) * pipStep, (1 - row) * pipStep);
+                var pipImage = pipGo.GetComponent<Image>();
+                pipImage.color = _theme.textPrimary;
+                pipImage.raycastTarget = false;
+                pipImages[row * 3 + col] = pipImage;
+            }
+            var pips = pipsRt.gameObject.AddComponent<DiePipGrid>();
+            pips.Bind(pipImages);
+            pips.SetFace(1);
+
+            var spent = UiFactory.Label(body, "Spent", "SPENT", Vector2.zero, new Vector2(size, 44), 26f,
+                TextAlignmentOptions.Center, FontRole.BodySemibold, _theme.stateSpent, 0.2f);
+            spent.rectTransform.localRotation = Quaternion.Euler(0f, 0f, -30f);
+            spent.gameObject.SetActive(false);
 
             var view = go.AddComponent<DieView>();
-            SetRef(view, "faceText", faceLabel);
-            SetRef(view, "background", image);
             SetRef(view, "button", go.GetComponent<Button>());
+            SetRef(view, "body", body);
+            SetRef(view, "background", background);
+            SetRef(view, "frame", frame);
+            SetRef(view, "pips", pips);
+            SetRef(view, "spentWatermark", spent.gameObject);
             SetRef(view, "theme", _theme);
 
             return view;

@@ -57,6 +57,10 @@ namespace Game.UI
         private readonly List<int> _order = new List<int>();
         private readonly List<int> _selected = new List<int>();
 
+        // While a card's cost is being inspected, dice outside the paying set render Dimmed.
+        private readonly HashSet<int> _costFocus = new HashSet<int>();
+        private bool _costFocusActive;
+
         private bool _canAct;
 
         /// <summary>Dice the player has highlighted, ascending. This is what a claim offers.</summary>
@@ -107,6 +111,31 @@ namespace Game.UI
         public void ClearSelection()
         {
             _selected.Clear();
+        }
+
+        /// <summary>
+        /// Replaces the selection outright — the card sheet's auto-suggest uses this. Raises
+        /// <see cref="SelectionChanged"/> so the presenter re-renders, same as a tap would.
+        /// </summary>
+        public void SetSelection(IReadOnlyList<int> indices)
+        {
+            _selected.Clear();
+            if (indices != null)
+                for (int i = 0; i < indices.Count; i++) _selected.Add(indices[i]);
+            _selected.Sort();
+            SelectionChanged?.Invoke();
+        }
+
+        /// <summary>
+        /// Dims every die outside <paramref name="focus"/> while a card's cost is open (UI-3).
+        /// Pass inactive to restore the tray. Takes effect on the next render.
+        /// </summary>
+        public void SetCostFocus(bool active, IReadOnlyList<int> focus = null)
+        {
+            _costFocusActive = active;
+            _costFocus.Clear();
+            if (active && focus != null)
+                for (int i = 0; i < focus.Count; i++) _costFocus.Add(focus[i]);
         }
 
         /// <summary>
@@ -214,7 +243,12 @@ namespace Game.UI
                 _dice[i].gameObject.SetActive(active);
                 if (!active) continue;
 
-                _dice[i].Set(i, faces[i], i < spent.Length && spent[i], _selected.Contains(i), interactable);
+                var state = i < spent.Length && spent[i] ? DieVisualState.Spent
+                    : _selected.Contains(i) ? DieVisualState.Selected
+                    : _costFocusActive && !_costFocus.Contains(i) ? DieVisualState.Dimmed
+                    : DieVisualState.Idle;
+
+                _dice[i].Set(i, faces[i], state, interactable);
             }
         }
 

@@ -1,24 +1,35 @@
 using System;
 using Game.Data;
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Game.UI
 {
     /// <summary>
+    /// How a die reads right now. Dimmed means a card's cost is being inspected and this die
+    /// doesn't contribute; Spent means the die is pledged to a commit and out of play.
+    /// </summary>
+    public enum DieVisualState { Idle, Selected, Dimmed, Spent }
+
+    /// <summary>
     /// One die in the player's tray. Passive: it renders a face and a state, and reports taps by
-    /// index. Selection means "this die is part of what I am about to spend or shape" — the view
-    /// above owns that decision, not this one.
+    /// index. Faces are pip layouts (never colour alone); the border, fill and a small lift carry
+    /// the state, so every state differs by shape as well as colour.
     /// </summary>
     public sealed class DieView : MonoBehaviour
     {
-        [SerializeField] private TMP_Text faceText;
         [SerializeField] private Button button;
-        [SerializeField] private Image background;
 
-        [Tooltip("Colour tokens, re-read every render so a theme swap shows without regenerating.")]
+        [Tooltip("Everything visible lives here; it lifts when selected while the hit area stays put.")]
+        [SerializeField] private RectTransform body;
+        [SerializeField] private Image background;
+        [SerializeField] private BlueprintFrame frame;
+        [SerializeField] private DiePipGrid pips;
+        [SerializeField] private GameObject spentWatermark;
         [SerializeField] private ThemeAsset theme;
+
+        /// <summary>Selected dice lift by the handoff's 3px, in canvas units.</summary>
+        private const float SelectedLift = 8f;
 
         public int Index { get; private set; }
 
@@ -29,22 +40,52 @@ namespace Game.UI
             if (button != null) button.onClick.AddListener(() => Clicked?.Invoke(Index));
         }
 
-        public void Set(int index, int face, bool spent, bool selected, bool interactable)
+        public void Set(int index, int face, DieVisualState state, bool interactable)
         {
             Index = index;
 
-            if (faceText != null)
+            if (pips != null) pips.SetFace(face);
+            if (button != null) button.interactable = interactable && state != DieVisualState.Spent;
+            if (spentWatermark != null) spentWatermark.SetActive(state == DieVisualState.Spent);
+
+            if (body != null)
+                body.anchoredPosition = state == DieVisualState.Selected
+                    ? new Vector2(0f, SelectedLift)
+                    : Vector2.zero;
+
+            if (theme == null) return;
+
+            switch (state)
             {
-                faceText.text = face.ToString();
-                if (theme != null) faceText.color = selected ? theme.textInverse : theme.textPrimary;
+                case DieVisualState.Selected:
+                    Paint(theme.accentPriority, theme.Accent(800), theme.textInverse);
+                    break;
+
+                case DieVisualState.Dimmed:
+                    Paint(Clear(theme.surfaceBase), theme.divider, theme.textMuted);
+                    break;
+
+                case DieVisualState.Spent:
+                    Paint(Clear(theme.surfaceBase), theme.divider, theme.stateSpent);
+                    break;
+
+                default:
+                    Paint(theme.surfaceBase, theme.Accent(700), theme.textPrimary);
+                    break;
             }
+        }
 
-            if (button != null) button.interactable = interactable && !spent;
+        private void Paint(Color fill, Color border, Color pipColor)
+        {
+            if (background != null) background.color = fill;
+            if (frame != null) frame.SetBorderColor(border);
+            if (pips != null) pips.SetColor(pipColor);
+        }
 
-            if (background != null && theme != null)
-                background.color = spent ? theme.stateSpent
-                    : selected ? theme.accentPriority
-                    : theme.surfaceBase;
+        private static Color Clear(Color color)
+        {
+            color.a = 0f;
+            return color;
         }
     }
 }
