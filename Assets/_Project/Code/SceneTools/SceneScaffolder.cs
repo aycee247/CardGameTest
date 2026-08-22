@@ -345,22 +345,42 @@ namespace Game.SceneTools
             // offsets from centre only work at the exact reference aspect: on a wider, shorter view
             // the outermost rows simply fall off the screen.
 
-            // --- status, from the top down ---
-            var round = Top(UiFactory.Label(content, "Round", "", Vector2.zero, new Vector2(1000, 70), 46f), -50);
-            var phase = Top(UiFactory.Label(content, "Phase", "", Vector2.zero, new Vector2(1000, 60), 32f), -115);
+            // --- header row (handoff 6a): round + phase left, the Sparks tag right ---
+            var round = Top(UiFactory.Label(content, "Round", "", new Vector2(-280, 0), new Vector2(480, 70), 61f,
+                TextAlignmentOptions.Left, FontRole.HeadingBold), -60);
+            var phase = Top(UiFactory.Label(content, "Phase", "", new Vector2(-280, 0), new Vector2(480, 40), 28f,
+                TextAlignmentOptions.Left, FontRole.BodySemibold, _theme.Accent(700), 0.16f), -130);
 
-            // Online only: hidden whenever there is no phase clock (UI-2).
-            var timer = Top(UiFactory.Label(content, "Timer", "", new Vector2(430, 0), new Vector2(180, 70), 44f), -50);
+            var sparksChipGo = new GameObject("SparksChip", typeof(RectTransform), typeof(Image));
+            var sparksChip = (RectTransform)sparksChipGo.transform;
+            sparksChip.SetParent(content, false);
+            sparksChip.sizeDelta = new Vector2(330, 76);
+            Top(sparksChip, -78);
+            sparksChip.anchoredPosition = new Vector2(340, sparksChip.anchoredPosition.y);
+            sparksChipGo.GetComponent<Image>().color = _theme.Accent(100);
+            var sparks = UiFactory.Label(sparksChip, "Value", "", Vector2.zero, new Vector2(320, 66), 30f,
+                TextAlignmentOptions.Center, FontRole.BodySemibold, _theme.Accent(800), 0.06f);
 
-            // Standings rail: one row per player, stacked. Sized for six on the narrowest device.
+            // Online only: hidden whenever there is no phase clock (UI-2). Replaced by the Done
+            // button's ring when the bottom bar lands; until then it sits under the Sparks tag.
+            var timer = Top(UiFactory.Label(content, "Timer", "", new Vector2(340, 0), new Vector2(180, 60), 44f,
+                TextAlignmentOptions.Center, FontRole.HeadingBold), -170);
+
+            // Opponent rail (UI-1, handoff 6b): a horizontal strip, one cell per player, seat order.
             var railRoot = UiFactory.Panel(content, "Rail", stretch: false);
-            railRoot.sizeDelta = new Vector2(1000, 300);
-            Top(railRoot, -300);
-            Column(railRoot, spacing: 6);
+            railRoot.sizeDelta = new Vector2(1020, 180);
+            Top(railRoot, -310);
+            Row(railRoot, spacing: 6);
+
+            // Market label row + 5-card band (handoff 6c).
+            Top(UiFactory.Label(content, "MarketLabel", "MARKET", new Vector2(-430, 0), new Vector2(220, 40), 28f,
+                TextAlignmentOptions.Left, FontRole.BodySemibold, Muted(0.8f), 0.2f), -440);
+            var marketMeta = Top(UiFactory.Label(content, "MarketMeta", "", new Vector2(150, 0), new Vector2(720, 40), 26f,
+                TextAlignmentOptions.Right, FontRole.BodyMedium, Muted(0.55f), 0.06f), -440);
 
             var marketRoot = UiFactory.Panel(content, "Market", stretch: false);
-            marketRoot.sizeDelta = new Vector2(1020, 400);
-            Top(marketRoot, -640);
+            marketRoot.sizeDelta = new Vector2(1020, 340);
+            Top(marketRoot, -650);
             Row(marketRoot, spacing: 12);
 
             // --- controls, from the bottom up ---
@@ -392,8 +412,10 @@ namespace Game.SceneTools
             Bottom(diceRoot, 555);
             Row(diceRoot, spacing: 14);
 
-            var sparks = Bottom(UiFactory.Label(content, "Sparks", "", new Vector2(-280, 0), new Vector2(420, 60), 34f), 680);
-            var allowance = Bottom(UiFactory.Label(content, "Allowance", "", new Vector2(280, 0), new Vector2(520, 60), 30f), 680);
+            // Sparks moved into the header chip; the allowance line survives until the owned-powers
+            // strip replaces it.
+            var allowance = Bottom(UiFactory.Label(content, "Allowance", "", new Vector2(0, 0), new Vector2(1000, 60), 30f,
+                TextAlignmentOptions.Center, FontRole.Body, Muted(0.7f)), 680);
 
             // Row templates the HUD clones from. These are scene objects rather than prefab assets:
             // an asset reference assigned here did not survive being saved out, leaving the board
@@ -417,6 +439,7 @@ namespace Game.SceneTools
             SetRef(hud, "playerRowPrefab", playerRowTemplate);
             SetRef(hud, "diceRoot", diceRoot);
             SetRef(hud, "marketRoot", marketRoot);
+            SetRef(hud, "marketMetaLabel", marketMeta);
             SetRef(hud, "faceButtonsRoot", faceRoot);
             SetRef(hud, "rerollButton", reroll);
             SetRef(hud, "nudgeUpButton", nudgeUp);
@@ -664,6 +687,21 @@ namespace Game.SceneTools
             var frame = UiFactory.BlueprintFrame(rt);
             var fade = go.AddComponent<CanvasGroup>();
 
+            // Local-only echo of your own secret pick (handoff 6c, NET-2): a rotated stamp over
+            // the whole cell, toggled by CardButtonView.SetCommitted for the observer only.
+            var stampGo = new GameObject("CommittedStamp", typeof(RectTransform), typeof(Image));
+            var stampRt = (RectTransform)stampGo.transform;
+            stampRt.SetParent(rt, false);
+            UiFactory.Stretch(stampRt);
+            var stampImage = stampGo.GetComponent<Image>();
+            stampImage.color = UiFactory.WithAlpha(_theme.Accent(200), 0.88f);
+            stampImage.raycastTarget = false;
+            var stampLabel = UiFactory.Label(stampRt, "Text", "COMMITTED", Vector2.zero, new Vector2(220, 50), 28f,
+                TextAlignmentOptions.Center, FontRole.BodySemibold, _theme.Accent(800), 0.1f);
+            stampLabel.rectTransform.localRotation = Quaternion.Euler(0f, 0f, -6f);
+            stampLabel.raycastTarget = false;
+            stampGo.SetActive(false);
+
             var view = go.AddComponent<CardButtonView>();
             SetRef(view, "nameText", nameLabel);
             SetRef(view, "costText", costLabel);
@@ -674,6 +712,7 @@ namespace Game.SceneTools
             SetRef(view, "button", go.GetComponent<Button>());
             SetRef(view, "frame", frame);
             SetRef(view, "fade", fade);
+            SetRef(view, "committedStamp", stampGo);
             SetRef(view, "theme", _theme);
 
             return view;
@@ -681,35 +720,46 @@ namespace Game.SceneTools
 
         private static PlayerRowView BuildPlayerRowTemplate(Transform parent)
         {
-            // Six of these have to stack legibly, so the row is short and reads left to right:
-            // who, how well they are doing, what they hold, and whether they have acted.
-            const float RowWidth = 1000f;
-            const float RowHeight = 46f;
+            // A rail cell (handoff 6b): six of these sit side by side in a 1020-wide strip, so the
+            // cell is narrow and stacks name / score / holdings / state vertically. The hard
+            // constraint is legibility at six players on the narrowest device (UI-1).
+            const float CellWidth = 165f;
+            const float CellHeight = 180f;
 
             var go = new GameObject("PlayerRow", typeof(RectTransform), typeof(Image));
             var rt = (RectTransform)go.transform;
             rt.SetParent(parent, false);
-            rt.sizeDelta = new Vector2(RowWidth, RowHeight);
-            FixedSize(go, RowWidth, RowHeight);
+            rt.sizeDelta = new Vector2(CellWidth, CellHeight);
+            FixedSize(go, CellWidth, CellHeight);
 
             var background = go.GetComponent<Image>();
             background.color = _theme.surfaceRaised;
+            var frame = UiFactory.BlueprintFrame(rt, marks: false);
 
-            // A thin bar marking who currently holds first pick.
+            // Priority marker: a rotated square notch on the top-left corner of the priority
+            // holder's cell — shape, not colour, per the accessibility rule.
             var markerGo = new GameObject("PriorityMarker", typeof(RectTransform), typeof(Image));
             var markerRt = (RectTransform)markerGo.transform;
             markerRt.SetParent(rt, false);
-            markerRt.sizeDelta = new Vector2(8, RowHeight);
-            markerRt.anchoredPosition = new Vector2(-(RowWidth / 2f) + 4, 0);
+            markerRt.anchorMin = markerRt.anchorMax = new Vector2(0f, 1f);
+            markerRt.sizeDelta = new Vector2(22, 22);
+            markerRt.anchoredPosition = new Vector2(2, -2);
+            markerRt.localRotation = Quaternion.Euler(0f, 0f, 45f);
             var marker = markerGo.GetComponent<Image>();
             marker.color = _theme.accentPriority;
+            marker.raycastTarget = false;
 
-            var nameLabel = UiFactory.Label(rt, "Name", "Player", new Vector2(-310, 0), new Vector2(320, 40), 24f,
-                TextAlignmentOptions.Left);
-            var scoreLabel = UiFactory.Label(rt, "Score", "0", new Vector2(-110, 0), new Vector2(90, 40), 28f);
-            var detailLabel = UiFactory.Label(rt, "Detail", "", new Vector2(60, 0), new Vector2(240, 40), 22f);
-            var stateLabel = UiFactory.Label(rt, "State", "", new Vector2(340, 0), new Vector2(300, 40), 22f,
-                TextAlignmentOptions.Right);
+            var nameLabel = UiFactory.Label(rt, "Name", "PLAYER", new Vector2(0, 62), new Vector2(150, 32), 23f,
+                TextAlignmentOptions.Center, FontRole.BodySemibold);
+            nameLabel.textWrappingMode = TextWrappingModes.NoWrap;
+            nameLabel.overflowMode = TextOverflowModes.Ellipsis;
+
+            var scoreLabel = UiFactory.Label(rt, "Score", "0", new Vector2(0, 16), new Vector2(150, 60), 53f,
+                TextAlignmentOptions.Center, FontRole.HeadingBold);
+            var detailLabel = UiFactory.Label(rt, "Detail", "", new Vector2(0, -36), new Vector2(150, 30), 23f,
+                TextAlignmentOptions.Center, FontRole.Body, Muted(0.55f));
+            var stateLabel = UiFactory.Label(rt, "State", "", new Vector2(0, -68), new Vector2(150, 30), 23f,
+                TextAlignmentOptions.Center, FontRole.BodySemibold);
 
             var view = go.AddComponent<PlayerRowView>();
             SetRef(view, "nameText", nameLabel);
@@ -717,6 +767,7 @@ namespace Game.SceneTools
             SetRef(view, "detailText", detailLabel);
             SetRef(view, "stateText", stateLabel);
             SetRef(view, "background", background);
+            SetRef(view, "frame", frame);
             SetRef(view, "priorityMarker", marker);
             SetRef(view, "theme", _theme);
 

@@ -50,6 +50,7 @@ namespace Game.UI
         [Header("Market")]
         [SerializeField] private Transform marketRoot;
         [SerializeField] private CardButtonView cardButtonPrefab;
+        [SerializeField] private TMP_Text marketMetaLabel;
 
         private readonly List<DieView> _dice = new List<DieView>();
         private readonly List<CardButtonView> _cards = new List<CardButtonView>();
@@ -170,12 +171,22 @@ namespace Game.UI
 
             if (roundLabel != null)
                 roundLabel.text = snapshot.IsMatchOver
-                    ? "Match over"
-                    : $"Round {snapshot.Round} / {snapshot.TotalRounds}";
+                    ? "MATCH OVER"
+                    : $"ROUND {snapshot.Round:00}/{snapshot.TotalRounds}";
 
             if (phaseLabel != null) phaseLabel.text = DescribePhase(snapshot);
-            if (sparksLabel != null) sparksLabel.text = $"Sparks {me.Sparks}";
+
+            // Non-breaking space so the tag never collapses between label and value (handoff 6a).
+            if (sparksLabel != null)
+            {
+                int cap = snapshot.Config?.SparkCap ?? 0;
+                sparksLabel.text = cap > 0 ? $"SPARKS {me.Sparks}/{cap}" : $"SPARKS {me.Sparks}";
+            }
+
             if (allowanceLabel != null) allowanceLabel.text = DescribeAllowance(me);
+
+            if (marketMetaLabel != null)
+                marketMetaLabel.text = $"DECK {snapshot.DrawPileCount} · TAP A CARD TO INSPECT";
 
             RenderRail(snapshot);
             // Dice selection tracks "can I act" (Shape, Commit, or Repick — CORE-5, MKT-3), not
@@ -190,9 +201,8 @@ namespace Game.UI
         // ------------------------------------------------------------------ sections
 
         /// <summary>
-        /// One row per player, ordered by priority so the player about to win a contested card is
-        /// always at the top. Rows are pooled rather than rebuilt, since this redraws every frame
-        /// while a phase clock is running.
+        /// One cell per player in seat order — stable positions, so a cell never jumps mid-round;
+        /// priority is the marker on a cell, not the ordering (handoff 6b). Cells are pooled.
         /// </summary>
         private void RenderRail(in MatchSnapshot snapshot)
         {
@@ -206,7 +216,7 @@ namespace Game.UI
             // Sorting a copy of the indices keeps the snapshot itself untouched.
             _order.Clear();
             for (int i = 0; i < players.Length; i++) _order.Add(i);
-            _order.Sort((a, b) => players[a].PriorityRank.CompareTo(players[b].PriorityRank));
+            _order.Sort((a, b) => players[a].SeatIndex.CompareTo(players[b].SeatIndex));
 
             for (int i = 0; i < _rows.Count; i++)
             {
@@ -215,7 +225,7 @@ namespace Game.UI
                 if (!active) continue;
 
                 var player = players[_order[i]];
-                _rows[i].Set(player, player.PlayerId == snapshot.ObserverId);
+                _rows[i].Set(player, player.PlayerId == snapshot.ObserverId, snapshot.Phase);
             }
         }
 
@@ -265,11 +275,17 @@ namespace Game.UI
                 _cards.Add(card);
             }
 
+            // The stamp is a local echo of the observer's own secret pick — never anyone else's.
+            int myPendingCard = snapshot.Observer.PendingCardId;
+
             for (int i = 0; i < _cards.Count; i++)
             {
                 bool active = i < market.Length;
                 _cards[i].gameObject.SetActive(active);
-                if (active) _cards[i].Set(market[i], interactable);
+                if (!active) continue;
+
+                _cards[i].Set(market[i], interactable);
+                _cards[i].SetCommitted(market[i].CardId == myPendingCard);
             }
         }
 
@@ -305,8 +321,9 @@ namespace Game.UI
         {
             switch (s.Phase)
             {
-                case RoundPhase.Shape: return "Shape your dice, then claim";
-                case RoundPhase.Commit: return "Locking in";
+                case RoundPhase.Roll: return "Rolling…";
+                case RoundPhase.Shape: return "Shape phase";
+                case RoundPhase.Commit: return "Commit — secret";
                 case RoundPhase.Reveal: return "Reveal";
                 case RoundPhase.Repick: return "Re-pick";
                 case RoundPhase.Upkeep: return "Upkeep";

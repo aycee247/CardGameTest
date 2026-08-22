@@ -27,6 +27,9 @@ namespace Game.UI
         [SerializeField] private BlueprintFrame frame;
         [SerializeField] private CanvasGroup fade;
 
+        [Tooltip("Local-only echo of your own secret pick (NET-2): shown by SetCommitted, never derived from opponents.")]
+        [SerializeField] private GameObject committedStamp;
+
         [Tooltip("Colour tokens, re-read every render so a theme swap shows without regenerating.")]
         [SerializeField] private ThemeAsset theme;
 
@@ -75,6 +78,16 @@ namespace Game.UI
             }
 
             if (button != null) button.interactable = interactable;
+        }
+
+        /// <summary>
+        /// Marks this card as the observer's own pending commit — a rotated "COMMITTED" overlay so
+        /// you can find your pick again. Callers must only ever pass the observer's own state;
+        /// opponents' picks are secret until Reveal (NET-2).
+        /// </summary>
+        public void SetCommitted(bool committed)
+        {
+            if (committedStamp != null) committedStamp.SetActive(committed);
         }
     }
 }

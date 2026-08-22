@@ -7,12 +7,13 @@ using UnityEngine.UI;
 namespace Game.UI
 {
     /// <summary>
-    /// One player in the standings rail (UI-1). Passive.
+    /// One player's cell in the opponent rail (UI-1) — a horizontal strip, one cell per player.
     ///
     /// In a simultaneous game the vital question is not whose turn it is but who has locked in and
     /// who is still thinking, so the state chip carries as much weight as the score. Connection
     /// trouble shares that chip, because "they have not decided" and "they are not there" need to
-    /// be told apart at a glance.
+    /// be told apart at a glance. The state line only renders during input phases; reconnecting
+    /// and left always show.
     /// </summary>
     public sealed class PlayerRowView : MonoBehaviour
     {
@@ -21,33 +22,43 @@ namespace Game.UI
         [SerializeField] private TMP_Text detailText;
         [SerializeField] private TMP_Text stateText;
         [SerializeField] private Image background;
+        [SerializeField] private BlueprintFrame frame;
         [SerializeField] private Image priorityMarker;
 
         [Tooltip("Colour tokens, re-read every render so a theme swap shows without regenerating.")]
         [SerializeField] private ThemeAsset theme;
 
-        public void Set(in PlayerSnapshot player, bool isObserver)
+        public void Set(in PlayerSnapshot player, bool isObserver, RoundPhase phase)
         {
-            if (nameText != null) nameText.text = isObserver ? player.DisplayName + "  (you)" : player.DisplayName;
+            if (nameText != null)
+                nameText.text = isObserver
+                    ? (player.DisplayName + " — YOU").ToUpperInvariant()
+                    : (player.DisplayName ?? string.Empty).ToUpperInvariant();
+
             if (scoreText != null) scoreText.text = player.Score.ToString();
 
             if (detailText != null)
-                detailText.text = $"{player.DiceFaces?.Length ?? 0}d   {player.Sparks}sp   {player.CardCount}c";
+                detailText.text = $"{player.DiceFaces?.Length ?? 0}d · {player.Sparks}sp";
 
-            if (background != null && theme != null)
-                background.color = isObserver ? theme.Accent(100) : theme.surfaceRaised;
+            if (theme != null)
+            {
+                if (background != null)
+                    background.color = isObserver ? theme.Accent(100) : theme.surfaceRaised;
+                if (frame != null)
+                    frame.SetBorderColor(isObserver ? theme.accentPriority : theme.divider);
+            }
 
             // Priority is public and worth reading at a glance: it is who wins a contested card.
             if (priorityMarker != null) priorityMarker.enabled = player.PriorityRank == 0;
 
             if (stateText != null)
             {
-                stateText.text = DescribeState(player, out var color);
+                stateText.text = DescribeState(player, phase, out var color);
                 stateText.color = color;
             }
         }
 
-        private string DescribeState(in PlayerSnapshot player, out Color color)
+        private string DescribeState(in PlayerSnapshot player, RoundPhase phase, out Color color)
         {
             var trouble = theme != null ? theme.stateTrouble : Color.white;
 
@@ -64,10 +75,18 @@ namespace Game.UI
                     return "left";
             }
 
+            // Decided-ness only means something while there is a decision to make.
+            bool inputPhase = phase == RoundPhase.Shape || phase == RoundPhase.Commit || phase == RoundPhase.Repick;
+            if (!inputPhase)
+            {
+                color = theme != null ? theme.textMuted : Color.white;
+                return string.Empty;
+            }
+
             color = theme == null ? Color.white
                 : player.HasDecided ? theme.stateReady
                 : theme.stateThinking;
-            return player.HasDecided ? "ready" : "thinking";
+            return player.HasDecided ? "READY" : "THINKING";
         }
     }
 }
