@@ -22,6 +22,7 @@ namespace Game.App
         [SerializeField] private HotSeatHost hotSeatHost;
         [SerializeField] private HotSeatOverlayView hotSeatOverlay;
         [SerializeField] private RevealSpotlightView revealSpotlight;
+        [SerializeField] private EndScreenView endScreen;
         [SerializeField] private NetworkGameController networkController;
         [SerializeField] private MatchLauncher matchLauncher;
 
@@ -41,8 +42,25 @@ namespace Game.App
         {
             ConfigureHints();
 
+            if (endScreen != null) endScreen.MenuClicked += OnMenuFromEndScreen;
+
             if (IsOnline) StartOnline();
             else StartHotSeat();
+        }
+
+        /// <summary>Back to the menu from the standings; online, the session is left first.</summary>
+        private async void OnMenuFromEndScreen()
+        {
+            if (GameServices.IsReady)
+            {
+                if (GameServices.Locator.TryGet<SessionManager>(out var session))
+                    await session.LeaveSessionAsync();
+                GameServices.Locator.Get<SceneFlowService>().LoadMainMenu();
+            }
+            else
+            {
+                UnityEngine.SceneManagement.SceneManager.LoadScene(SceneNames.MainMenu);
+            }
         }
 
         /// <summary>
@@ -138,6 +156,14 @@ namespace Game.App
                     revealSpotlight.Play(snapshot);
                 else if (snapshot.Phase != RoundPhase.Reveal && revealSpotlight.IsOpen)
                     revealSpotlight.Hide();
+            }
+
+            // Online clients get a real end screen from the Standings projection. REMATCH stays
+            // hot-seat-only for now — an online restart is a follow-up (logged).
+            if (endScreen != null && snapshot.IsMatchOver && !endScreen.IsOpen)
+            {
+                endScreen.SetRematchVisible(false);
+                endScreen.Show(snapshot);
             }
 
             _lastOnlinePhase = snapshot.Phase;

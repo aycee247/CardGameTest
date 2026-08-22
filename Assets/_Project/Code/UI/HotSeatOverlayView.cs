@@ -46,8 +46,10 @@ namespace Game.UI
         }
 
         /// <summary>
-        /// Shows whichever panel the stage calls for, and hides the rest. The Reveal stage shows
-        /// none of these — the snapshot-driven <see cref="RevealSpotlightView"/> owns that beat.
+        /// Shows whichever panel the stage calls for, and hides the rest. Reveal and MatchOver show
+        /// none of these — the snapshot-driven <see cref="RevealSpotlightView"/> and
+        /// <see cref="EndScreenView"/> own those beats; the game-over panel here survives only for
+        /// the host-lost ending (NET-4).
         /// </summary>
         public void Render(HotSeatDirector director)
         {
@@ -55,13 +57,11 @@ namespace Game.UI
 
             Show(handoffPanel, stage == HotSeatStage.Handoff);
             Show(summaryPanel, stage == HotSeatStage.RoundSummary);
-            Show(gameOverPanel, stage == HotSeatStage.MatchOver);
 
             switch (stage)
             {
                 case HotSeatStage.Handoff: RenderHandoff(director); break;
                 case HotSeatStage.RoundSummary: RenderSummary(director); break;
-                case HotSeatStage.MatchOver: RenderGameOver(director); break;
             }
         }
 
@@ -144,28 +144,6 @@ namespace Game.UI
             }
 
             summaryBody.text = _sb.ToString().TrimEnd();
-        }
-
-        private void RenderGameOver(HotSeatDirector director)
-        {
-            if (gameOverBody == null) return;
-
-            var standings = director.FinalScores();
-            _sb.Clear();
-
-            for (int i = 0; i < standings.Count; i++)
-            {
-                var s = standings[i];
-                _sb.Append(i + 1).Append(". ").Append(s.DisplayName)
-                   .Append("   ").Append(s.Total).Append("vp");
-
-                if (s.PowerPoints != 0)
-                    _sb.Append("  (").Append(s.CardPoints).Append(" + ").Append(s.PowerPoints).Append(" bonus)");
-
-                _sb.Append('\n');
-            }
-
-            gameOverBody.text = _sb.ToString().TrimEnd();
         }
 
     }

@@ -369,6 +369,70 @@ namespace Game.SceneTools
             return view;
         }
 
+        /// <summary>Match-end standings (handoff screen 4): a full page over everything.</summary>
+        private static EndScreenView BuildEndScreen(Canvas canvas)
+        {
+            var rootGo = new GameObject("EndScreen", typeof(RectTransform), typeof(Image));
+            var root = (RectTransform)rootGo.transform;
+            root.SetParent(canvas.transform, false);
+            UiFactory.Stretch(root);
+            rootGo.GetComponent<Image>().color = _theme.surfaceBase;
+
+            var eyebrow = Top(UiFactory.Label(root, "Eyebrow", "", Vector2.zero, new Vector2(900, 44), 28f,
+                TextAlignmentOptions.Center, FontRole.BodySemibold, _theme.Accent(700), 0.22f), -150);
+            var headline = Top(UiFactory.Label(root, "Headline", "", Vector2.zero, new Vector2(1000, 150), 122f,
+                TextAlignmentOptions.Center, FontRole.HeadingBold), -260);
+            var note = Top(UiFactory.Label(root, "Note", "", Vector2.zero, new Vector2(900, 48), 32f,
+                TextAlignmentOptions.Center, FontRole.Body, Muted(0.7f)), -370);
+
+            var rowsRoot = UiFactory.Panel(root, "Rows", stretch: false);
+            rowsRoot.sizeDelta = new Vector2(960, 900);
+            rowsRoot.anchoredPosition = new Vector2(0, -60);
+            Column(rowsRoot, spacing: 14);
+
+            // Standing row template, deactivated in place.
+            var rowGo = new GameObject("StandingRow", typeof(RectTransform), typeof(Image));
+            var row = (RectTransform)rowGo.transform;
+            row.SetParent(root, false);
+            row.sizeDelta = new Vector2(960, 130);
+            FixedSize(rowGo, 960, 130);
+            rowGo.GetComponent<Image>().color = _theme.surfaceRaised;
+            UiFactory.BlueprintFrame(row, marks: false);
+            UiFactory.Label(row, "Rank", "1", new Vector2(-420, 0), new Vector2(80, 60), 40f,
+                TextAlignmentOptions.Center, FontRole.HeadingBold, Muted(0.55f));
+            var rowName = UiFactory.Label(row, "Name", "", new Vector2(-160, 0), new Vector2(400, 52), 36f,
+                TextAlignmentOptions.Left, FontRole.BodySemibold);
+            rowName.textWrappingMode = TextWrappingModes.NoWrap;
+            rowName.overflowMode = TextOverflowModes.Ellipsis;
+            UiFactory.Label(row, "Detail", "", new Vector2(160, 0), new Vector2(340, 48), 24f,
+                TextAlignmentOptions.Left, FontRole.Body, Muted(0.55f));
+            UiFactory.Label(row, "Score", "", new Vector2(390, 0), new Vector2(180, 60), 48f,
+                TextAlignmentOptions.Right, FontRole.HeadingBold);
+            rowGo.SetActive(false);
+
+            var rematch = Bottom(UiFactory.Button(root, "RematchButton", "REMATCH",
+                Vector2.zero, new Vector2(940, 132)), 330);
+            UiFactory.BlueprintFrame((RectTransform)rematch.transform, FrameEmphasis.AccentStrong);
+            var menu = Bottom(UiFactory.Button(root, "MenuButton", "MAIN MENU",
+                Vector2.zero, new Vector2(940, 132), ButtonStyle.Secondary), 170);
+
+            rootGo.SetActive(false);
+
+            var view = rootGo.AddComponent<EndScreenView>();
+            SetRef(view, "root", rootGo);
+            SetRef(view, "eyebrow", eyebrow);
+            SetRef(view, "headline", headline);
+            SetRef(view, "note", note);
+            SetRef(view, "rowsRoot", rowsRoot);
+            SetRef(view, "rowTemplate", row);
+            SetRef(view, "rematchButton", rematch);
+            SetRef(view, "menuButton", menu);
+            SetRef(view, "anims", canvas.GetComponent<UiAnimationService>());
+            SetRef(view, "theme", _theme);
+
+            return view;
+        }
+
         /// <summary>The re-pick sheet (MKT-3, handoff 6k), reusing the market card template.</summary>
         private static RepickSheetView BuildRepickSheet(RectTransform content, CardButtonView cardTemplate)
         {
@@ -823,6 +887,7 @@ namespace Game.SceneTools
 
             var spotlight = BuildRevealSpotlight(canvas);
             var overlay = BuildHotSeatOverlay(canvas.transform);
+            var endScreen = BuildEndScreen(canvas);
 
             var db = AssetDatabase.LoadAssetAtPath<CardDatabase>(DatabasePath);
             if (db == null)
@@ -837,6 +902,7 @@ namespace Game.SceneTools
             SetRef(hotSeat, "presenter", presenter);
             SetRef(hotSeat, "overlay", overlay);
             SetRef(hotSeat, "spotlight", spotlight);
+            SetRef(hotSeat, "endScreen", endScreen);
             if (db != null) SetRef(hotSeat, "cardDatabase", db);
 
             // In-scene networked controller (spawns when the host loads this scene via NGO).
@@ -857,6 +923,7 @@ namespace Game.SceneTools
             SetRef(mode, "hotSeatHost", hotSeat);
             SetRef(mode, "hotSeatOverlay", overlay);
             SetRef(mode, "revealSpotlight", spotlight);
+            SetRef(mode, "endScreen", endScreen);
             SetRef(mode, "networkController", controller);
             SetRef(mode, "matchLauncher", launcher);
 

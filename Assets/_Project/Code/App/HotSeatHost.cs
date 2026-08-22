@@ -22,6 +22,7 @@ namespace Game.App
         [SerializeField] private GameHudPresenter presenter;
         [SerializeField] private HotSeatOverlayView overlay;
         [SerializeField] private RevealSpotlightView spotlight;
+        [SerializeField] private EndScreenView endScreen;
 
         [Header("Match")]
         [Range(2, 6)]
@@ -84,6 +85,14 @@ namespace Game.App
                 spotlight.Finished += OnRevealFinished;
             }
 
+            if (endScreen != null)
+            {
+                endScreen.Hide();
+                endScreen.SetRematchVisible(true);
+                endScreen.RematchClicked -= OnRematch;
+                endScreen.RematchClicked += OnRematch;
+            }
+
             _director.Begin();
             _lastStage = HotSeatStage.MatchOver;   // force the first Refresh to count as a change
             Refresh();
@@ -107,6 +116,12 @@ namespace Game.App
             Refresh();
         }
 
+        private void OnRematch()
+        {
+            if (endScreen != null) endScreen.Hide();
+            StartMatch();
+        }
+
         private void OnSummaryContinued()
         {
             _director.ContinueFromSummary();
@@ -127,6 +142,14 @@ namespace Game.App
                     spotlight.Play(_session.Current);
                 else if (stage != HotSeatStage.Reveal && spotlight.IsOpen)
                     spotlight.Hide();
+            }
+
+            if (endScreen != null)
+            {
+                if (stage == HotSeatStage.MatchOver && !endScreen.IsOpen)
+                    endScreen.Show(_session.Current);
+                else if (stage != HotSeatStage.MatchOver && endScreen.IsOpen)
+                    endScreen.Hide();
             }
 
             bool acting = stage == HotSeatStage.Acting;
