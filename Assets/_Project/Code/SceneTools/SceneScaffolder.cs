@@ -1083,8 +1083,10 @@ namespace Game.SceneTools
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
             scaler.matchWidthOrHeight = 0.5f;
 
-            // The one tween router every animating view in the scene shares (ui-conventions.md).
+            // The one tween router every animating view in the scene shares (ui-conventions.md),
+            // plus the applier that feeds it the profile's reduced-motion and speed settings.
             go.AddComponent<UiAnimationService>();
+            go.AddComponent<UiMotionSettingsApplier>();
 
             // Safe-area panel that all content lives under.
             content = UiFactory.Panel(go.transform, "SafeArea");

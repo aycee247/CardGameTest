@@ -233,9 +233,10 @@ It gathers references three ways, because Unity uses three mechanisms: `<HintPat
 
 ### Playing a hot-seat match
 
-1. **Foundry ▸ Generate Starter Deck** — 48 cards over three tiers, plus the `CardDatabase`. It validates as it goes and logs an error for any cost no legal dice pool could pay.
-2. **Foundry ▸ Generate Scenes & Build Settings** — rebuilds Boot / MainMenu / Lobby / Game.
-3. Open the **Game** scene and press play. `HotSeatHost` starts a match immediately; set `playerCount` on it for 2–6 seats, or `fixedSeed` to replay an exact match.
+1. **Foundry ▸ Generate Font Assets**, then **Foundry ▸ Generate Theme** — the Barlow TMP faces and the Blueprint Light `ThemeAsset` every screen is generated against.
+2. **Foundry ▸ Generate Starter Deck** — 48 cards over three tiers, plus the `CardDatabase`. It validates as it goes and logs an error for any cost no legal dice pool could pay.
+3. **Foundry ▸ Generate Scenes & Build Settings** — rebuilds Boot / MainMenu / Lobby / Game.
+4. In-app: **Pass & Play** on the main menu starts a hot-seat match with no UGS involved. In the editor you can still open the **Game** scene and press play directly; set `playerCount` on `HotSeatHost` for 2–6 seats, or `fixedSeed` to replay an exact match.
 
 ### Playing online
 

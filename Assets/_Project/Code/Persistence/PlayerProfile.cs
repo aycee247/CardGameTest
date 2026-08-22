@@ -11,6 +11,12 @@ namespace Game.Persistence
         public float MusicVolume = 0.8f;
         public float SfxVolume = 1f;
         public bool Haptics = true;
+
+        /// <summary>Collapses every UI animation to its end state (STORY-4.5 AC2).</summary>
+        public bool ReducedMotion;
+
+        /// <summary>Scales every UI animation; 1 is authored speed, 2 twice as fast.</summary>
+        public float AnimationSpeed = 1f;
     }
 
     /// <summary>
