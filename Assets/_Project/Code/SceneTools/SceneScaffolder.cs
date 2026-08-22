@@ -290,6 +290,118 @@ namespace Game.SceneTools
             return Save(scene, SceneNames.Lobby);
         }
 
+        /// <summary>The card inspect sheet (handoff 6h): scrim + blueprint panel under the header.</summary>
+        private static CardZoomSheetView BuildCardZoomSheet(RectTransform content)
+        {
+            var root = UiFactory.Panel(content, "CardZoomSheet");
+
+            var scrimGo = new GameObject("Scrim", typeof(RectTransform), typeof(Image), typeof(Button));
+            var scrimRt = (RectTransform)scrimGo.transform;
+            scrimRt.SetParent(root, false);
+            UiFactory.Stretch(scrimRt);
+            scrimGo.GetComponent<Image>().color = UiFactory.WithAlpha(_theme.surfaceOverlay, 0.45f);
+            var scrim = scrimGo.GetComponent<Button>();
+            scrim.transition = Selectable.Transition.None;
+
+            var sheetGo = new GameObject("Sheet", typeof(RectTransform), typeof(Image));
+            var sheet = (RectTransform)sheetGo.transform;
+            sheet.SetParent(root, false);
+            sheet.anchorMin = sheet.anchorMax = new Vector2(0.5f, 1f);
+            sheet.pivot = new Vector2(0.5f, 1f);
+            sheet.sizeDelta = new Vector2(1000, 900);
+            sheet.anchoredPosition = new Vector2(0, -140);
+            sheetGo.GetComponent<Image>().color = _theme.surfaceBase;
+            UiFactory.BlueprintFrame(sheet, FrameEmphasis.Accent);
+
+            var tier = UiFactory.Label(sheet, "TierTag", "TIER 1", new Vector2(-360, 380), new Vector2(240, 44), 28f,
+                TextAlignmentOptions.Left, FontRole.BodySemibold, _theme.Accent(700), 0.18f);
+            var family = UiFactory.Label(sheet, "FamilyTag", "", new Vector2(-90, 380), new Vector2(280, 44), 28f,
+                TextAlignmentOptions.Left, FontRole.BodySemibold, Muted(0.55f), 0.18f);
+            var close = UiFactory.Button(sheet, "CloseButton", "×", new Vector2(430, 380), new Vector2(90, 90),
+                ButtonStyle.Ghost);
+
+            var name = UiFactory.Label(sheet, "Name", "", new Vector2(-90, 280), new Vector2(760, 100), 64f,
+                TextAlignmentOptions.Left, FontRole.HeadingBold);
+
+            var vpBox = UiFactory.Panel(sheet, "VpBox", stretch: false);
+            vpBox.sizeDelta = new Vector2(190, 110);
+            vpBox.anchoredPosition = new Vector2(370, 280);
+            UiFactory.BlueprintFrame(vpBox, marks: false);
+            var points = UiFactory.Label(vpBox, "Value", "0 VP", Vector2.zero, new Vector2(180, 90), 40f,
+                TextAlignmentOptions.Center, FontRole.HeadingBold);
+
+            UiFactory.Label(sheet, "CostHead", "COST", new Vector2(-300, 160), new Vector2(320, 40), 24f,
+                TextAlignmentOptions.Left, FontRole.BodySemibold, Muted(0.55f), 0.2f);
+            var cost = UiFactory.Label(sheet, "Cost", "", new Vector2(-300, 40), new Vector2(320, 190), 32f,
+                TextAlignmentOptions.TopLeft, FontRole.Body);
+            UiFactory.Label(sheet, "PowerHead", "PERMANENT POWER", new Vector2(150, 160), new Vector2(560, 40), 24f,
+                TextAlignmentOptions.Left, FontRole.BodySemibold, Muted(0.55f), 0.2f);
+            var power = UiFactory.Label(sheet, "Power", "", new Vector2(150, 40), new Vector2(560, 190), 32f,
+                TextAlignmentOptions.TopLeft, FontRole.Body);
+
+            var payStatus = UiFactory.Label(sheet, "PayStatus", "", new Vector2(0, -160), new Vector2(900, 44), 30f,
+                TextAlignmentOptions.Center, FontRole.BodyMedium);
+
+            var commit = UiFactory.Button(sheet, "CommitButton", "COMMIT · SECRET",
+                new Vector2(0, -270), new Vector2(920, 130));
+            UiFactory.BlueprintFrame((RectTransform)commit.transform, FrameEmphasis.AccentStrong);
+            var commitFill = commit.GetComponent<Image>();
+            var commitLabel = commit.transform.Find("Text").GetComponent<TMP_Text>();
+
+            UiFactory.Label(sheet, "SmallPrint",
+                "Commits are secret until Reveal. Contested cards go to the lowest score.",
+                new Vector2(0, -390), new Vector2(900, 44), 24f,
+                TextAlignmentOptions.Center, FontRole.Body, Muted(0.55f));
+
+            root.gameObject.SetActive(false);
+
+            var view = root.gameObject.AddComponent<CardZoomSheetView>();
+            SetRef(view, "root", root.gameObject);
+            SetRef(view, "scrimButton", scrim);
+            SetRef(view, "closeButton", close);
+            SetRef(view, "tierTag", tier);
+            SetRef(view, "familyTag", family);
+            SetRef(view, "nameText", name);
+            SetRef(view, "pointsText", points);
+            SetRef(view, "costText", cost);
+            SetRef(view, "powerText", power);
+            SetRef(view, "payStatusText", payStatus);
+            SetRef(view, "commitButton", commit);
+            SetRef(view, "commitFill", commitFill);
+            SetRef(view, "commitLabel", commitLabel);
+            SetRef(view, "theme", _theme);
+
+            return view;
+        }
+
+        /// <summary>The first-time hint toast (handoff 6i): dark strip above the action bar.</summary>
+        private static HintToastView BuildHintToast(RectTransform content)
+        {
+            var go = new GameObject("HintToast", typeof(RectTransform), typeof(Image));
+            var rt = (RectTransform)go.transform;
+            rt.SetParent(content, false);
+            rt.sizeDelta = new Vector2(980, 180);
+            Bottom(rt, 480);
+            go.GetComponent<Image>().color = _theme.surfaceOverlay;
+
+            var body = UiFactory.Label(rt, "Body", "", new Vector2(-100, 0), new Vector2(700, 160), 30f,
+                TextAlignmentOptions.Left, FontRole.Body, _theme.textInverse);
+
+            var gotIt = UiFactory.Button(rt, "GotItButton", "GOT IT", new Vector2(390, 0), new Vector2(170, 84),
+                ButtonStyle.Ghost);
+            var gotItLabel = gotIt.GetComponentInChildren<TextMeshProUGUI>();
+            if (gotItLabel != null) gotItLabel.color = _theme.textInverse;
+
+            go.SetActive(false);
+
+            var view = go.AddComponent<HintToastView>();
+            SetRef(view, "root", go);
+            SetRef(view, "bodyText", body);
+            SetRef(view, "gotItButton", gotIt);
+
+            return view;
+        }
+
         /// <summary>The bottom bar's Done/timer square (handoff 6g): frame, two rings, two labels.</summary>
         private static DoneTimerButtonView BuildDoneTimer(RectTransform content, Canvas canvas)
         {
@@ -550,8 +662,15 @@ namespace Game.SceneTools
             SetRef(hud, "cardButtonPrefab", cardButtonTemplate);
             SetRef(hud, "diePrefab", dieTemplate);
 
+            // Overlay layers: above the board (created later = drawn later), below the hot-seat
+            // privacy panels, which are built after and must stay on top.
+            var zoomSheet = BuildCardZoomSheet(content);
+            var hintToast = BuildHintToast(content);
+
             var presenter = canvas.gameObject.AddComponent<GameHudPresenter>();
             SetRef(presenter, "view", hud);
+            SetRef(presenter, "zoomSheet", zoomSheet);
+            SetRef(presenter, "hintToast", hintToast);
 
             var overlay = BuildHotSeatOverlay(canvas.transform);
 
@@ -559,6 +678,8 @@ namespace Game.SceneTools
             if (db == null)
                 Debug.LogWarning("[Scaffold] CardDatabase not found — run 'Foundry ▸ Generate Starter Deck' " +
                                  "and re-run, or assign it on HotSeatHost and MatchLauncher.");
+            else
+                SetRef(presenter, "cardDatabase", db);
 
             // Hot-seat host: playable immediately, with no networking involved.
             var hotSeatGo = new GameObject("HotSeatHost");

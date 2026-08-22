@@ -21,8 +21,12 @@ namespace Game.Persistence
     [Serializable]
     public class PlayerProfile
     {
-        public int Version = 1;
+        public int Version = 2;   // v2: first-time hint flags (absent members default false on load)
         public string DisplayName = "Player";
+
+        /// <summary>First-time onboarding hints already dismissed (handoff 6i).</summary>
+        public bool ShapeHintSeen;
+        public bool CommitHintSeen;
 
         /// <summary>Card ids the player has unlocked into their collection.</summary>
         public List<int> OwnedCardIds = new List<int>();

@@ -35,8 +35,36 @@ namespace Game.App
 
         private void Start()
         {
+            ConfigureHints();
+
             if (IsOnline) StartOnline();
             else StartHotSeat();
+        }
+
+        /// <summary>
+        /// Feeds the presenter the profile's seen-flags and persists dismissals. Game.UI cannot
+        /// reference Game.Persistence, so this is where the two meet. Opening the Game scene
+        /// directly in the editor has no service graph — hints then show but are not persisted.
+        /// </summary>
+        private void ConfigureHints()
+        {
+            if (presenter == null) return;
+
+            if (GameServices.IsReady &&
+                GameServices.Locator.TryGet<Game.Persistence.ISaveService>(out var save))
+            {
+                presenter.SetHintFlags(save.Profile.ShapeHintSeen, save.Profile.CommitHintSeen);
+                presenter.HintDismissed += kind =>
+                {
+                    if (kind == Game.Core.RoundPhase.Shape) save.Profile.ShapeHintSeen = true;
+                    else save.Profile.CommitHintSeen = true;
+                    save.MarkDirty();
+                };
+            }
+            else
+            {
+                presenter.SetHintFlags(false, false);
+            }
         }
 
         private void StartHotSeat()
