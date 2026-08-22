@@ -75,6 +75,22 @@ namespace Game.UI
             }
         }
 
+        /// <summary>
+        /// Roll-phase presentation only: cycles the displayed face while the server's authoritative
+        /// roll is in flight (NET-1). Never called with a face the player could mistake for state —
+        /// the next Render overwrites it with the real one.
+        /// </summary>
+        public void PreviewFace(int face)
+        {
+            if (pips != null) pips.SetFace(face);
+        }
+
+        /// <summary>Roll-phase shake, degrees around z. Zero restores rest.</summary>
+        public void SetWobble(float degrees)
+        {
+            if (body != null) body.localRotation = Quaternion.Euler(0f, 0f, degrees);
+        }
+
         private void Paint(Color fill, Color border, Color pipColor)
         {
             if (background != null) background.color = fill;

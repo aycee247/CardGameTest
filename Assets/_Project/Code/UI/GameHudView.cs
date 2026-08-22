@@ -24,9 +24,7 @@ namespace Game.UI
         [SerializeField] private TMP_Text roundLabel;
         [SerializeField] private TMP_Text phaseLabel;
         [SerializeField] private TMP_Text sparksLabel;
-        [SerializeField] private TMP_Text allowanceLabel;
         [SerializeField] private TMP_Text messageLabel;
-        [SerializeField] private TMP_Text timerLabel;
 
         [Header("Standings rail")]
         [SerializeField] private Transform railRoot;
@@ -35,17 +33,27 @@ namespace Game.UI
         [Header("Dice tray")]
         [SerializeField] private Transform diceRoot;
         [SerializeField] private DieView diePrefab;
+        [SerializeField] private TMP_Text trayHintLabel;
+
+        [Header("Owned powers strip")]
+        [SerializeField] private Transform powersRoot;
+        [SerializeField] private RectTransform powerChipTemplate;
 
         [Header("Shape controls")]
         [SerializeField] private Button rerollButton;
         [SerializeField] private Button nudgeUpButton;
         [SerializeField] private Button nudgeDownButton;
+        [SerializeField] private Button setFaceButton;
         [SerializeField] private Transform faceButtonsRoot;
+        [SerializeField] private Button faceCancelButton;
 
         [Header("Decide controls")]
         [SerializeField] private Button passButton;
         [SerializeField] private Button withdrawButton;
-        [SerializeField] private Button doneButton;
+        [SerializeField] private DoneTimerButtonView doneTimer;
+
+        [Header("Motion")]
+        [SerializeField] private UiAnimationService anims;
 
         [Header("Market")]
         [SerializeField] private Transform marketRoot;
@@ -62,7 +70,17 @@ namespace Game.UI
         private readonly HashSet<int> _costFocus = new HashSet<int>();
         private bool _costFocusActive;
 
+        private readonly List<string> _powerTexts = new List<string>();
+        private readonly List<RectTransform> _powerChips = new List<RectTransform>();
+        private readonly List<TMP_Text> _powerChipLabels = new List<TMP_Text>();
+
         private bool _canAct;
+        private bool _facePickerOpen;
+        private float _phaseDuration = -1f;
+        private RoundPhase _lastPhase = (RoundPhase)(-1);
+        private AnimHandle _rollAnim;
+        private TMP_Text _rerollLabel;
+        private TMP_Text _setFaceLabel;
 
         /// <summary>Dice the player has highlighted, ascending. This is what a claim offers.</summary>
         public IReadOnlyList<int> SelectedDice => _selected;
@@ -85,7 +103,19 @@ namespace Game.UI
             Hook(nudgeDownButton, () => NudgeSelected?.Invoke(-1));
             Hook(passButton, () => PassClicked?.Invoke());
             Hook(withdrawButton, () => WithdrawClicked?.Invoke());
-            Hook(doneButton, () => DoneClicked?.Invoke());
+            if (doneTimer != null) doneTimer.Clicked += () => DoneClicked?.Invoke();
+
+            // The picker replaces the shape row; SelectionChanged doubles as "please re-render".
+            Hook(setFaceButton, () =>
+            {
+                _facePickerOpen = true;
+                SelectionChanged?.Invoke();
+            });
+            Hook(faceCancelButton, () =>
+            {
+                _facePickerOpen = false;
+                SelectionChanged?.Invoke();
+            });
 
             // Face buttons are ordered children: the first sets 1, the sixth sets 6.
             if (faceButtonsRoot != null)
@@ -94,9 +124,16 @@ namespace Game.UI
                 {
                     int face = i + 1;
                     var button = faceButtonsRoot.GetChild(i).GetComponent<Button>();
-                    Hook(button, () => SetSelected?.Invoke(face));
+                    Hook(button, () =>
+                    {
+                        _facePickerOpen = false;
+                        SetSelected?.Invoke(face);
+                    });
                 }
             }
+
+            if (rerollButton != null) _rerollLabel = rerollButton.GetComponentInChildren<TMP_Text>(true);
+            if (setFaceButton != null) _setFaceLabel = setFaceButton.GetComponentInChildren<TMP_Text>(true);
         }
 
         private static void Hook(Button button, UnityEngine.Events.UnityAction action)
@@ -140,16 +177,15 @@ namespace Game.UI
         }
 
         /// <summary>
-        /// Updates only the countdown label. Online the clock ticks between server snapshots, so
-        /// this runs every frame; the rest of the board only changes on a new snapshot and should
-        /// not be rebuilt that often (STORY-2.8).
+        /// Updates only the clock — the Done button's perimeter ring and seconds readout. Online
+        /// the clock ticks between server snapshots, so this runs every frame; the rest of the
+        /// board only changes on a new snapshot and should not be rebuilt that often (STORY-2.8).
+        /// The duration denominator is cached by the last Render from the config echo.
         /// </summary>
         public void Tick(float secondsLeft, bool matchOver)
         {
-            if (timerLabel == null) return;
-            bool ticking = secondsLeft >= 0f && !matchOver;
-            timerLabel.gameObject.SetActive(ticking);
-            if (ticking) timerLabel.text = Mathf.CeilToInt(secondsLeft).ToString();
+            if (doneTimer == null) return;
+            doneTimer.Tick(matchOver ? -1f : secondsLeft, _phaseDuration);
         }
 
         /// <summary>Renders with no phase clock — the hot-seat case.</summary>
@@ -164,8 +200,6 @@ namespace Game.UI
         public void Render(in MatchSnapshot snapshot, bool canAct, bool shapingAllowed, float secondsLeft)
         {
             _canAct = canAct;
-
-            Tick(secondsLeft, snapshot.IsMatchOver);
 
             var me = snapshot.Observer;
 
@@ -183,10 +217,19 @@ namespace Game.UI
                 sparksLabel.text = cap > 0 ? $"SPARKS {me.Sparks}/{cap}" : $"SPARKS {me.Sparks}";
             }
 
-            if (allowanceLabel != null) allowanceLabel.text = DescribeAllowance(me);
-
             if (marketMetaLabel != null)
                 marketMetaLabel.text = $"DECK {snapshot.DrawPileCount} · TAP A CARD TO INSPECT";
+
+            _phaseDuration = snapshot.Config?.DurationOf(snapshot.Phase, snapshot.Reveals?.Length ?? 0) ?? -1f;
+
+            if (trayHintLabel != null)
+            {
+                string hint = snapshot.Phase == RoundPhase.Roll ? "SERVER ROLLING"
+                    : _costFocusActive ? "HIGHLIGHTED DICE PAY THE COST"
+                    : _selected.Count > 0 ? $"{_selected.Count} SELECTED"
+                    : "TAP TO SELECT";
+                trayHintLabel.text = "YOUR DICE — " + hint;
+            }
 
             RenderRail(snapshot);
             // Dice selection tracks "can I act" (Shape, Commit, or Repick — CORE-5, MKT-3), not
@@ -195,7 +238,18 @@ namespace Game.UI
             // during a re-pick pass, since HotSeatHost forces shapingAllowed false there.
             RenderDice(me, canAct);
             RenderMarket(snapshot, canAct);
-            RenderControls(me, canAct, shapingAllowed);
+            RenderPowers(me, snapshot.Phase);
+            RenderControls(me, snapshot, canAct, shapingAllowed);
+            RenderDoneButton(me, snapshot, canAct);
+            Tick(secondsLeft, snapshot.IsMatchOver);
+
+            // The server roll is authoritative; while it lands, the tray plays pure animation.
+            if (anims != null && snapshot.Phase != _lastPhase)
+            {
+                if (snapshot.Phase == RoundPhase.Roll) StartRollAnimation();
+                else StopRollAnimation();
+            }
+            _lastPhase = snapshot.Phase;
         }
 
         // ------------------------------------------------------------------ sections
@@ -289,25 +343,146 @@ namespace Game.UI
             }
         }
 
-        private void RenderControls(in PlayerSnapshot me, bool canAct, bool shapingAllowed)
+        /// <summary>Only-when-usable chips for the observer's powers (handoff 6d, UI-5).</summary>
+        private void RenderPowers(in PlayerSnapshot me, RoundPhase phase)
+        {
+            if (powersRoot == null || powerChipTemplate == null) return;
+
+            _powerTexts.Clear();
+            bool inputPhase = phase == RoundPhase.Shape || phase == RoundPhase.Commit;
+            if (inputPhase)
+            {
+                if (me.RerollsLeft > 0) _powerTexts.Add($"FREE RE-ROLL ×{me.RerollsLeft}");
+                if (me.NudgesLeft > 0) _powerTexts.Add($"±1 NUDGE ×{me.NudgesLeft}");
+                if (me.SetsLeft > 0) _powerTexts.Add($"SET FACE FREE ×{me.SetsLeft}");
+                if (me.WildFaces != null)
+                    foreach (int face in me.WildFaces) _powerTexts.Add($"{face}s ARE WILD");
+                if (me.WildDice > 0) _powerTexts.Add($"WILD DIE ×{me.WildDice}");
+            }
+
+            // Nothing usable → the whole row collapses; no empty band is reserved.
+            powersRoot.gameObject.SetActive(_powerTexts.Count > 0);
+            if (_powerTexts.Count == 0) return;
+
+            while (_powerChips.Count < _powerTexts.Count)
+            {
+                var chip = Instantiate(powerChipTemplate, powersRoot);
+                _powerChips.Add(chip);
+                _powerChipLabels.Add(chip.GetComponentInChildren<TMP_Text>(true));
+            }
+
+            for (int i = 0; i < _powerChips.Count; i++)
+            {
+                bool active = i < _powerTexts.Count;
+                _powerChips[i].gameObject.SetActive(active);
+                if (active && _powerChipLabels[i] != null) _powerChipLabels[i].text = _powerTexts[i];
+            }
+        }
+
+        private void RenderControls(in PlayerSnapshot me, in MatchSnapshot snapshot, bool canAct, bool shapingAllowed)
         {
             bool hasSelection = _selected.Count > 0;
+            bool oneSelected = _selected.Count == 1;
             bool committed = me.HasCommitted;
             bool decided = me.HasDecided;
 
-            SetInteractable(rerollButton, canAct && shapingAllowed && hasSelection);
-            SetInteractable(nudgeUpButton, canAct && shapingAllowed && hasSelection);
-            SetInteractable(nudgeDownButton, canAct && shapingAllowed && hasSelection);
+            bool shaping = canAct && shapingAllowed && !decided;
+            if (!shaping) _facePickerOpen = false;
 
-            if (faceButtonsRoot != null)
-                faceButtonsRoot.gameObject.SetActive(canAct && shapingAllowed && hasSelection);
+            // The picker replaces the shape row rather than stacking under it (handoff 6f-alt).
+            bool shapeRow = shaping && !_facePickerOpen;
+            SetRowVisible(rerollButton, shapeRow);
+            SetRowVisible(nudgeUpButton, shapeRow);
+            SetRowVisible(nudgeDownButton, shapeRow);
+            SetRowVisible(setFaceButton, shapeRow);
+            if (faceButtonsRoot != null) faceButtonsRoot.gameObject.SetActive(shaping && _facePickerOpen);
+            SetRowVisible(faceCancelButton, shaping && _facePickerOpen);
 
+            int rerollCost = snapshot.Config?.RerollSparkCost ?? 2;
+            int setFaceCost = snapshot.Config?.SetFaceSparkCost ?? 4;
+
+            // Disabled functionally per legality, never just visually (handoff 6f). Nudges have
+            // no Spark price — allowance only — and require exactly one die.
+            SetInteractable(rerollButton, shaping && hasSelection && (me.RerollsLeft > 0 || me.Sparks >= rerollCost));
+            SetInteractable(nudgeUpButton, shaping && oneSelected && me.NudgesLeft > 0);
+            SetInteractable(nudgeDownButton, shaping && oneSelected && me.NudgesLeft > 0);
+            SetInteractable(setFaceButton, shaping && hasSelection && (me.SetsLeft > 0 || me.Sparks >= setFaceCost));
+
+            if (_rerollLabel != null)
+                _rerollLabel.text = me.RerollsLeft > 0 ? $"RE-ROLL · {me.RerollsLeft} FREE" : $"RE-ROLL −{rerollCost}sp";
+            if (_setFaceLabel != null)
+                _setFaceLabel.text = me.SetsLeft > 0 ? "SET FACE · FREE" : $"SET FACE −{setFaceCost}sp";
+
+            // Withdraw only exists once committed (CORE-5); Pass only while undecided — both live
+            // in Shape and Commit alike, since a player may decide early.
+            SetRowVisible(passButton, canAct && !decided);
             SetInteractable(passButton, canAct && !decided);
-            SetInteractable(withdrawButton, canAct && decided);
-            SetInteractable(doneButton, canAct);
+            SetRowVisible(withdrawButton, canAct && committed);
+            SetInteractable(withdrawButton, canAct && committed);
 
             // Once committed the dice are pledged, so shaping is off until the player withdraws.
             if (committed && shapingAllowed) ShowMessage("Committed — withdraw to change your dice.");
+        }
+
+        private void RenderDoneButton(in PlayerSnapshot me, in MatchSnapshot snapshot, bool canAct)
+        {
+            if (doneTimer == null) return;
+
+            var state = DoneButtonState.Inactive;
+            if (canAct)
+            {
+                switch (snapshot.Phase)
+                {
+                    case RoundPhase.Shape:
+                        state = me.HasDecided ? DoneButtonState.Locked : DoneButtonState.Done;
+                        break;
+                    case RoundPhase.Commit:
+                        state = me.HasDecided ? DoneButtonState.Locked : DoneButtonState.Pick;
+                        break;
+                    case RoundPhase.Repick:
+                        state = me.HasDecided ? DoneButtonState.Locked
+                            : IsRepickContender(snapshot, me.PlayerId) ? DoneButtonState.Pick
+                            : DoneButtonState.Inactive;
+                        break;
+                }
+            }
+
+            doneTimer.SetState(state);
+        }
+
+        private static bool IsRepickContender(in MatchSnapshot snapshot, int playerId)
+        {
+            var contenders = snapshot.RepickContenders;
+            if (contenders == null) return false;
+            for (int i = 0; i < contenders.Length; i++)
+                if (contenders[i] == playerId) return true;
+            return false;
+        }
+
+        private void StartRollAnimation()
+        {
+            StopRollAnimation();
+            _rollAnim = anims.Loop(0.9f, t =>
+            {
+                for (int i = 0; i < _dice.Count; i++)
+                {
+                    if (!_dice[i].gameObject.activeSelf) continue;
+                    _dice[i].PreviewFace(1 + (i + (int)(t * 6f)) % 6);
+                    _dice[i].SetWobble(Mathf.Sin((t * 4f + i * 0.37f) * Mathf.PI * 2f) * 4f);
+                }
+            });
+        }
+
+        private void StopRollAnimation()
+        {
+            if (anims != null) anims.Skip(_rollAnim);
+            _rollAnim = default;
+            for (int i = 0; i < _dice.Count; i++) _dice[i].SetWobble(0f);
+        }
+
+        private static void SetRowVisible(Button button, bool visible)
+        {
+            if (button != null) button.gameObject.SetActive(visible);
         }
 
         private static void SetInteractable(Button button, bool value)
@@ -330,15 +505,6 @@ namespace Game.UI
                 case RoundPhase.MatchOver: return "Match over";
                 default: return s.Phase.ToString();
             }
-        }
-
-        private static string DescribeAllowance(in PlayerSnapshot me)
-        {
-            var parts = new List<string>(3);
-            if (me.RerollsLeft > 0) parts.Add($"{me.RerollsLeft} re-roll");
-            if (me.NudgesLeft > 0) parts.Add($"{me.NudgesLeft} nudge");
-            if (me.SetsLeft > 0) parts.Add($"{me.SetsLeft} set");
-            return parts.Count == 0 ? "No free actions" : "Free: " + string.Join(", ", parts);
         }
 
         // ------------------------------------------------------------------ input

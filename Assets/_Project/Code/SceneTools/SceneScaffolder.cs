@@ -290,6 +290,75 @@ namespace Game.SceneTools
             return Save(scene, SceneNames.Lobby);
         }
 
+        /// <summary>The bottom bar's Done/timer square (handoff 6g): frame, two rings, two labels.</summary>
+        private static DoneTimerButtonView BuildDoneTimer(RectTransform content, Canvas canvas)
+        {
+            float size = DesignTokens.Px(74);
+
+            var go = new GameObject("DoneTimer", typeof(RectTransform), typeof(Image), typeof(Button));
+            var rt = (RectTransform)go.transform;
+            rt.SetParent(content, false);
+            rt.sizeDelta = new Vector2(size, size);
+            Bottom(rt, 190);
+            rt.anchoredPosition = new Vector2(400, rt.anchoredPosition.y);
+
+            var fill = go.GetComponent<Image>();
+            fill.color = _theme.surfaceRaised;
+            UiFactory.BlueprintFrame(rt);
+
+            var track = TimerRing(rt, "Track", UiFactory.WithAlpha(_theme.Accent(200), 0.9f));
+            var progress = TimerRing(rt, "Progress", _theme.accentPriority);
+
+            var label = UiFactory.Label(rt, "Label", "—", new Vector2(0, 22), new Vector2(size - 20, 56), 38f,
+                TextAlignmentOptions.Center, FontRole.BodySemibold);
+            var seconds = UiFactory.Label(rt, "Seconds", "", new Vector2(0, -44), new Vector2(size - 20, 56), 47f,
+                TextAlignmentOptions.Center, FontRole.HeadingBold);
+
+            var view = go.AddComponent<DoneTimerButtonView>();
+            SetRef(view, "button", go.GetComponent<Button>());
+            SetRef(view, "fill", fill);
+            SetRef(view, "track", track);
+            SetRef(view, "progress", progress);
+            SetRef(view, "label", label);
+            SetRef(view, "secondsLabel", seconds);
+            SetRef(view, "anims", canvas.GetComponent<UiAnimationService>());
+            SetRef(view, "theme", _theme);
+
+            return view;
+        }
+
+        private static SquareTimerRing TimerRing(RectTransform parent, string name, Color color)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            var rt = (RectTransform)go.transform;
+            rt.SetParent(parent, false);
+            UiFactory.Stretch(rt);
+
+            var ring = go.AddComponent<SquareTimerRing>();
+            ring.color = color;
+            ring.Thickness = 8f;
+            ring.Fill01 = 1f;
+            ring.raycastTarget = false;
+            return ring;
+        }
+
+        private static RectTransform BuildPowerChipTemplate(Transform parent)
+        {
+            var go = new GameObject("PowerChip", typeof(RectTransform), typeof(Image));
+            var rt = (RectTransform)go.transform;
+            rt.SetParent(parent, false);
+            rt.sizeDelta = new Vector2(250, 56);
+            FixedSize(go, 250, 56);
+            go.GetComponent<Image>().color = _theme.Accent(100);
+
+            var label = UiFactory.Label(rt, "Text", "POWER", Vector2.zero, new Vector2(240, 48), 24f,
+                TextAlignmentOptions.Center, FontRole.BodySemibold, _theme.Accent(800), 0.08f);
+            label.textWrappingMode = TextWrappingModes.NoWrap;
+            label.overflowMode = TextOverflowModes.Ellipsis;
+
+            return rt;
+        }
+
         private static SeatRowView BuildSeatRowTemplate(Transform parent)
         {
             const float RowWidth = 970f;
@@ -361,11 +430,6 @@ namespace Game.SceneTools
             var sparks = UiFactory.Label(sparksChip, "Value", "", Vector2.zero, new Vector2(320, 66), 30f,
                 TextAlignmentOptions.Center, FontRole.BodySemibold, _theme.Accent(800), 0.06f);
 
-            // Online only: hidden whenever there is no phase clock (UI-2). Replaced by the Done
-            // button's ring when the bottom bar lands; until then it sits under the Sparks tag.
-            var timer = Top(UiFactory.Label(content, "Timer", "", new Vector2(340, 0), new Vector2(180, 60), 44f,
-                TextAlignmentOptions.Center, FontRole.HeadingBold), -170);
-
             // Opponent rail (UI-1, handoff 6b): a horizontal strip, one cell per player, seat order.
             var railRoot = UiFactory.Panel(content, "Rail", stretch: false);
             railRoot.sizeDelta = new Vector2(1020, 180);
@@ -383,39 +447,70 @@ namespace Game.SceneTools
             Top(marketRoot, -650);
             Row(marketRoot, spacing: 12);
 
-            // --- controls, from the bottom up ---
-            var message = Bottom(UiFactory.Label(content, "Message", "", Vector2.zero, new Vector2(1000, 80), 32f), 45);
+            // --- controls, from the bottom up (handoff 6d-6g) ---
+            var message = Bottom(UiFactory.Label(content, "Message", "", new Vector2(0, 0), new Vector2(1000, 76), 30f,
+                TextAlignmentOptions.Center, FontRole.Body, Muted(0.8f)), 45);
 
-            var pass = Bottom(UiFactory.Button(content, "PassButton", "Pass", Vector2.zero, new Vector2(300, 120)), 150);
-            var withdraw = Bottom(UiFactory.Button(content, "WithdrawButton", "Withdraw", Vector2.zero, new Vector2(300, 120)), 150);
-            var done = Bottom(UiFactory.Button(content, "DoneButton", "Done", Vector2.zero, new Vector2(300, 120)), 150);
-            Spread(pass, withdraw, done, gap: 320);
+            // Bottom action bar: conditional ghosts left, the Done/timer square right (6g).
+            var withdraw = Bottom(UiFactory.Button(content, "WithdrawButton", "WITHDRAW",
+                new Vector2(-380, 0), new Vector2(290, 110), ButtonStyle.Ghost), 190);
+            var pass = Bottom(UiFactory.Button(content, "PassButton", "PASS THIS ROUND",
+                new Vector2(-55, 0), new Vector2(340, 110), ButtonStyle.Ghost), 190);
+            var doneTimer = BuildDoneTimer(content, canvas);
 
-            var reroll = Bottom(UiFactory.Button(content, "RerollButton", "Re-roll", Vector2.zero, new Vector2(300, 120)), 285);
-            var nudgeUp = Bottom(UiFactory.Button(content, "NudgeUpButton", "+1", Vector2.zero, new Vector2(300, 120)), 285);
-            var nudgeDown = Bottom(UiFactory.Button(content, "NudgeDownButton", "-1", Vector2.zero, new Vector2(300, 120)), 285);
-            Spread(reroll, nudgeUp, nudgeDown, gap: 320);
+            // Shape row ⇄ face picker share one band (6f / 6f-alt).
+            var reroll = Bottom(UiFactory.Button(content, "RerollButton", "RE-ROLL",
+                new Vector2(-370, 0), new Vector2(310, 110), ButtonStyle.Secondary), 350);
+            var nudgeDown = Bottom(UiFactory.Button(content, "NudgeDownButton", "−1",
+                new Vector2(-125, 0), new Vector2(140, 110), ButtonStyle.Secondary), 350);
+            var nudgeUp = Bottom(UiFactory.Button(content, "NudgeUpButton", "+1",
+                new Vector2(30, 0), new Vector2(140, 110), ButtonStyle.Secondary), 350);
+            var setFace = Bottom(UiFactory.Button(content, "SetFaceButton", "SET FACE",
+                new Vector2(300, 0), new Vector2(380, 110), ButtonStyle.Secondary), 350);
 
-            // Face picker, shown only while dice are selected.
             var faceRoot = UiFactory.Panel(content, "FaceButtons", stretch: false);
-            faceRoot.sizeDelta = new Vector2(1000, 110);
-            Bottom(faceRoot, 410);
+            faceRoot.sizeDelta = new Vector2(880, 110);
+            Bottom(faceRoot, 350);
+            faceRoot.anchoredPosition = new Vector2(-70, faceRoot.anchoredPosition.y);
             Row(faceRoot, spacing: 10);
             for (int face = 1; face <= 6; face++)
             {
-                var faceButton = UiFactory.Button(faceRoot, "Face" + face, face.ToString(), Vector2.zero, new Vector2(140, 100));
-                FixedSize(faceButton.gameObject, 140, 100);
+                var faceButton = UiFactory.Button(faceRoot, "Face" + face, face.ToString(),
+                    Vector2.zero, new Vector2(135, 100), ButtonStyle.Secondary);
+                FixedSize(faceButton.gameObject, 135, 100);
             }
+            var faceCancel = Bottom(UiFactory.Button(content, "FaceCancelButton", "×",
+                new Vector2(460, 0), new Vector2(110, 100), ButtonStyle.Ghost), 350);
 
-            var diceRoot = UiFactory.Panel(content, "DiceTray", stretch: false);
-            diceRoot.sizeDelta = new Vector2(1000, 170);
-            Bottom(diceRoot, 555);
-            Row(diceRoot, spacing: 14);
+            // Dice tray (6e): a bordered panel, hint pinned to its top, dice wrapping in a grid so
+            // eight at the 62px size still fit the phone width in two rows.
+            float dieSize = DesignTokens.Px(62);
+            var trayGo = new GameObject("DiceTrayPanel", typeof(RectTransform), typeof(Image));
+            var tray = (RectTransform)trayGo.transform;
+            tray.SetParent(content, false);
+            tray.sizeDelta = new Vector2(1020, 400);
+            Bottom(tray, 630);
+            trayGo.GetComponent<Image>().color = _theme.surfaceRaised;
+            UiFactory.BlueprintFrame(tray, marks: false);
 
-            // Sparks moved into the header chip; the allowance line survives until the owned-powers
-            // strip replaces it.
-            var allowance = Bottom(UiFactory.Label(content, "Allowance", "", new Vector2(0, 0), new Vector2(1000, 60), 30f,
-                TextAlignmentOptions.Center, FontRole.Body, Muted(0.7f)), 680);
+            var trayHint = UiFactory.Label(tray, "Hint", "YOUR DICE", Vector2.zero, new Vector2(960, 34), 24f,
+                TextAlignmentOptions.Left, FontRole.BodySemibold, Muted(0.55f), 0.2f);
+            trayHint.rectTransform.anchorMin = trayHint.rectTransform.anchorMax = new Vector2(0.5f, 1f);
+            trayHint.rectTransform.anchoredPosition = new Vector2(0, -34);
+
+            var diceRoot = UiFactory.Panel(tray, "Dice", stretch: false);
+            diceRoot.sizeDelta = new Vector2(1000, 340);
+            diceRoot.anchoredPosition = new Vector2(0, -22);
+            var diceGrid = diceRoot.gameObject.AddComponent<GridLayoutGroup>();
+            diceGrid.cellSize = new Vector2(dieSize, dieSize);
+            diceGrid.spacing = new Vector2(24, 20);
+            diceGrid.childAlignment = TextAnchor.MiddleCenter;
+
+            // Owned powers strip (6d): collapses entirely when nothing is usable.
+            var powersRoot = UiFactory.Panel(content, "Powers", stretch: false);
+            powersRoot.sizeDelta = new Vector2(1020, 60);
+            Bottom(powersRoot, 870);
+            Row(powersRoot, spacing: 10);
 
             // Row templates the HUD clones from. These are scene objects rather than prefab assets:
             // an asset reference assigned here did not survive being saved out, leaving the board
@@ -426,27 +521,32 @@ namespace Game.SceneTools
             var cardButtonTemplate = BuildCardButtonTemplate(templates);
             var dieTemplate = BuildDieTemplate(templates);
             var playerRowTemplate = BuildPlayerRowTemplate(templates);
+            var powerChipTemplate = BuildPowerChipTemplate(templates);
             templates.gameObject.SetActive(false);
 
             var hud = content.gameObject.AddComponent<GameHudView>();
             SetRef(hud, "roundLabel", round);
             SetRef(hud, "phaseLabel", phase);
             SetRef(hud, "sparksLabel", sparks);
-            SetRef(hud, "allowanceLabel", allowance);
             SetRef(hud, "messageLabel", message);
-            SetRef(hud, "timerLabel", timer);
             SetRef(hud, "railRoot", railRoot);
             SetRef(hud, "playerRowPrefab", playerRowTemplate);
             SetRef(hud, "diceRoot", diceRoot);
+            SetRef(hud, "trayHintLabel", trayHint);
+            SetRef(hud, "powersRoot", powersRoot);
+            SetRef(hud, "powerChipTemplate", powerChipTemplate);
             SetRef(hud, "marketRoot", marketRoot);
             SetRef(hud, "marketMetaLabel", marketMeta);
             SetRef(hud, "faceButtonsRoot", faceRoot);
+            SetRef(hud, "faceCancelButton", faceCancel);
             SetRef(hud, "rerollButton", reroll);
             SetRef(hud, "nudgeUpButton", nudgeUp);
             SetRef(hud, "nudgeDownButton", nudgeDown);
+            SetRef(hud, "setFaceButton", setFace);
             SetRef(hud, "passButton", pass);
             SetRef(hud, "withdrawButton", withdraw);
-            SetRef(hud, "doneButton", done);
+            SetRef(hud, "doneTimer", doneTimer);
+            SetRef(hud, "anims", canvas.GetComponent<UiAnimationService>());
             SetRef(hud, "cardButtonPrefab", cardButtonTemplate);
             SetRef(hud, "diePrefab", dieTemplate);
 
