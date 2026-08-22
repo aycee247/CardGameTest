@@ -1,3 +1,4 @@
+using Game.Core;
 using Game.Networking;
 using Game.UI;
 using Unity.Netcode;
@@ -20,8 +21,11 @@ namespace Game.App
         [SerializeField] private GameHudPresenter presenter;
         [SerializeField] private HotSeatHost hotSeatHost;
         [SerializeField] private HotSeatOverlayView hotSeatOverlay;
+        [SerializeField] private RevealSpotlightView revealSpotlight;
         [SerializeField] private NetworkGameController networkController;
         [SerializeField] private MatchLauncher matchLauncher;
+
+        private RoundPhase _lastOnlinePhase = (RoundPhase)(-1);
 
         /// <summary>True when this scene was loaded as part of a live network session.</summary>
         public static bool IsOnline
@@ -98,6 +102,10 @@ namespace Game.App
             presenter.Bind(networkController, networkController);
             networkController.HostLost += OnHostLost;
 
+            // The reveal spotlight plays inside the server's Reveal window; the phase change
+            // tears it down if the player out-waits the beats.
+            networkController.Changed += OnOnlineSnapshot;
+
             // Online there is no handoff, so the board is always live for the local player. What
             // they may actually do is still gated by the rules engine on the server.
             presenter.SetContext(canAct: true, shapingAllowed: true);
@@ -115,7 +123,24 @@ namespace Game.App
 
         private void OnDestroy()
         {
-            if (networkController != null) networkController.HostLost -= OnHostLost;
+            if (networkController != null)
+            {
+                networkController.HostLost -= OnHostLost;
+                networkController.Changed -= OnOnlineSnapshot;
+            }
+        }
+
+        private void OnOnlineSnapshot(MatchSnapshot snapshot)
+        {
+            if (revealSpotlight != null)
+            {
+                if (snapshot.Phase == RoundPhase.Reveal && _lastOnlinePhase != RoundPhase.Reveal)
+                    revealSpotlight.Play(snapshot);
+                else if (snapshot.Phase != RoundPhase.Reveal && revealSpotlight.IsOpen)
+                    revealSpotlight.Hide();
+            }
+
+            _lastOnlinePhase = snapshot.Phase;
         }
 
         /// <summary>

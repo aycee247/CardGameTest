@@ -290,6 +290,150 @@ namespace Game.SceneTools
             return Save(scene, SceneNames.Lobby);
         }
 
+        /// <summary>The reveal spotlight (UI-4, handoff 6l): full-bleed, above the board, below the
+        /// hot-seat privacy panels. Everything inside renders from the snapshot's Reveals.</summary>
+        private static RevealSpotlightView BuildRevealSpotlight(Canvas canvas)
+        {
+            var rootGo = new GameObject("RevealSpotlight", typeof(RectTransform), typeof(Image), typeof(Button));
+            var root = (RectTransform)rootGo.transform;
+            root.SetParent(canvas.transform, false);
+            UiFactory.Stretch(root);
+            rootGo.GetComponent<Image>().color = _theme.surfaceOverlay;
+            var tap = rootGo.GetComponent<Button>();
+            tap.transition = Selectable.Transition.None;
+
+            var headerLeft = Top(UiFactory.Label(root, "HeaderLeft", "", new Vector2(-250, 0), new Vector2(500, 60), 40f,
+                TextAlignmentOptions.Left, FontRole.HeadingBold, _theme.textInverse), -120);
+            var headerRight = Top(UiFactory.Label(root, "HeaderRight", "", new Vector2(330, 0), new Vector2(360, 50), 28f,
+                TextAlignmentOptions.Right, FontRole.BodySemibold, UiFactory.WithAlpha(_theme.textInverse, 0.7f), 0.14f), -125);
+
+            var cardGo = new GameObject("Card", typeof(RectTransform), typeof(Image));
+            var card = (RectTransform)cardGo.transform;
+            card.SetParent(root, false);
+            card.sizeDelta = new Vector2(640, 860);
+            card.anchoredPosition = new Vector2(0, 120);
+            cardGo.GetComponent<Image>().color = _theme.surfaceBase;
+            UiFactory.BlueprintFrame(card, FrameEmphasis.Accent);
+
+            var cardTier = UiFactory.Label(card, "Tier", "", new Vector2(-180, 370), new Vector2(240, 44), 28f,
+                TextAlignmentOptions.Left, FontRole.BodySemibold, _theme.Accent(700), 0.18f);
+            var cardPoints = UiFactory.Label(card, "Points", "", new Vector2(200, 370), new Vector2(200, 50), 40f,
+                TextAlignmentOptions.Right, FontRole.HeadingBold);
+            var cardName = UiFactory.Label(card, "Name", "", new Vector2(0, 160), new Vector2(560, 240), 76f,
+                TextAlignmentOptions.Center, FontRole.HeadingBold);
+            var cardPower = UiFactory.Label(card, "Power", "", new Vector2(0, -160), new Vector2(540, 320), 34f,
+                TextAlignmentOptions.Center, FontRole.Body, Muted(0.8f));
+
+            var claimants = UiFactory.Panel(root, "Claimants", stretch: false);
+            claimants.sizeDelta = new Vector2(1000, 110);
+            claimants.anchoredPosition = new Vector2(0, -430);
+            Row(claimants, spacing: 12);
+
+            var chipGo = new GameObject("ClaimantChip", typeof(RectTransform), typeof(Image));
+            var chip = (RectTransform)chipGo.transform;
+            chip.SetParent(root, false);
+            chip.sizeDelta = new Vector2(300, 100);
+            FixedSize(chipGo, 300, 100);
+            chipGo.GetComponent<Image>().color = _theme.Accent(800);
+            UiFactory.Label(chip, "Text", "", Vector2.zero, new Vector2(280, 80), 30f,
+                TextAlignmentOptions.Center, FontRole.BodySemibold, _theme.textInverse);
+            chipGo.SetActive(false);
+
+            var resultStamp = UiFactory.Label(root, "ResultStamp", "", new Vector2(0, -240), new Vector2(960, 110), 66f,
+                TextAlignmentOptions.Center, FontRole.HeadingBold, _theme.textInverse);
+            var reasonLine = UiFactory.Label(root, "ReasonLine", "", new Vector2(0, -330), new Vector2(900, 44), 28f,
+                TextAlignmentOptions.Center, FontRole.BodySemibold, UiFactory.WithAlpha(_theme.textInverse, 0.8f), 0.14f);
+            var prompt = Bottom(UiFactory.Label(root, "ContinuePrompt", "TAP TO CONTINUE", Vector2.zero, new Vector2(600, 44), 28f,
+                TextAlignmentOptions.Center, FontRole.BodySemibold, UiFactory.WithAlpha(_theme.textInverse, 0.6f), 0.18f), 90);
+
+            rootGo.SetActive(false);
+
+            var view = rootGo.AddComponent<RevealSpotlightView>();
+            SetRef(view, "root", rootGo);
+            SetRef(view, "tapCatcher", tap);
+            SetRef(view, "headerLeft", headerLeft);
+            SetRef(view, "headerRight", headerRight);
+            SetRef(view, "cardPanel", card);
+            SetRef(view, "cardTier", cardTier);
+            SetRef(view, "cardPoints", cardPoints);
+            SetRef(view, "cardName", cardName);
+            SetRef(view, "cardPower", cardPower);
+            SetRef(view, "claimantsRoot", claimants);
+            SetRef(view, "claimantChipTemplate", chip);
+            SetRef(view, "resultStamp", resultStamp);
+            SetRef(view, "reasonLine", reasonLine);
+            SetRef(view, "continuePrompt", prompt);
+            SetRef(view, "anims", canvas.GetComponent<UiAnimationService>());
+            SetRef(view, "theme", _theme);
+
+            return view;
+        }
+
+        /// <summary>The re-pick sheet (MKT-3, handoff 6k), reusing the market card template.</summary>
+        private static RepickSheetView BuildRepickSheet(RectTransform content, CardButtonView cardTemplate)
+        {
+            var go = new GameObject("RepickSheet", typeof(RectTransform), typeof(Image));
+            var rt = (RectTransform)go.transform;
+            rt.SetParent(content, false);
+            rt.sizeDelta = new Vector2(1020, 640);
+            Bottom(rt, 380);
+            go.GetComponent<Image>().color = _theme.surfaceBase;
+            UiFactory.BlueprintFrame(rt, FrameEmphasis.Accent);
+
+            UiFactory.Label(rt, "Eyebrow", "RE-PICK", new Vector2(-360, 260), new Vector2(240, 44), 30f,
+                TextAlignmentOptions.Left, FontRole.BodySemibold, _theme.Accent(700), 0.22f);
+            UiFactory.Label(rt, "Copy", "You lost the contest — your dice are back.",
+                new Vector2(-60, 205), new Vector2(760, 44), 28f,
+                TextAlignmentOptions.Left, FontRole.Body, Muted(0.7f));
+            var countdown = UiFactory.Label(rt, "Countdown", "", new Vector2(420, 240), new Vector2(150, 70), 44f,
+                TextAlignmentOptions.Right, FontRole.HeadingBold);
+            countdown.gameObject.SetActive(false);
+
+            var cardsRoot = UiFactory.Panel(rt, "Cards", stretch: false);
+            cardsRoot.sizeDelta = new Vector2(990, 340);
+            cardsRoot.anchoredPosition = new Vector2(0, 10);
+            Row(cardsRoot, spacing: 8);
+
+            var pass = UiFactory.Button(rt, "PassButton", "PASS — TAKE 3 SPARKS",
+                new Vector2(0, -240), new Vector2(940, 120), ButtonStyle.Secondary);
+
+            go.SetActive(false);
+
+            var view = go.AddComponent<RepickSheetView>();
+            SetRef(view, "root", go);
+            SetRef(view, "countdownText", countdown);
+            SetRef(view, "cardsRoot", cardsRoot);
+            SetRef(view, "cardTemplate", cardTemplate);
+            SetRef(view, "passButton", pass);
+
+            return view;
+        }
+
+        /// <summary>The upkeep dialog (handoff 6j): small, centred, informational only.</summary>
+        private static UpkeepModalView BuildUpkeepModal(RectTransform content)
+        {
+            var go = new GameObject("UpkeepModal", typeof(RectTransform), typeof(Image));
+            var rt = (RectTransform)go.transform;
+            rt.SetParent(content, false);
+            rt.sizeDelta = new Vector2(760, 460);
+            rt.anchoredPosition = new Vector2(0, 100);
+            go.GetComponent<Image>().color = _theme.surfaceBase;
+            UiFactory.BlueprintFrame(rt, FrameEmphasis.Accent);
+
+            UiFactory.Label(rt, "Eyebrow", "UPKEEP", new Vector2(0, 165), new Vector2(700, 44), 28f,
+                TextAlignmentOptions.Center, FontRole.BodySemibold, _theme.Accent(700), 0.22f);
+            var body = UiFactory.Label(rt, "Body", "", new Vector2(0, -30), new Vector2(680, 320), 32f,
+                TextAlignmentOptions.Center, FontRole.Body);
+
+            go.SetActive(false);
+
+            var view = go.AddComponent<UpkeepModalView>();
+            SetRef(view, "root", go);
+            SetRef(view, "bodyText", body);
+
+            return view;
+        }
+
         /// <summary>The card inspect sheet (handoff 6h): scrim + blueprint panel under the header.</summary>
         private static CardZoomSheetView BuildCardZoomSheet(RectTransform content)
         {
@@ -663,15 +807,21 @@ namespace Game.SceneTools
             SetRef(hud, "diePrefab", dieTemplate);
 
             // Overlay layers: above the board (created later = drawn later), below the hot-seat
-            // privacy panels, which are built after and must stay on top.
-            var zoomSheet = BuildCardZoomSheet(content);
+            // privacy panels, which are built after and must stay on top. The zoom sheet is the
+            // topmost of the board's own layers.
+            var repickSheet = BuildRepickSheet(content, cardButtonTemplate);
+            var upkeepModal = BuildUpkeepModal(content);
             var hintToast = BuildHintToast(content);
+            var zoomSheet = BuildCardZoomSheet(content);
 
             var presenter = canvas.gameObject.AddComponent<GameHudPresenter>();
             SetRef(presenter, "view", hud);
             SetRef(presenter, "zoomSheet", zoomSheet);
             SetRef(presenter, "hintToast", hintToast);
+            SetRef(presenter, "repickSheet", repickSheet);
+            SetRef(presenter, "upkeepModal", upkeepModal);
 
+            var spotlight = BuildRevealSpotlight(canvas);
             var overlay = BuildHotSeatOverlay(canvas.transform);
 
             var db = AssetDatabase.LoadAssetAtPath<CardDatabase>(DatabasePath);
@@ -686,6 +836,7 @@ namespace Game.SceneTools
             var hotSeat = hotSeatGo.AddComponent<HotSeatHost>();
             SetRef(hotSeat, "presenter", presenter);
             SetRef(hotSeat, "overlay", overlay);
+            SetRef(hotSeat, "spotlight", spotlight);
             if (db != null) SetRef(hotSeat, "cardDatabase", db);
 
             // In-scene networked controller (spawns when the host loads this scene via NGO).
@@ -705,6 +856,7 @@ namespace Game.SceneTools
             SetRef(mode, "presenter", presenter);
             SetRef(mode, "hotSeatHost", hotSeat);
             SetRef(mode, "hotSeatOverlay", overlay);
+            SetRef(mode, "revealSpotlight", spotlight);
             SetRef(mode, "networkController", controller);
             SetRef(mode, "matchLauncher", launcher);
 
@@ -728,14 +880,6 @@ namespace Game.SceneTools
             var handoffButton = UiFactory.Button(handoff, "ReadyButton", "I have the device",
                 new Vector2(0, -260), new Vector2(680, 150));
 
-            var reveal = FullScreenPanel(root, "RevealPanel", UiFactory.WithAlpha(_theme.surfaceOverlay, 0.97f));
-            UiFactory.Label(reveal, "Title", "Reveal", new Vector2(0, 320), new Vector2(900, 110), 62f,
-                TextAlignmentOptions.Center, FontRole.HeadingBold, _theme.textInverse);
-            var revealBody = UiFactory.Label(reveal, "Body", "", new Vector2(0, 40), new Vector2(900, 420), 34f,
-                TextAlignmentOptions.Center, FontRole.Body, _theme.textInverse);
-            var revealButton = UiFactory.Button(reveal, "ContinueButton", "Continue",
-                new Vector2(0, -300), new Vector2(560, 140));
-
             var summary = FullScreenPanel(root, "SummaryPanel", UiFactory.WithAlpha(_theme.surfaceOverlay, 0.97f));
             var summaryBody = UiFactory.Label(summary, "Body", "", new Vector2(0, 60), new Vector2(900, 480), 34f,
                 TextAlignmentOptions.Center, FontRole.Body, _theme.textInverse);
@@ -749,14 +893,11 @@ namespace Game.SceneTools
                 TextAlignmentOptions.Center, FontRole.Body, _theme.textInverse);
 
             SetRef(overlay, "handoffPanel", handoff.gameObject);
-            SetRef(overlay, "revealPanel", reveal.gameObject);
             SetRef(overlay, "summaryPanel", summary.gameObject);
             SetRef(overlay, "gameOverPanel", gameOver.gameObject);
             SetRef(overlay, "handoffTitle", handoffTitle);
             SetRef(overlay, "handoffBody", handoffBody);
             SetRef(overlay, "handoffButton", handoffButton);
-            SetRef(overlay, "revealBody", revealBody);
-            SetRef(overlay, "revealButton", revealButton);
             SetRef(overlay, "summaryBody", summaryBody);
             SetRef(overlay, "summaryButton", summaryButton);
             SetRef(overlay, "gameOverBody", gameOverBody);

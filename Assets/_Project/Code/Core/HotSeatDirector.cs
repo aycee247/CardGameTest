@@ -113,10 +113,18 @@ namespace Game.Core
             ClosePass();
         }
 
-        /// <summary>Leaves the reveal screen: either into a re-pick pass, or on to the summary.</summary>
+        /// <summary>
+        /// Leaves the reveal screen. The pass held at <see cref="RoundPhase.Reveal"/> while the
+        /// spotlight played from the snapshot's preview — applying the resolution is deferred to
+        /// here, so what was shown and what happens are the same computation (UI-4). Then either
+        /// into a re-pick pass, or on to the summary.
+        /// </summary>
         public void ContinueFromReveal()
         {
             if (Stage != HotSeatStage.Reveal) return;
+
+            if (State.Phase == RoundPhase.Reveal)
+                _session.Advance();        // apply the resolution the spotlight just showed
 
             if (State.Phase == RoundPhase.Repick)
             {
@@ -182,20 +190,21 @@ namespace Game.Core
             Stage = HotSeatStage.Handoff;
         }
 
-        /// <summary>Everyone in this pass has acted; resolve it and show the table the outcome.</summary>
+        /// <summary>Everyone in this pass has acted; show the table what is about to resolve.</summary>
         private void ClosePass()
         {
             if (IsRepickPass)
             {
+                // The second pass has no reveal window in the engine; its outcome surfaces in the
+                // summary rather than a second spotlight (logged scope decision).
                 _session.Advance();        // Repick -> resolve -> Upkeep
-            }
-            else
-            {
-                // Shape -> Commit -> Reveal, then resolve.
-                _session.AdvanceTo(RoundPhase.Reveal);
-                _session.Advance();
+                Stage = HotSeatStage.RoundSummary;
+                return;
             }
 
+            // Shape -> Commit -> Reveal, and HOLD: the snapshot now carries the Reveals preview
+            // for the spotlight. ContinueFromReveal applies the resolution afterwards.
+            _session.AdvanceTo(RoundPhase.Reveal);
             Stage = HotSeatStage.Reveal;
         }
     }

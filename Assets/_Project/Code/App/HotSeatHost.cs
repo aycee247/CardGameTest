@@ -21,6 +21,7 @@ namespace Game.App
         [Header("Screen")]
         [SerializeField] private GameHudPresenter presenter;
         [SerializeField] private HotSeatOverlayView overlay;
+        [SerializeField] private RevealSpotlightView spotlight;
 
         [Header("Match")]
         [Range(2, 6)]
@@ -70,12 +71,17 @@ namespace Game.App
             if (overlay != null)
             {
                 overlay.HandoffConfirmed -= OnHandoffConfirmed;
-                overlay.RevealContinued -= OnRevealContinued;
                 overlay.SummaryContinued -= OnSummaryContinued;
 
                 overlay.HandoffConfirmed += OnHandoffConfirmed;
-                overlay.RevealContinued += OnRevealContinued;
                 overlay.SummaryContinued += OnSummaryContinued;
+            }
+
+            if (spotlight != null)
+            {
+                // The spotlight holds the round: resolution applies only after its last beat.
+                spotlight.Finished -= OnRevealFinished;
+                spotlight.Finished += OnRevealFinished;
             }
 
             _director.Begin();
@@ -95,7 +101,7 @@ namespace Game.App
             Refresh();
         }
 
-        private void OnRevealContinued()
+        private void OnRevealFinished()
         {
             _director.ContinueFromReveal();
             Refresh();
@@ -114,6 +120,14 @@ namespace Game.App
             var stage = _director.Stage;
 
             if (overlay != null) overlay.Render(_director);
+
+            if (spotlight != null)
+            {
+                if (stage == HotSeatStage.Reveal && !spotlight.IsOpen)
+                    spotlight.Play(_session.Current);
+                else if (stage != HotSeatStage.Reveal && spotlight.IsOpen)
+                    spotlight.Hide();
+            }
 
             bool acting = stage == HotSeatStage.Acting;
 

@@ -123,15 +123,22 @@ namespace Game.Tests.EditMode
                 director.EndActing();
             }
 
+            // The pass holds at Reveal: nothing is resolved yet, but the snapshot carries the
+            // preview the spotlight shows — and the preview already knows the contest.
             Assert.AreEqual(HotSeatStage.Reveal, director.Stage);
-            Assert.IsTrue(director.LastResolution.HadContention);
+            Assert.AreEqual(RoundPhase.Reveal, state.Phase);
+            Assert.AreEqual(0, state.Players[0].Owned.Count, "nothing resolves until the reveal is left");
+            var preview = director.Session.Current.Reveals;
+            Assert.AreEqual(1, preview.Length);
+            Assert.IsTrue(preview[0].Contested);
 
             director.ContinueFromReveal();
 
+            Assert.IsTrue(director.LastResolution.HadContention, "leaving the reveal applies it");
             Assert.AreEqual(HotSeatStage.Handoff, director.Stage);
             Assert.IsTrue(director.IsRepickPass);
             CollectionAssert.AreEqual(new[] { 1, 2 }, director.Queue.Select(p => p.Value).ToArray());
-            Assert.AreEqual(1, state.Players[0].Owned.Count, "the priority holder already won");
+            Assert.AreEqual(1, state.Players[0].Owned.Count, "the priority holder has now won");
         }
 
         [Test]
@@ -158,9 +165,8 @@ namespace Game.Tests.EditMode
             director.Session.Commit(new PlayerId(2), new CardId(3), new[] { 0, 1 });
             director.EndActing();
 
-            Assert.AreEqual(HotSeatStage.Reveal, director.Stage);
-            director.ContinueFromReveal();
-
+            // The second pass has no reveal window (its outcome shows in the summary), so the
+            // repick close resolves immediately and lands on the summary.
             Assert.AreEqual(HotSeatStage.RoundSummary, director.Stage);
             Assert.AreEqual(1, state.Players[1].Owned.Count);
             Assert.AreEqual(1, state.Players[2].Owned.Count);

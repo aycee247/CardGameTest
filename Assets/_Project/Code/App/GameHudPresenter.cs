@@ -20,6 +20,8 @@ namespace Game.App
         [SerializeField] private GameHudView view;
         [SerializeField] private CardZoomSheetView zoomSheet;
         [SerializeField] private HintToastView hintToast;
+        [SerializeField] private RepickSheetView repickSheet;
+        [SerializeField] private UpkeepModalView upkeepModal;
 
         [Tooltip("Rebuilds a card's structured cost client-side for suggestion and validation (UI-3).")]
         [SerializeField] private CardDatabase cardDatabase;
@@ -38,6 +40,7 @@ namespace Game.App
         private bool _commitHintSeen = true;
         private RoundPhase _activeHint = RoundPhase.MatchOver;
         private RoundPhase _lastHintPhase = (RoundPhase)(-1);
+        private RoundPhase _lastModalPhase = (RoundPhase)(-1);
 
         /// <summary>Raised when the player says they are finished — hot-seat uses it to move on.</summary>
         public event Action DoneRequested;
@@ -54,6 +57,13 @@ namespace Game.App
             }
 
             if (hintToast != null) hintToast.Dismissed += OnHintDismissed;
+
+            if (repickSheet != null)
+            {
+                // A repick claim goes through the same inspect/suggest/commit flow as any other.
+                repickSheet.CardChosen += OnCardChosen;
+                repickSheet.PassClicked += OnPass;
+            }
         }
 
         /// <summary>Which hints this player has already seen; set before the first snapshot.</summary>
@@ -141,7 +151,40 @@ namespace Game.App
         private void Refresh()
         {
             if (view == null || _match == null) return;
-            view.Render(_match.Current, _canAct, _shapingAllowed, _match.SecondsLeft);
+
+            var snapshot = _match.Current;
+            view.Render(snapshot, _canAct, _shapingAllowed, _match.SecondsLeft);
+            UpdateRepickSheet(snapshot);
+        }
+
+        /// <summary>The bottom re-pick sheet exists only for a contender with a choice left (MKT-3).</summary>
+        private void UpdateRepickSheet(in MatchSnapshot snapshot)
+        {
+            if (repickSheet == null) return;
+
+            bool shouldShow = _canAct &&
+                              snapshot.Phase == RoundPhase.Repick &&
+                              !snapshot.Observer.HasDecided &&
+                              IsContender(snapshot, snapshot.ObserverId);
+
+            if (shouldShow)
+            {
+                if (!repickSheet.IsOpen) repickSheet.Show(snapshot);
+                else repickSheet.Render(snapshot);
+            }
+            else if (repickSheet.IsOpen)
+            {
+                repickSheet.Hide();
+            }
+        }
+
+        private static bool IsContender(in MatchSnapshot snapshot, int playerId)
+        {
+            var contenders = snapshot.RepickContenders;
+            if (contenders == null) return false;
+            for (int i = 0; i < contenders.Length; i++)
+                if (contenders[i] == playerId) return true;
+            return false;
         }
 
         /// <summary>
@@ -154,7 +197,10 @@ namespace Game.App
         {
             if (view == null || _match == null) return;
             float secondsLeft = _match.SecondsLeft;
-            if (secondsLeft >= 0f) view.Tick(secondsLeft, _match.Current.IsMatchOver);
+            if (secondsLeft < 0f) return;
+
+            view.Tick(secondsLeft, _match.Current.IsMatchOver);
+            if (repickSheet != null && repickSheet.IsOpen) repickSheet.SetCountdown(secondsLeft);
         }
 
         private void OnMatchChanged(MatchSnapshot snapshot)
@@ -170,7 +216,42 @@ namespace Game.App
             }
 
             MaybeShowHint(snapshot);
+            UpdateUpkeepModal(snapshot);
             Refresh();
+        }
+
+        /// <summary>
+        /// The upkeep dialog (handoff 6j): purely informational, phase-scoped — it appears with
+        /// Upkeep and the phase clock is its auto-dismiss. Payouts land when the phase ends, so
+        /// the copy previews the unspent-dice income rather than claiming totals early.
+        /// </summary>
+        private void UpdateUpkeepModal(in MatchSnapshot snapshot)
+        {
+            if (upkeepModal == null) return;
+
+            bool inUpkeep = snapshot.Phase == RoundPhase.Upkeep;
+            if (inUpkeep && _lastModalPhase != RoundPhase.Upkeep)
+            {
+                var me = snapshot.Observer;
+                int unspent = 0;
+                if (me.DiceSpent != null)
+                    foreach (bool spent in me.DiceSpent)
+                        if (!spent) unspent++;
+
+                int perDie = snapshot.Config?.SparksPerUnspentDie ?? 1;
+                int cap = snapshot.Config?.SparkCap ?? 10;
+
+                upkeepModal.Show(
+                    $"{unspent} unspent dice → +{unspent * perDie} Sparks (cap {cap})\n\n" +
+                    "Economy powers pay out · consolation for empty hands\n" +
+                    "Market refilled · priority recalculated");
+            }
+            else if (!inUpkeep && _lastModalPhase == RoundPhase.Upkeep)
+            {
+                upkeepModal.Hide();
+            }
+
+            _lastModalPhase = snapshot.Phase;
         }
 
         private void MaybeShowHint(in MatchSnapshot snapshot)
