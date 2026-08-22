@@ -1,13 +1,15 @@
+using System.Collections.Generic;
 using Game.Networking;
 using Game.UI;
-using Unity.Netcode;
 using UnityEngine;
 
 namespace Game.App
 {
     /// <summary>
-    /// Presenter for the Lobby scene. Displays the join code and, on the host only, a Start button
-    /// that loads the networked Game scene for everyone via NGO.
+    /// Presenter for the Lobby scene. Renders the join code and the live seat roster from the
+    /// session, and on the host only, a Start button that loads the networked Game scene for
+    /// everyone via NGO. Display names wait on STORY-4.3 — anonymous auth carries none, so seats
+    /// read "PLAYER n" until then.
     /// </summary>
     public sealed class LobbyController : MonoBehaviour
     {
@@ -15,6 +17,7 @@ namespace Game.App
 
         private SessionManager _session;
         private SceneFlowService _sceneFlow;
+        private readonly List<SeatEntry> _entries = new List<SeatEntry>();
 
         private void Start()
         {
@@ -28,23 +31,59 @@ namespace Game.App
             _sceneFlow = GameServices.Locator.Get<SceneFlowService>();
 
             view.SetCode(_session.JoinCode);
-
-            bool isHost = NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer;
-            view.SetStartVisible(isHost);
-            view.SetStatus(isHost ? "Share the code, then start when ready." : "Waiting for host to start…");
+            view.SetStatus(_session.IsHost
+                ? "Share it — seats fill as friends arrive."
+                : "Waiting for the host to start…");
 
             view.StartClicked += OnStart;
+            view.BackClicked += OnBack;
+            _session.RosterChanged += OnRoster;
+
+            OnRoster();
         }
 
         private void OnDestroy()
         {
-            if (view != null) view.StartClicked -= OnStart;
+            if (view != null)
+            {
+                view.StartClicked -= OnStart;
+                view.BackClicked -= OnBack;
+            }
+
+            if (_session != null) _session.RosterChanged -= OnRoster;
+        }
+
+        private void OnRoster()
+        {
+            var session = _session.CurrentSession;
+            if (session == null) return;
+
+            _entries.Clear();
+            var players = session.Players;
+            string localId = session.CurrentPlayer?.Id;
+
+            for (int i = 0; i < players.Count; i++)
+            {
+                bool isHost = players[i].Id == session.Host;
+                bool isLocal = players[i].Id == localId;
+                string name = $"PLAYER {i + 1}" + (isLocal ? " — YOU" : string.Empty);
+                _entries.Add(new SeatEntry(name, isHost ? "HOST" : "READY", isLocal));
+            }
+
+            view.RenderSeats(_entries, _session.MaxPlayers);
+            view.SetStartState(_entries.Count, _session.MaxPlayers, _session.IsHost);
         }
 
         private void OnStart()
         {
             if (!_sceneFlow.LoadNetworkedGame())
                 view.SetStatus("Can't start — not the host or no active session.");
+        }
+
+        private async void OnBack()
+        {
+            await _session.LeaveSessionAsync();
+            _sceneFlow.LoadMainMenu();
         }
     }
 }

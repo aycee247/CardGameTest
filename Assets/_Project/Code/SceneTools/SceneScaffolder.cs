@@ -121,14 +121,48 @@ namespace Game.SceneTools
             CreateEventSystem();
             var canvas = CreateCanvas(out var content);
 
-            UiFactory.Label(content, "Title", "Dice Cards", new Vector2(0, 700), new Vector2(900, 120), 72f);
+            // ---- Hero: the blueprint-framed identity block (handoff §1) ----
+            var hero = UiFactory.Panel(content, "Hero", stretch: false);
+            hero.sizeDelta = new Vector2(970, 780);
+            hero.anchoredPosition = new Vector2(0, 300);
+            UiFactory.BlueprintFrame(hero, FrameEmphasis.Accent);
 
-            var host = UiFactory.Button(content, "HostButton", "Host Game", new Vector2(0, 300), new Vector2(560, 130));
-            var codeInput = UiFactory.InputField(content, "JoinCodeInput", "Enter join code", new Vector2(0, 120), new Vector2(560, 110));
-            var join = UiFactory.Button(content, "JoinButton", "Join Game", new Vector2(0, -40), new Vector2(560, 130));
-            var passPlay = UiFactory.Button(content, "PassPlayButton", "Pass & Play", new Vector2(0, -220), new Vector2(560, 130));
-            var status = UiFactory.Label(content, "Status", "", new Vector2(0, -400), new Vector2(900, 80), 36f);
-            var codeLabel = UiFactory.Label(content, "JoinCode", "", new Vector2(0, -520), new Vector2(900, 80), 36f);
+            UiFactory.Label(hero, "Eyebrow", "SIMULTANEOUS DICE ENGINE BUILDER",
+                new Vector2(0, 300), new Vector2(900, 44), 28f,
+                TextAlignmentOptions.Center, FontRole.BodySemibold, _theme.Accent(700), 0.22f);
+            UiFactory.Label(hero, "Wordmark", "FOUNDRY", new Vector2(0, 130), new Vector2(940, 230), 190f,
+                TextAlignmentOptions.Center, FontRole.HeadingBold);
+            MiniDieGlyph(hero, "GlyphFive", 5, new Vector2(-390, -70));
+            MiniDieGlyph(hero, "GlyphSix", 6, new Vector2(-300, -70));
+            UiFactory.Label(hero, "Meta", "2–6 PLAYERS · 10 ROUNDS\n≈ 12 MINUTES",
+                new Vector2(230, -80), new Vector2(460, 90), 30f,
+                TextAlignmentOptions.Right, FontRole.BodyMedium, Muted(0.55f), 0.08f);
+            UiFactory.Label(hero, "BodyCopy",
+                "Roll together, shape your dice, commit in secret,\nthen claim the market's machines.",
+                new Vector2(0, -270), new Vector2(880, 100), 36f,
+                TextAlignmentOptions.Center, FontRole.Body, Muted(0.7f));
+
+            // ---- Actions: one solid-accent primary, everything else recedes ----
+            var host = UiFactory.Button(content, "HostButton", "HOST MATCH",
+                new Vector2(0, -330), new Vector2(970, 144));
+            UiFactory.BlueprintFrame((RectTransform)host.transform, FrameEmphasis.AccentStrong);
+
+            var codeInput = UiFactory.InputField(content, "JoinCodeInput", "Enter join code",
+                new Vector2(0, -500), new Vector2(970, 120));
+            var join = UiFactory.Button(content, "JoinButton", "JOIN WITH CODE",
+                new Vector2(0, -660), new Vector2(970, 144), ButtonStyle.Secondary);
+
+            // Kept beyond the handoff: the only offline path in the build.
+            var passPlay = UiFactory.Button(content, "PassPlayButton", "PASS & PLAY — OFFLINE",
+                new Vector2(0, -830), new Vector2(970, 144), ButtonStyle.Ghost);
+            UiFactory.BlueprintFrame((RectTransform)passPlay.transform, marks: false);
+
+            var status = Bottom(UiFactory.Label(content, "Status", "", Vector2.zero,
+                new Vector2(970, 70), 32f, TextAlignmentOptions.Center, FontRole.Body, Muted(0.8f)), 200);
+            var codeLabel = Bottom(UiFactory.Label(content, "JoinCode", "", Vector2.zero,
+                new Vector2(970, 60), 32f, TextAlignmentOptions.Center, FontRole.BodySemibold), 130);
+            Bottom(UiFactory.Label(content, "Footer", "REV 0.1 · ONLINE DEMO", Vector2.zero,
+                new Vector2(900, 44), 26f, TextAlignmentOptions.Center, FontRole.BodyMedium, Muted(0.4f), 0.18f), 55);
 
             var view = content.gameObject.AddComponent<MainMenuView>();
             SetRef(view, "hostButton", host);
@@ -144,6 +178,44 @@ namespace Game.SceneTools
             return Save(scene, SceneNames.MainMenu);
         }
 
+        /// <summary>A small drawn die face, the hero block's identity glyph.</summary>
+        private static void MiniDieGlyph(RectTransform parent, string name, int face, Vector2 position)
+        {
+            var glyph = UiFactory.Panel(parent, name, stretch: false);
+            glyph.sizeDelta = new Vector2(66, 66);
+            glyph.anchoredPosition = position;
+
+            var frame = UiFactory.BlueprintFrame(glyph, marks: false);
+            frame.SetBorderColor(_theme.Accent(700));
+
+            var pipImages = new Image[9];
+            for (int row = 0; row < 3; row++)
+            for (int col = 0; col < 3; col++)
+            {
+                var pipGo = new GameObject($"Pip{row * 3 + col}", typeof(RectTransform), typeof(Image));
+                var pipRt = (RectTransform)pipGo.transform;
+                pipRt.SetParent(glyph, false);
+                pipRt.sizeDelta = new Vector2(10, 10);
+                pipRt.anchoredPosition = new Vector2((col - 1) * 20, (1 - row) * 20);
+                var image = pipGo.GetComponent<Image>();
+                image.color = _theme.Accent(700);
+                image.raycastTarget = false;
+                pipImages[row * 3 + col] = image;
+            }
+
+            var pips = glyph.gameObject.AddComponent<DiePipGrid>();
+            pips.Bind(pipImages);
+            pips.SetFace(face);
+        }
+
+        /// <summary>The ink at partial strength, for secondary copy.</summary>
+        private static Color Muted(float alpha)
+        {
+            var color = _theme.textPrimary;
+            color.a = alpha;
+            return color;
+        }
+
         private static string BuildLobbyScene()
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -151,20 +223,115 @@ namespace Game.SceneTools
             CreateEventSystem();
             var canvas = CreateCanvas(out var content);
 
-            UiFactory.Label(content, "Title", "Lobby", new Vector2(0, 700), new Vector2(900, 120), 72f);
-            var codeLabel = UiFactory.Label(content, "JoinCode", "", new Vector2(0, 400), new Vector2(900, 90), 48f);
-            var status = UiFactory.Label(content, "Status", "", new Vector2(0, 250), new Vector2(900, 80), 36f);
-            var start = UiFactory.Button(content, "StartButton", "Start Match", new Vector2(0, 0), new Vector2(560, 130));
+            // ---- Header row: back out on the left, the mode named on the right ----
+            var back = Top(UiFactory.Button(content, "BackButton", "< BACK",
+                new Vector2(-370, 0), new Vector2(260, 90), ButtonStyle.Ghost), -110);
+
+            var tag = UiFactory.Panel(content, "ModeTag", stretch: false);
+            tag.sizeDelta = new Vector2(400, 70);
+            Top(tag, -110);
+            tag.anchoredPosition = new Vector2(300, tag.anchoredPosition.y);
+            UiFactory.BlueprintFrame(tag, marks: false);
+            UiFactory.Label(tag, "Text", "FRIENDS BY CODE", Vector2.zero, new Vector2(380, 60), 26f,
+                TextAlignmentOptions.Center, FontRole.BodySemibold, _theme.Accent(700), 0.14f);
+
+            // ---- Code panel: the thing you read out loud ----
+            var codePanel = UiFactory.Panel(content, "CodePanel", stretch: false);
+            codePanel.sizeDelta = new Vector2(970, 440);
+            Top(codePanel, -450);
+            UiFactory.BlueprintFrame(codePanel, FrameEmphasis.Accent);
+            UiFactory.Label(codePanel, "Eyebrow", "JOIN CODE", new Vector2(0, 150), new Vector2(900, 44), 28f,
+                TextAlignmentOptions.Center, FontRole.BodySemibold, _theme.Accent(700), 0.22f);
+            var codeLabel = UiFactory.Label(codePanel, "Code", "—", new Vector2(0, 10), new Vector2(920, 180), 150f,
+                TextAlignmentOptions.Center, FontRole.HeadingBold, null, 0.12f);
+            var status = UiFactory.Label(codePanel, "Caption", "", new Vector2(0, -150), new Vector2(900, 60), 33f,
+                TextAlignmentOptions.Center, FontRole.Body, Muted(0.55f));
+
+            // ---- Seats ----
+            Top(UiFactory.Label(content, "SeatsLabel", "SEATS",
+                new Vector2(-430, 0), new Vector2(200, 44), 30f,
+                TextAlignmentOptions.Left, FontRole.BodySemibold, Muted(0.55f), 0.14f), -730);
+            var seatsCount = Top(UiFactory.Label(content, "SeatsCount", "0 / 6",
+                new Vector2(430, 0), new Vector2(200, 44), 30f,
+                TextAlignmentOptions.Right, FontRole.BodySemibold, Muted(0.55f), 0.14f), -730);
+
+            var seatsRoot = UiFactory.Panel(content, "Seats", stretch: false);
+            seatsRoot.sizeDelta = new Vector2(970, 900);
+            Top(seatsRoot, -1250);
+            Column(seatsRoot, spacing: 12);
+
+            // ---- Start, host-only, states its own reason when waiting ----
+            var start = Bottom(UiFactory.Button(content, "StartButton", "START MATCH",
+                Vector2.zero, new Vector2(970, 144)), 140);
+            UiFactory.BlueprintFrame((RectTransform)start.transform, FrameEmphasis.AccentStrong);
+            var startFill = start.GetComponent<Image>();
+            var startLabel = start.transform.Find("Text").GetComponent<TMP_Text>();
+
+            // Seat row template, deactivated in-scene (the prefab-reference pattern).
+            var templates = UiFactory.Panel(canvas.transform, "Templates");
+            var seatTemplate = BuildSeatRowTemplate(templates);
+            templates.gameObject.SetActive(false);
 
             var view = content.gameObject.AddComponent<LobbyView>();
             SetRef(view, "codeLabel", codeLabel);
             SetRef(view, "statusLabel", status);
+            SetRef(view, "seatsCountLabel", seatsCount);
+            SetRef(view, "seatsRoot", seatsRoot);
+            SetRef(view, "seatRowTemplate", seatTemplate);
             SetRef(view, "startButton", start);
+            SetRef(view, "startFill", startFill);
+            SetRef(view, "startLabel", startLabel);
+            SetRef(view, "backButton", back);
+            SetRef(view, "theme", _theme);
 
             var controller = canvas.gameObject.AddComponent<LobbyController>();
             SetRef(controller, "view", view);
 
             return Save(scene, SceneNames.Lobby);
+        }
+
+        private static SeatRowView BuildSeatRowTemplate(Transform parent)
+        {
+            const float RowWidth = 970f;
+            const float RowHeight = 133f;
+
+            var go = new GameObject("SeatRow", typeof(RectTransform), typeof(Image));
+            var rt = (RectTransform)go.transform;
+            rt.SetParent(parent, false);
+            rt.sizeDelta = new Vector2(RowWidth, RowHeight);
+            FixedSize(go, RowWidth, RowHeight);
+
+            var background = go.GetComponent<Image>();
+            background.color = _theme.surfaceRaised;
+            var frame = UiFactory.BlueprintFrame(rt, marks: false);
+
+            var avatarGo = new GameObject("Avatar", typeof(RectTransform), typeof(Image));
+            var avatarRt = (RectTransform)avatarGo.transform;
+            avatarRt.SetParent(rt, false);
+            avatarRt.sizeDelta = new Vector2(72, 72);
+            avatarRt.anchoredPosition = new Vector2(-420, 0);
+            var avatarTile = avatarGo.GetComponent<Image>();
+            avatarTile.color = _theme.surfaceBase;
+            var avatarFrame = UiFactory.BlueprintFrame(avatarRt, marks: false);
+            var avatarInitial = UiFactory.Label(avatarRt, "Initial", "P", Vector2.zero, new Vector2(70, 70), 36f,
+                TextAlignmentOptions.Center, FontRole.Heading);
+
+            var nameLabel = UiFactory.Label(rt, "Name", "", new Vector2(-40, 0), new Vector2(620, 60), 38f,
+                TextAlignmentOptions.Left, FontRole.BodySemibold);
+            var chipLabel = UiFactory.Label(rt, "Chip", "", new Vector2(380, 0), new Vector2(180, 44), 28f,
+                TextAlignmentOptions.Right, FontRole.BodySemibold, _theme.Accent(700), 0.14f);
+
+            var view = go.AddComponent<SeatRowView>();
+            SetRef(view, "background", background);
+            SetRef(view, "frame", frame);
+            SetRef(view, "avatarTile", avatarTile);
+            SetRef(view, "avatarFrame", avatarFrame);
+            SetRef(view, "avatarInitial", avatarInitial);
+            SetRef(view, "nameText", nameLabel);
+            SetRef(view, "chipText", chipLabel);
+            SetRef(view, "theme", _theme);
+
+            return view;
         }
 
         private static string BuildGameScene()
