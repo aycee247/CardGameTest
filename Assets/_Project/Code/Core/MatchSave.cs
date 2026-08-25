@@ -26,7 +26,7 @@ namespace Game.Core
     public static class MatchSave
     {
         /// <summary>Bump on any layout change, and keep old readers only if resume-across-updates ships.</summary>
-        public const ushort Version = 1;
+        public const ushort Version = 2;   // v2: RevealIsRepick (#43)
 
         private const uint Magic = 0x59524446; // "FDRY", little-endian
 
@@ -47,6 +47,7 @@ namespace Game.Core
 
                 w.Write(state.Round);
                 w.Write((byte)state.Phase);
+                w.Write(state.RevealIsRepick);
 
                 w.Write(state.Players.Count);
                 foreach (var p in state.Players) WritePlayer(w, p);
@@ -88,6 +89,7 @@ namespace Game.Core
 
                 int round = r.ReadInt32();
                 var phase = (RoundPhase)r.ReadByte();
+                bool revealIsRepick = r.ReadBoolean();
 
                 int playerCount = r.ReadInt32();
                 var players = new List<PlayerState>(playerCount);
@@ -98,7 +100,10 @@ namespace Game.Core
                 var priority = ReadPlayerIds(r);
                 var repick = ReadPlayerIds(r);
 
-                return new MatchState(config, players, market, drawPile, priority, repick, phase, round);
+                return new MatchState(config, players, market, drawPile, priority, repick, phase, round)
+                {
+                    RevealIsRepick = revealIsRepick
+                };
             }
         }
 

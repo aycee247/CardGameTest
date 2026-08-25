@@ -119,7 +119,10 @@ namespace Game.Core
 
                 case RoundPhase.Repick:
                     RulesEngine.AutoPassUndecided(_state);
-                    LastResolution = RulesEngine.ResolveRepick(_state);
+                    // Null means the round is holding at the second Reveal (#43); the resolution
+                    // lands on the next Advance, through the same path as the first beat.
+                    var repickClose = RulesEngine.EndRepick(_state);
+                    if (repickClose != null) LastResolution = repickClose;
                     break;
 
                 case RoundPhase.Upkeep:

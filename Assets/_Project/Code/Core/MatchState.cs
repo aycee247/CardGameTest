@@ -39,6 +39,12 @@ namespace Game.Core
         public IReadOnlyList<PlayerId> RepickContenders => _repickContenders;
 
         /// <summary>
+        /// True while <see cref="Phase"/> is the round's second Reveal — the one showing re-pick
+        /// outcomes (#43) — so drivers and the UI can tell the two reveal beats apart.
+        /// </summary>
+        public bool RevealIsRepick { get; internal set; }
+
+        /// <summary>
         /// Builds a match. <paramref name="deck"/> is consumed in order, so it should already be
         /// tier-ordered (Tier 1 first) — that ordering is what makes the market escalate (MKT-1).
         /// </summary>

@@ -180,8 +180,15 @@ namespace Game.Tests.EditMode
             director.Session.Commit(new PlayerId(2), new CardId(3), new[] { 0, 1 });
             director.EndActing();
 
-            // The second pass has no reveal window (its outcome shows in the summary), so the
-            // repick close resolves immediately and lands on the summary.
+            // The contested re-pick gets its own reveal beat now (#43): the pass holds with the
+            // spotlight's preview in the snapshot, and continuing applies it and lands on the
+            // summary with the claims granted.
+            Assert.AreEqual(HotSeatStage.Reveal, director.Stage);
+            Assert.IsTrue(state.RevealIsRepick);
+            Assert.AreEqual(0, state.Players[1].Owned.Count, "not applied until the beat ends");
+
+            director.ContinueFromReveal();
+
             Assert.AreEqual(HotSeatStage.RoundSummary, director.Stage);
             Assert.AreEqual(1, state.Players[1].Owned.Count);
             Assert.AreEqual(1, state.Players[2].Owned.Count);

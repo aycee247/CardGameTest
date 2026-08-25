@@ -8,7 +8,7 @@ namespace Game.Core
     ///
     /// Two kinds of entry point live here. Phase transitions (<see cref="BeginRound"/>,
     /// <see cref="BeginCommit"/>, <see cref="BeginReveal"/>, <see cref="ResolveReveal"/>,
-    /// <see cref="ResolveRepick"/>, <see cref="RunUpkeep"/>) are driven by whoever owns the clock —
+    /// <see cref="EndRepick"/>, <see cref="RunUpkeep"/>) are driven by whoever owns the clock —
     /// the server in an online match, the session in hot-seat — and are never invoked by a client.
     /// Player commands (<see cref="ApplyShape"/>, <see cref="Commit"/>, <see cref="Pass"/>) validate
     /// before mutating, so a hostile client cannot reach an illegal state.
@@ -32,6 +32,7 @@ namespace Game.Core
             if (state.Phase != RoundPhase.Roll) return;
 
             state.Round++;
+            state.RevealIsRepick = false;
 
             foreach (var player in state.Players)
             {
@@ -63,14 +64,25 @@ namespace Game.Core
         }
 
         /// <summary>
-        /// Resolves the first contention pass. Moves to <see cref="RoundPhase.Repick"/> when someone
-        /// lost a contested card and the market still has something to offer, otherwise to Upkeep.
+        /// Resolves whichever contention pass this Reveal is showing. The first pass moves to
+        /// <see cref="RoundPhase.Repick"/> when someone lost a contested card and the market still
+        /// has something to offer, otherwise to Upkeep. The second pass (see
+        /// <see cref="MatchState.RevealIsRepick"/>) always ends at Upkeep — anyone still
+        /// contesting has lost for good this round and is left to the consolation Sparks.
         /// </summary>
         public static ResolutionReport ResolveReveal(MatchState state)
         {
             if (state.Phase != RoundPhase.Reveal) return ResolutionReport.Empty;
 
             var report = ResolveOnePass(state);
+
+            if (state.RevealIsRepick)
+            {
+                state.RevealIsRepick = false;
+                state.SetRepickContenders(null);
+                state.Phase = RoundPhase.Upkeep;
+                return report;
+            }
 
             bool canRepick = report.Losers.Count > 0 && state.Market.Count > 0;
             state.SetRepickContenders(canRepick ? report.Losers : null);
@@ -80,17 +92,26 @@ namespace Game.Core
         }
 
         /// <summary>
-        /// Resolves the second pass. Anyone still contesting loses for good this round and is left
-        /// to the consolation Sparks paid at Upkeep.
+        /// Closes the Repick window. When any contender committed again there is something worth
+        /// showing, so the round holds at a second Reveal (#43) — same hold, same snapshot preview,
+        /// same <see cref="ResolveReveal"/> as the first beat. When every contender passed, the
+        /// empty pass resolves silently (returning its report) and the round moves straight to
+        /// Upkeep: an empty spotlight is not a beat.
         /// </summary>
-        public static ResolutionReport ResolveRepick(MatchState state)
+        public static ResolutionReport EndRepick(MatchState state)
         {
             if (state.Phase != RoundPhase.Repick) return ResolutionReport.Empty;
+
+            if (state.PendingClaimCount() > 0)
+            {
+                state.Phase = RoundPhase.Reveal;
+                state.RevealIsRepick = true;
+                return null;    // held — ResolveReveal applies it when the beat ends
+            }
 
             var report = ResolveOnePass(state);
             state.SetRepickContenders(null);
             state.Phase = RoundPhase.Upkeep;
-
             return report;
         }
 

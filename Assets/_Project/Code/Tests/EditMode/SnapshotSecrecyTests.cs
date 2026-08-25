@@ -32,6 +32,31 @@ namespace Game.Tests.EditMode
             snapshot.Players.First(p => p.PlayerId == playerId);
 
         [Test]
+        public void ARepickCommitIsSecretUntilTheSecondReveal()
+        {
+            // Contest card 1: both commit, player 0 wins the seat-order tiebreak, player 1 re-picks.
+            _session.Commit(new PlayerId(1), new CardId(1), new[] { 0, 1 });
+            _session.AdvanceTo(RoundPhase.Repick);
+
+            Assert.IsTrue(_session.Commit(new PlayerId(1), new CardId(2), new[] { 0, 1 }).Success);
+
+            // While the re-pick window is open, the new claim is exactly as secret as any other.
+            var asP0 = MatchSnapshot.For(_state, new PlayerId(0));
+            Assert.AreEqual(-1, RowFor(asP0, 1).PendingCardId);
+            Assert.IsEmpty(asP0.Reveals);
+            Assert.IsFalse(asP0.RevealIsRepick);
+
+            // The window closes into the second Reveal (#43): public now, with the beat's preview.
+            _session.Advance();
+            asP0 = MatchSnapshot.For(_state, new PlayerId(0));
+            Assert.AreEqual(RoundPhase.Reveal, asP0.Phase);
+            Assert.IsTrue(asP0.RevealIsRepick);
+            Assert.AreEqual(2, RowFor(asP0, 1).PendingCardId);
+            Assert.AreEqual(1, asP0.Reveals.Length);
+            Assert.AreEqual(2, asP0.Reveals[0].CardId);
+        }
+
+        [Test]
         public void OpponentsCannotSeeAPendingCommit()
         {
             var asP1 = MatchSnapshot.For(_state, new PlayerId(1));

@@ -195,10 +195,12 @@ namespace Game.Core
         {
             if (IsRepickPass)
             {
-                // The second pass has no reveal window in the engine; its outcome surfaces in the
-                // summary rather than a second spotlight (logged scope decision).
-                _session.Advance();        // Repick -> resolve -> Upkeep
-                Stage = HotSeatStage.RoundSummary;
+                // The engine holds at a second Reveal when any contender committed again (#43);
+                // an all-pass re-pick resolves silently and goes straight to the summary.
+                _session.Advance();        // Repick -> hold at Reveal, or -> Upkeep when empty
+                Stage = State.Phase == RoundPhase.Reveal
+                    ? HotSeatStage.Reveal
+                    : HotSeatStage.RoundSummary;
                 return;
             }
 

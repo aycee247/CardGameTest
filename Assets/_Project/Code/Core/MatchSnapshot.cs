@@ -168,6 +168,12 @@ namespace Game.Core
         public MatchConfig Config;
 
         /// <summary>
+        /// True when the current Reveal is the round's second beat — re-pick outcomes (#43) — so
+        /// the spotlight can label it. Public: which pass is resolving is table knowledge.
+        /// </summary>
+        public bool RevealIsRepick;
+
+        /// <summary>
         /// The pending resolution, one entry per claimed card. Populated only during
         /// <see cref="RoundPhase.Reveal"/> — the same gate that makes commits public.
         /// </summary>
@@ -218,6 +224,7 @@ namespace Game.Core
                 WinnerId = winner?.Value ?? -1,
 
                 Config = state.Config,
+                RevealIsRepick = state.RevealIsRepick,
                 Reveals = state.Phase == RoundPhase.Reveal
                     ? BuildReveals(state)
                     : Array.Empty<RevealSnapshot>(),

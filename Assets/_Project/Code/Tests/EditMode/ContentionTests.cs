@@ -84,11 +84,34 @@ namespace Game.Tests.EditMode
             CollectionAssert.AreEqual(new[] { 1 }, state.RepickContenders.Select(p => p.Value).ToArray());
 
             Assert.IsTrue(session.Commit(loser.Id, new CardId(2), new[] { 0, 1 }).Success);
-            session.Advance();
 
+            // A contested re-pick holds at a second Reveal for the spotlight (#43)...
+            session.Advance();
+            Assert.AreEqual(RoundPhase.Reveal, state.Phase);
+            Assert.IsTrue(state.RevealIsRepick);
+
+            // ...and the next advance applies what that beat showed.
+            session.Advance();
             Assert.AreEqual(1, loser.Owned.Count);
             Assert.AreEqual(2, loser.Dice.UnspentCount, "the granted claim now spends its two dice");
             Assert.AreEqual(RoundPhase.Upkeep, state.Phase);
+            Assert.IsFalse(state.RevealIsRepick);
+        }
+
+        [Test]
+        public void AllPassRepickSkipsTheSecondReveal()
+        {
+            var session = TwoWayContest(out var state);
+
+            session.Commit(new PlayerId(0), new CardId(1), new[] { 0, 1 });
+            session.Commit(new PlayerId(1), new CardId(1), new[] { 0, 1 });
+            session.AdvanceTo(RoundPhase.Repick);
+
+            session.Pass(new PlayerId(1));
+            session.Advance();
+
+            Assert.AreEqual(RoundPhase.Upkeep, state.Phase, "an empty spotlight is not a beat");
+            Assert.IsFalse(state.RevealIsRepick);
         }
 
         [Test]
