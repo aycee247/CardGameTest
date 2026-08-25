@@ -7,7 +7,6 @@ namespace Game.Data
     /// <summary>
     /// The catalog of all cards in the game. Acts as the deck source for a match and the
     /// lookup table for turning network/save <see cref="CardId"/>s back into presentation data.
-    /// Load via Addressables for patchable content later.
     /// </summary>
     [CreateAssetMenu(fileName = "CardDatabase", menuName = "Foundry/Card Database")]
     public sealed class CardDatabase : ScriptableObject
