@@ -145,7 +145,7 @@ Simultaneous play changes what the UI must communicate. In a turn-based game the
 | ID | Requirement |
 |----|-------------|
 | UI-1 | The opponent rail shows per player: name, score, dice count, committed/thinking indicator. Must stay legible at six players on the narrowest supported device. |
-| UI-2 | Phase name and remaining seconds visible at all times during input phases, with escalating urgency in the final 5 seconds. |
+| UI-2 | Phase name and remaining seconds visible at all times during input phases, with escalating urgency in the final 5 seconds. Applies to server-clocked (online) matches; a pass-the-device match is deliberately untimed — see "Flow, and where it lives". |
 | UI-3 | Tapping a market card highlights exactly which of your dice would pay for it and grays those that cannot contribute. Cost legibility is the difference between a strategy game and a guessing game. |
 | UI-4 | Reveal is staged as a deliberate beat — commits flip together, contests resolve visibly, priority is shown deciding. This is the emotional peak of the round and must not be instant. |
 | UI-5 | Every active power a player owns is visible on their own screen without navigating away. By round 10 a player may hold six cards whose powers stack. |
@@ -252,6 +252,8 @@ Online needs UGS configured: **Edit ▸ Project Settings ▸ Services**, link a 
 
 The handoff screen is load-bearing, not decoration. The director moves the private view to the next actor *before* the handoff panel goes up, and the panel is opaque and full-screen, so the previous player's dice and claim are out of the snapshot and off the screen before the device changes hands.
 
+**A hot-seat match has no phase clock, and that is a decision, not a gap** (STORY-2.7). One phase spans every seat's turn on the shared device, so a wall clock would charge later seats for earlier seats' thinking — and for the handoff itself, which is not thinking time. There is also no server to enforce a deadline: the director advances on human action, which is the same "Core never ticks a clock" contract the engine is built on. Pass-and-play paces itself the way a board game does. The contract in code: `IMatchView.SecondsLeft` is negative in an untimed match, and every timer surface (the Done square's ring, the re-pick countdown) treats negative as "hide", not as "expired". The countdown and its urgency treatment (UI-2) are online behaviour.
+
 ### How the secrecy gate is proven
 
 `SnapshotSecrecyTests` asserts particular fields are hidden — that catches the leaks someone thought of. `SecrecyGateTests` asserts something stronger:
@@ -290,9 +292,9 @@ The rule that matters: **a disconnected player counts as decided.** `RulesEngine
 
 ### Still open
 
-- **UI-1 is met by per-player rows** in the rail, ordered by priority, showing score, dice, Sparks, cards and decided/connection state.
-- **UI-2, the phase countdown, is wired but only visible online.** Hot-seat has no clock, so `SecondsLeft` is negative there and the label hides itself.
-- **UI-4, the reveal beat, is a static list.** It says who won and lost what; it does not animate.
+- **UI-1 is met by the rail's per-seat cells** — seat order with the priority holder marked, showing name, score, dice and Sparks, READY/THINKING and connection state. The six-player fit on the narrowest device still wants a hardware check.
+- **UI-2 is online-only, by design.** The Done square's perimeter ring counts the server's phase clock, urgent in the last five seconds; a pass-the-device match is deliberately untimed (STORY-2.7 — see "Flow, and where it lives").
+- **UI-4 is met by the reveal spotlight** — per-claim flip-in, staggered claimant chips, a stamped result, tap to skip. One scoped gap: a contest formed during re-pick resolves without a second spotlight window (follow-up #43).
 
 ---
 

@@ -20,6 +20,21 @@ namespace Game.Tests.EditMode
             return new HotSeatDirector(session);
         }
 
+        /// <summary>
+        /// A hot-seat match is untimed by design (STORY-2.7): SecondsLeft must be negative, the
+        /// signal every timer surface reads as "hide". Zero would be worse than wrong — the Done
+        /// square would render an expired ring pulsing with urgency for the whole match.
+        /// </summary>
+        [Test]
+        public void UntimedMatchReportsNegativeSecondsLeft()
+        {
+            var state = Make.Match(Make.Config(rounds: 2, marketSize: 3),
+                new[] { Make.Pair(1, points: 5) }, 2);
+
+            var session = new LocalMatchSession(state, new ConstantRoller(4));
+            Assert.Less(session.SecondsLeft, 0f);
+        }
+
         [Test]
         public void BeginStartsRoundOneWaitingForTheFirstSeat()
         {
