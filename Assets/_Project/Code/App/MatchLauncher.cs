@@ -63,6 +63,42 @@ namespace Game.App
             }
         }
 
+        /// <summary>
+        /// Server-only. Rebuilds the just-finished table with a fresh seed and the same seats
+        /// (#42) — same seat count, same keys, so reconnect keeps working across the boundary.
+        /// </summary>
+        public void ServerBeginRematch()
+        {
+            var nm = NetworkManager.Singleton;
+            if (nm == null || !nm.IsServer)
+            {
+                Debug.LogError("[Foundry] ServerBeginRematch must be called on the server/host.");
+                return;
+            }
+
+            if (gameController == null || cardDatabase == null)
+            {
+                Debug.LogError("[Foundry] MatchLauncher is missing its controller or card database.");
+                return;
+            }
+
+            int seatCount = gameController.ServerSeatCount;
+            if (seatCount == 0)
+            {
+                ServerBeginMatch();     // nothing to rematch; fall back to a fresh start
+                return;
+            }
+
+            var names = new string[seatCount];
+            for (int i = 0; i < names.Length; i++) names[i] = $"Player {i + 1}";
+
+            int seed = MatchFactory.NewSeed();
+            var state = MatchFactory.Build(config, cardDatabase, names, seed);
+            var roller = new SeededDiceRoller(unchecked((ulong)seed));
+
+            gameController.ServerStartRematch(state, roller);
+        }
+
         /// <summary>Server-only. Builds and starts the match for all connected clients.</summary>
         public void ServerBeginMatch()
         {

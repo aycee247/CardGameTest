@@ -159,6 +159,46 @@ namespace Game.Networking
                 orderedSeatKeys[i] = _clientToKey.TryGetValue(ids[i], out var key) ? key : string.Empty;
         }
 
+        /// <summary>Seats in the running (or just-finished) match; zero when none has started.</summary>
+        public int ServerSeatCount => _server != null ? _server.State.Players.Count : 0;
+
+        /// <summary>
+        /// Server-side: replaces the finished match with a fresh one on the same table (#42). The
+        /// seat registry's key→seat bindings are kept verbatim — the rematch state must therefore
+        /// have the same seat count and ids — so connected clients keep their seats, and a player
+        /// who dropped during the previous endgame can still reclaim theirs through the normal
+        /// reconnect path.
+        /// </summary>
+        public void ServerStartRematch(MatchState state, IDiceRoller roller)
+        {
+            if (!IsServer) { Debug.LogError("[Net] ServerStartRematch called on a non-server peer."); return; }
+            if (_server == null) { Debug.LogError("[Net] No previous match to rematch."); return; }
+
+            _server = new LocalMatchSession(state, roller);
+
+            // A seat with nobody connected starts the rematch absent: the clock will not wait for
+            // it (NET-3), and its reconnect window opens now rather than on a phantom drop later.
+            foreach (var player in state.Players)
+            {
+                bool connected = false;
+                foreach (var kv in _clientToPlayer)
+                    if (kv.Value == player.Id) { connected = true; break; }
+
+                if (!connected)
+                {
+                    RulesEngine.SetConnected(state, player.Id, false);
+                    _seats.MarkDisconnected(player.Id, Time.time);
+                }
+            }
+
+            foreach (var kv in _clientToPlayer)
+                AssignPlayerRpc(kv.Value.Value, RpcTarget.Single(kv.Key, RpcTargetUse.Temp));
+
+            _server.Advance();          // Roll -> Shape
+            SchedulePhaseEnd();
+            BroadcastState();
+        }
+
         // ---------------- connection lifecycle ----------------
 
         public override void OnNetworkSpawn()

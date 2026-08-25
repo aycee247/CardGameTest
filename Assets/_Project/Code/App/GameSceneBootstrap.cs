@@ -124,6 +124,9 @@ namespace Game.App
             // Shape early once everyone is. Hot-seat routes the same event to the director instead.
             presenter.DoneRequested += OnOnlineDone;
 
+            // Host-only in practice: the button only renders on the server (see OnOnlineSnapshot).
+            if (endScreen != null) endScreen.RematchClicked += OnOnlineRematch;
+
             // The reveal spotlight plays inside the server's Reveal window; the phase change
             // tears it down if the player out-waits the beats.
             networkController.Changed += OnOnlineSnapshot;
@@ -146,6 +149,7 @@ namespace Game.App
         private void OnDestroy()
         {
             if (presenter != null) presenter.DoneRequested -= OnOnlineDone;
+            if (endScreen != null) endScreen.RematchClicked -= OnOnlineRematch;
 
             if (networkController != null)
             {
@@ -159,6 +163,12 @@ namespace Game.App
             if (networkController != null) networkController.RequestDone();
         }
 
+        private void OnOnlineRematch()
+        {
+            if (endScreen != null) endScreen.Hide();
+            if (matchLauncher != null) matchLauncher.ServerBeginRematch();
+        }
+
         private void OnOnlineSnapshot(MatchSnapshot snapshot)
         {
             if (revealSpotlight != null)
@@ -169,12 +179,21 @@ namespace Game.App
                     revealSpotlight.Hide();
             }
 
-            // Online clients get a real end screen from the Standings projection. REMATCH stays
-            // hot-seat-only for now — an online restart is a follow-up (logged).
-            if (endScreen != null && snapshot.IsMatchOver && !endScreen.IsOpen)
+            // Online clients get a real end screen from the Standings projection. REMATCH is the
+            // host's button (#42): only the server can rebuild the match; clients follow the fresh
+            // snapshots it produces, so their standings dismiss themselves below.
+            if (endScreen != null)
             {
-                endScreen.SetRematchVisible(false);
-                endScreen.Show(snapshot);
+                if (snapshot.IsMatchOver && !endScreen.IsOpen)
+                {
+                    var nm = NetworkManager.Singleton;
+                    endScreen.SetRematchVisible(nm != null && nm.IsServer);
+                    endScreen.Show(snapshot);
+                }
+                else if (!snapshot.IsMatchOver && endScreen.IsOpen)
+                {
+                    endScreen.Hide();   // the host called a rematch; the new board takes over
+                }
             }
 
             _lastOnlinePhase = snapshot.Phase;
