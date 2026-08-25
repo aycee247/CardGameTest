@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Game.Core;
 using Game.Data;
 using Game.Networking;
@@ -8,10 +7,15 @@ using UnityEngine;
 namespace Game.App
 {
     /// <summary>
-    /// Host-side match orchestration, placed in the Game scene. Once the scene has loaded on the
-    /// server and players are connected, <see cref="ServerBeginMatch"/> builds the authoritative
+    /// Host-side match orchestration, placed in the Game scene. On the server it waits behind a
+    /// ready-up gate — every connected client's Game-scene controller must have spawned and
+    /// announced its stable key — then <see cref="ServerBeginMatch"/> builds the authoritative
     /// <see cref="MatchState"/> from the <see cref="CardDatabase"/> and hands it to the networked
-    /// controller. Wire the Lobby's "Start" flow to call this on the host only.
+    /// controller with the seat keys in a deterministic order (STORY-2.2).
+    ///
+    /// The gate replaces starting blindly from <c>Start()</c>, which raced the clients' NGO scene
+    /// loads: a late loader would have its seat bound to a transport id (so it could never
+    /// reconnect) and could miss its seat assignment entirely.
     /// </summary>
     public sealed class MatchLauncher : MonoBehaviour
     {
@@ -21,15 +25,42 @@ namespace Game.App
         [Header("Match")]
         [SerializeField] private MatchConfig config = new MatchConfig();
 
-        [Tooltip("If true, the host begins the match automatically when this scene loads. " +
-                 "Turn off if you want an explicit ready-up step instead.")]
-        [SerializeField] private bool autoStartOnServer = true;
+        [Tooltip("Seconds the host waits for every client to finish loading and announce itself " +
+                 "before starting anyway. The gate normally clears in well under a second; the " +
+                 "timeout only stops one stuck device from holding the whole table hostage.")]
+        [SerializeField] private float readyTimeoutSeconds = 10f;
+
+        private bool _started;
+        private float _startDeadline;
 
         private void Start()
         {
             var nm = NetworkManager.Singleton;
-            if (autoStartOnServer && nm != null && nm.IsServer)
+            if (nm == null || !nm.IsServer)
+            {
+                enabled = false;
+                return;
+            }
+
+            _startDeadline = Time.time + readyTimeoutSeconds;
+        }
+
+        private void Update()
+        {
+            if (_started || gameController == null) return;
+
+            if (gameController.ServerRosterReady())
+            {
                 ServerBeginMatch();
+                return;
+            }
+
+            if (Time.time >= _startDeadline)
+            {
+                Debug.LogWarning("[Foundry] Not every client announced itself in time; starting " +
+                                 "anyway. Unannounced seats bind to transport ids and cannot reconnect.");
+                ServerBeginMatch();
+            }
         }
 
         /// <summary>Server-only. Builds and starts the match for all connected clients.</summary>
@@ -48,17 +79,18 @@ namespace Game.App
                 return;
             }
 
-            var clientIds = new List<ulong>(nm.ConnectedClientsIds);
-            if (clientIds.Count == 0) clientIds.Add(nm.LocalClientId);
+            _started = true;
 
-            var names = new List<string>(clientIds.Count);
-            for (int i = 0; i < clientIds.Count; i++) names.Add($"Player {i + 1}");
+            gameController.ServerBuildRoster(out var clientIds, out var seatKeys);
+
+            var names = new string[clientIds.Length];
+            for (int i = 0; i < names.Length; i++) names[i] = $"Player {i + 1}";
 
             int seed = MatchFactory.NewSeed();
             var state = MatchFactory.Build(config, cardDatabase, names, seed);
             var roller = new SeededDiceRoller(unchecked((ulong)seed));
 
-            gameController.ServerStartMatch(state, roller, clientIds);
+            gameController.ServerStartMatch(state, roller, clientIds, seatKeys);
         }
     }
 }

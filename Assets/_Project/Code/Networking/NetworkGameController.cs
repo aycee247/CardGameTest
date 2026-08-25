@@ -44,6 +44,13 @@ namespace Game.Networking
         /// <summary>Transport id to stable key, learned as clients announce themselves.</summary>
         private readonly Dictionary<ulong, string> _clientToKey = new Dictionary<ulong, string>();
 
+        /// <summary>
+        /// Every transport id that has sent <see cref="RegisterIdentityRpc"/>. An announcement is
+        /// also proof the client's Game-scene controller has spawned — i.e. its NGO scene load
+        /// finished — which is what the ready-up gate waits for (STORY-2.2).
+        /// </summary>
+        private readonly HashSet<ulong> _announcedClients = new HashSet<ulong>();
+
         private float _phaseEndsAt;
 
         /// <summary>
@@ -96,6 +103,10 @@ namespace Game.Networking
                         ? announced
                         : orderedClientIds[i].ToString();
 
+                if (key == orderedClientIds[i].ToString())
+                    Debug.LogWarning($"[Net] {seat} is bound to transport id {orderedClientIds[i]} — " +
+                                     "no stable key was supplied or announced, so this seat cannot reconnect.");
+
                 _seats.Bind(key, seat);
             }
 
@@ -105,6 +116,47 @@ namespace Game.Networking
             _server.Advance();          // Roll -> Shape
             SchedulePhaseEnd();
             BroadcastState();
+        }
+
+        /// <summary>
+        /// The ready-up gate (STORY-2.2): true once every connected client has announced itself via
+        /// <see cref="RegisterIdentityRpc"/>, which it does the moment its Game-scene controller
+        /// spawns. Starting before this races the announcements: seats fall back to transport-id
+        /// keys (breaking reconnect), and a client still loading the scene would be sent its
+        /// AssignPlayerRpc before the object exists on its end and never learn which seat is its own.
+        /// </summary>
+        public bool ServerRosterReady()
+        {
+            if (!IsServer) return false;
+
+            var nm = NetworkManager.Singleton;
+            if (nm == null) return false;
+
+            foreach (ulong clientId in nm.ConnectedClientsIds)
+                if (!_announcedClients.Contains(clientId))
+                    return false;
+
+            return true;
+        }
+
+        /// <summary>
+        /// The connected clients in a deterministic order — ascending transport id, which puts the
+        /// host first — each paired with its announced stable key, or the empty string where none
+        /// arrived. This is what the launcher passes to <see cref="ServerStartMatch"/>, so seat
+        /// assignment no longer depends on when each announcement happened to land.
+        /// </summary>
+        public void ServerBuildRoster(out ulong[] orderedClientIds, out string[] orderedSeatKeys)
+        {
+            var nm = NetworkManager.Singleton;
+
+            var ids = new List<ulong>(nm.ConnectedClientsIds);
+            if (ids.Count == 0) ids.Add(nm.LocalClientId);   // a server-only editor run
+            ids.Sort();
+
+            orderedClientIds = ids.ToArray();
+            orderedSeatKeys = new string[ids.Count];
+            for (int i = 0; i < ids.Count; i++)
+                orderedSeatKeys[i] = _clientToKey.TryGetValue(ids[i], out var key) ? key : string.Empty;
         }
 
         // ---------------- connection lifecycle ----------------
@@ -138,6 +190,11 @@ namespace Game.Networking
         /// </summary>
         private void OnServerSawClientLeave(ulong clientId)
         {
+            // Forget the transport id whether or not a match is running yet — a returning client
+            // arrives with a brand new one and re-announces.
+            _announcedClients.Remove(clientId);
+            _clientToKey.Remove(clientId);
+
             if (_server == null) return;
             if (!_clientToPlayer.TryGetValue(clientId, out var player)) return;
 
@@ -196,6 +253,7 @@ namespace Game.Networking
         private void RegisterIdentityRpc(string seatKey, RpcParams rpc = default)
         {
             ulong clientId = rpc.Receive.SenderClientId;
+            _announcedClients.Add(clientId);
             if (!string.IsNullOrEmpty(seatKey)) _clientToKey[clientId] = seatKey;
 
             // Before the match starts there is no seat to take yet; the key is simply remembered
