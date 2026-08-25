@@ -25,6 +25,15 @@ namespace Game.Core
             for (int i = 0; i < size; i++) _faces[i] = DiceRoll.MinFace;
         }
 
+        /// <summary>Rehydrates an exact pool from a save (STORY-6.5). Arrays are adopted, not copied.</summary>
+        internal DicePool(int[] faces, bool[] spent)
+        {
+            _faces = faces ?? throw new ArgumentNullException(nameof(faces));
+            _spent = spent ?? throw new ArgumentNullException(nameof(spent));
+            if (faces.Length != spent.Length)
+                throw new ArgumentException("faces and spent must be the same length");
+        }
+
         public int Count => _faces.Length;
 
         public int FaceAt(int index) => _faces[index];

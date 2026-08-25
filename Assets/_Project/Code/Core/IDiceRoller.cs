@@ -21,34 +21,30 @@ namespace Game.Core
     /// </summary>
     public sealed class SeededDiceRoller : IDiceRoller
     {
-        private ulong _state;
+        private XorShift64Star _rng;
 
-        public SeededDiceRoller(ulong seed)
-        {
-            // Avoid the degenerate all-zero state that xorshift cannot escape.
-            _state = seed == 0 ? 0x9E3779B97F4A7C15UL : seed;
-        }
+        public SeededDiceRoller(ulong seed) => _rng = new XorShift64Star(seed);
 
-        public ulong Seed => _state;
+        private SeededDiceRoller(XorShift64Star rng) => _rng = rng;
+
+        /// <summary>
+        /// The live generator state — capture it alongside the match to save, then rebuild the
+        /// roller mid-sequence with <see cref="FromState"/> and the dice continue exactly where
+        /// they left off (STORY-6.5).
+        /// </summary>
+        public ulong State => _rng.State;
+
+        /// <summary>Rebuilds a roller from a captured <see cref="State"/>.</summary>
+        public static SeededDiceRoller FromState(ulong state) =>
+            new SeededDiceRoller(XorShift64Star.FromState(state));
 
         public DiceRoll Roll(int count)
         {
             if (count < 0) throw new ArgumentOutOfRangeException(nameof(count));
             var values = new int[count];
             for (int i = 0; i < count; i++)
-                values[i] = (int)(NextUInt64() % 6UL) + 1; // 1..6
+                values[i] = (int)(_rng.NextUInt64() % 6UL) + 1; // 1..6
             return new DiceRoll(values);
-        }
-
-        private ulong NextUInt64()
-        {
-            // xorshift64* — fast, deterministic, good enough for game dice.
-            ulong x = _state;
-            x ^= x >> 12;
-            x ^= x << 25;
-            x ^= x >> 27;
-            _state = x;
-            return x * 0x2545F4914F6CDD1DUL;
         }
     }
 }

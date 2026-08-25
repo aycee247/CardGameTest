@@ -29,6 +29,9 @@ namespace Game.Core
         public IReadOnlyList<Card> Market => _market;
         public int DrawPileCount => _drawPile.Count;
 
+        /// <summary>The draw pile in draw order, for <see cref="MatchSave"/>. Order is gameplay.</summary>
+        internal IReadOnlyList<Card> DrawPileCards() => _drawPile.ToArray();
+
         /// <summary>Claim order, best first. Recomputed every Upkeep (MKT-4).</summary>
         public IReadOnlyList<PlayerId> PriorityOrder => _priority;
 
@@ -58,6 +61,32 @@ namespace Game.Core
 
             Round = 0;
             Phase = RoundPhase.Roll;
+        }
+
+        /// <summary>
+        /// Rehydrates a saved match exactly as captured (STORY-6.5): no market refill, no dice
+        /// re-allocation, no priority recompute — priority in particular is stale-by-design
+        /// mid-round (it reflects the last Upkeep), so recomputing it here would change who wins
+        /// the next contested card. Collections are adopted, not copied.
+        /// </summary>
+        internal MatchState(
+            MatchConfig config,
+            List<PlayerState> players,
+            List<Card> market,
+            Queue<Card> drawPile,
+            List<PlayerId> priority,
+            List<PlayerId> repickContenders,
+            RoundPhase phase,
+            int round)
+        {
+            Config = config;
+            _players = players;
+            _market = market;
+            _drawPile = drawPile;
+            _priority = priority;
+            _repickContenders = repickContenders;
+            Phase = phase;
+            Round = round;
         }
 
         public PlayerState Find(PlayerId id)

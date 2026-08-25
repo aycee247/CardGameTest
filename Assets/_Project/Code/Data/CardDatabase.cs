@@ -52,8 +52,12 @@ namespace Game.Data
         ///
         /// Shuffling within tiers rather than across them is what makes the market escalate over
         /// the match (MKT-1) while still dealing a different sequence every game.
+        ///
+        /// Driven by the portable <see cref="XorShift64Star"/>, never <see cref="System.Random"/>,
+        /// so the deck order a seed produces is identical on every platform and runtime the way
+        /// dice already are (STORY-6.5).
         /// </summary>
-        public List<Card> BuildShuffledDeck(System.Random rng)
+        public List<Card> BuildShuffledDeck(ref XorShift64Star rng)
         {
             var byTier = new SortedDictionary<int, List<Card>>();
 
@@ -71,19 +75,10 @@ namespace Game.Data
             var deck = new List<Card>(cards.Count);
             foreach (var bucket in byTier.Values)
             {
-                if (rng != null) Shuffle(bucket, rng);
+                rng.Shuffle(bucket);
                 deck.AddRange(bucket);
             }
             return deck;
-        }
-
-        private static void Shuffle(IList<Card> list, System.Random rng)
-        {
-            for (int i = list.Count - 1; i > 0; i--)
-            {
-                int j = rng.Next(i + 1);
-                (list[i], list[j]) = (list[j], list[i]);
-            }
         }
     }
 }

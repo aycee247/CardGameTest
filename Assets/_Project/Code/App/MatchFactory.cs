@@ -28,8 +28,11 @@ namespace Game.App
             for (int i = 0; i < playerNames.Count; i++)
                 players.Add(new PlayerState(new PlayerId(i), playerNames[i], i));
 
-            var rng = new Random(deckSeed ?? NewSeed());
-            var deck = database.BuildShuffledDeck(rng);
+            // The deck stream is decorrelated from the dice stream (which is seeded with the raw
+            // match seed) by a fixed xor, so one saved seed reproduces both without either
+            // sequence mirroring the other.
+            var rng = new XorShift64Star(unchecked((ulong)(deckSeed ?? NewSeed())) ^ 0xDEC0DEC0DEC0DEC0UL);
+            var deck = database.BuildShuffledDeck(ref rng);
 
             return new MatchState(config ?? MatchConfig.Default, players, deck);
         }
