@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
+using System.Text;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 
 namespace Game.Tests.Headless
@@ -22,6 +24,8 @@ namespace Game.Tests.Headless
         {
             public string Test;
             public string Message;
+            public string SourceFile;   // absolute path, or null when the stack carried no file info
+            public int SourceLine;
         }
 
         public static int Main(string[] args)
@@ -39,8 +43,11 @@ namespace Game.Tests.Headless
             var unsupported = FindUnsupportedAttributes(fixtures);
             if (unsupported.Count > 0)
             {
-                Console.WriteLine("This runner does not implement: " + string.Join(", ", unsupported));
+                string detail = "This runner does not implement: " + string.Join(", ", unsupported);
+                Console.WriteLine(detail);
                 Console.WriteLine("Run the suite in Unity's Test Runner, or keep the tests to the supported subset.");
+                if (UnderGitHubActions)
+                    Console.WriteLine("::error title=Unsupported NUnit attribute::" + EscapeData(detail));
                 return 2;
             }
 
@@ -77,15 +84,16 @@ namespace Game.Tests.Headless
                         headerWritten = true;
                     }
 
-                    string error = RunOne(fixture, test, setUp, tearDown);
-                    if (error == null)
+                    var failure = RunOne(fixture, test, setUp, tearDown);
+                    if (failure == null)
                     {
                         passed++;
                         Console.WriteLine("  ok   " + test.Name);
                     }
                     else
                     {
-                        failures.Add(new Failure { Test = name, Message = error });
+                        failure.Test = name;
+                        failures.Add(failure);
                         Console.WriteLine("  FAIL " + test.Name);
                     }
                 }
@@ -108,14 +116,17 @@ namespace Game.Tests.Headless
 
             Console.WriteLine();
             Console.WriteLine(new string('-', 60));
-            Console.WriteLine($"{passed} passed, {failures.Count} failed"
+            string tally = $"{passed} passed, {failures.Count} failed"
                 + (skipped > 0 ? $", {skipped} filtered out" : string.Empty)
-                + $"   ({sw.ElapsedMilliseconds} ms)");
+                + $"   ({sw.ElapsedMilliseconds} ms)";
+            Console.WriteLine(tally);
+
+            ReportToGitHubActions(failures, tally);
 
             return failures.Count > 0 ? 1 : 0;
         }
 
-        private static string RunOne(Type fixture, MethodInfo test, MethodInfo setUp, MethodInfo tearDown)
+        private static Failure RunOne(Type fixture, MethodInfo test, MethodInfo setUp, MethodInfo tearDown)
         {
             object instance;
             try
@@ -124,7 +135,7 @@ namespace Game.Tests.Headless
             }
             catch (Exception e)
             {
-                return "could not construct fixture: " + Unwrap(e);
+                return Fail("could not construct fixture: " + Unwrap(e), Unwrap(e));
             }
 
             try
@@ -136,7 +147,7 @@ namespace Game.Tests.Headless
             catch (Exception e)
             {
                 var actual = Unwrap(e);
-                return IsSuccess(actual) ? null : Describe(actual);
+                return IsSuccess(actual) ? null : Fail(Describe(actual), actual);
             }
             finally
             {
@@ -144,6 +155,95 @@ namespace Game.Tests.Headless
                 catch { /* a failing teardown must not mask the real failure */ }
             }
         }
+
+        private static Failure Fail(string message, Exception cause)
+        {
+            var (file, line) = Locate(cause);
+            return new Failure { Message = message, SourceFile = file, SourceLine = line };
+        }
+
+        /// <summary>
+        /// Pulls the failing source location out of the exception's stack trace. Debug builds carry
+        /// portable PDBs, so frames read "… in /path/File.cs:line 42"; the innermost frame under
+        /// Assets/ is the test (or test helper) itself, skipping past NUnit's own assertion frames,
+        /// which ship without symbols.
+        /// </summary>
+        private static (string File, int Line) Locate(Exception e)
+        {
+            if (string.IsNullOrEmpty(e?.StackTrace)) return (null, 0);
+
+            foreach (var frame in e.StackTrace.Split('\n'))
+            {
+                var m = Regex.Match(frame, @" in (.+):line (\d+)");
+                if (!m.Success) continue;
+
+                string file = m.Groups[1].Value.Replace('\\', '/');
+                if (file.Contains("/Assets/"))
+                    return (file, int.Parse(m.Groups[2].Value));
+            }
+
+            return (null, 0);
+        }
+
+        private static bool UnderGitHubActions =>
+            Environment.GetEnvironmentVariable("GITHUB_ACTIONS") == "true";
+
+        /// <summary>
+        /// Machine-readable output for CI (STORY-0.6 AC4). Under GitHub Actions this emits one
+        /// ::error workflow command per failure — which Actions turns into a PR annotation on the
+        /// failing test's source line — and appends a run summary to the job summary page.
+        /// Anywhere else it does nothing, so local runs stay exactly as they were.
+        /// </summary>
+        private static void ReportToGitHubActions(List<Failure> failures, string tally)
+        {
+            if (!UnderGitHubActions) return;
+
+            string workspace = Environment.GetEnvironmentVariable("GITHUB_WORKSPACE");
+
+            foreach (var f in failures)
+            {
+                string location = string.Empty;
+                if (f.SourceFile != null)
+                {
+                    // Annotations attach to files by repo-relative path.
+                    string path = f.SourceFile;
+                    if (!string.IsNullOrEmpty(workspace))
+                    {
+                        string prefix = workspace.Replace('\\', '/').TrimEnd('/') + "/";
+                        if (path.StartsWith(prefix, StringComparison.Ordinal))
+                            path = path.Substring(prefix.Length);
+                    }
+                    location = $"file={EscapeProperty(path)},line={f.SourceLine},";
+                }
+
+                Console.WriteLine($"::error {location}title={EscapeProperty(f.Test)}::{EscapeData(f.Message)}");
+            }
+
+            string summaryPath = Environment.GetEnvironmentVariable("GITHUB_STEP_SUMMARY");
+            if (string.IsNullOrEmpty(summaryPath)) return;
+
+            var sb = new StringBuilder();
+            sb.AppendLine(failures.Count == 0 ? "### Core suite: green" : "### Core suite: FAILED");
+            sb.AppendLine();
+            sb.AppendLine(tally);
+            foreach (var f in failures)
+            {
+                sb.AppendLine();
+                sb.AppendLine($"**{f.Test}**");
+                sb.AppendLine("```");
+                sb.AppendLine(f.Message);
+                sb.AppendLine("```");
+            }
+            System.IO.File.AppendAllText(summaryPath, sb.ToString());
+        }
+
+        /// <summary>Workflow-command escaping, per GitHub's rules for the message half.</summary>
+        private static string EscapeData(string s) =>
+            s.Replace("%", "%25").Replace("\r", "%0D").Replace("\n", "%0A");
+
+        /// <summary>Property values (file=, title=) additionally escape ':' and ','.</summary>
+        private static string EscapeProperty(string s) =>
+            EscapeData(s).Replace(":", "%3A").Replace(",", "%2C");
 
         private static Exception Unwrap(Exception e) =>
             e is TargetInvocationException tie && tie.InnerException != null ? tie.InnerException : e;
