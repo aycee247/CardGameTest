@@ -342,6 +342,8 @@ namespace Game.Networking
 
         public void RequestPass() => SubmitPassRpc();
 
+        public void RequestDone() => SubmitDoneRpc();
+
         public void RequestWithdraw() => SubmitWithdrawRpc();
 
         private static int[] ToArray(IReadOnlyList<int> source)
@@ -383,6 +385,13 @@ namespace Game.Networking
         {
             if (!TryAcceptIntent(rpc, out var player)) return;
             Resolve(_server.Pass(player), rpc.Receive.SenderClientId);
+        }
+
+        [Rpc(SendTo.Server, RequireOwnership = false)]
+        private void SubmitDoneRpc(RpcParams rpc = default)
+        {
+            if (!TryAcceptIntent(rpc, out var player)) return;
+            Resolve(_server.Done(player), rpc.Receive.SenderClientId);
         }
 
         [Rpc(SendTo.Server, RequireOwnership = false)]

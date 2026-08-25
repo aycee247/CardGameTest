@@ -413,12 +413,14 @@ namespace Game.UI
             if (_setFaceLabel != null)
                 _setFaceLabel.text = me.SetsLeft > 0 ? "SET FACE · FREE" : $"SET FACE −{setFaceCost}sp";
 
-            // Withdraw only exists once committed (CORE-5); Pass only while undecided — both live
-            // in Shape and Commit alike, since a player may decide early.
+            // Withdraw exists once committed (CORE-5) or done shaping — either lock is taken back
+            // the same way; Pass only while undecided — all live in Shape and Commit alike, since
+            // a player may decide early. DoneShaping is already phase-gated by the snapshot.
+            bool retractable = committed || me.DoneShaping;
             SetRowVisible(passButton, canAct && !decided);
             SetInteractable(passButton, canAct && !decided);
-            SetRowVisible(withdrawButton, canAct && committed);
-            SetInteractable(withdrawButton, canAct && committed);
+            SetRowVisible(withdrawButton, canAct && retractable);
+            SetInteractable(withdrawButton, canAct && retractable);
 
             // Once committed the dice are pledged, so shaping is off until the player withdraws.
             if (committed && shapingAllowed) ShowMessage("Committed — withdraw to change your dice.");

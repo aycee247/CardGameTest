@@ -245,8 +245,9 @@ namespace Game.Core
         }
 
         /// <summary>
-        /// Takes back a commit or a pass, freeing the player to shape again and decide differently.
-        /// Legal right up until the window closes; after Reveal there is nothing to withdraw.
+        /// Takes back a commit, a pass, or a done — freeing the player to shape again and decide
+        /// differently. Legal right up until the window closes; after Reveal there is nothing to
+        /// withdraw.
         /// </summary>
         public static MoveResult Withdraw(MatchState state, PlayerId playerId)
         {
@@ -255,6 +256,25 @@ namespace Game.Core
 
             player.Pending = null;
             player.HasPassed = false;
+            player.DoneShaping = false;
+            return MoveResult.Ok;
+        }
+
+        /// <summary>
+        /// "I'm finished shaping." A lighter statement than commit-or-pass: it lets the driver
+        /// close Shape early once everyone is done, without forcing anyone to decide their claim
+        /// before the Commit window — where the whole table's final dice are on display. Undone by
+        /// <see cref="Withdraw"/>.
+        /// </summary>
+        public static MoveResult Done(MatchState state, PlayerId playerId)
+        {
+            if (state.Phase == RoundPhase.MatchOver) return MoveResult.Fail(MoveFailure.MatchOver);
+            if (state.Phase != RoundPhase.Shape) return MoveResult.Fail(MoveFailure.WrongPhase);
+
+            var player = state.Find(playerId);
+            if (player == null) return MoveResult.Fail(MoveFailure.UnknownPlayer);
+
+            player.DoneShaping = true;
             return MoveResult.Ok;
         }
 
@@ -300,7 +320,13 @@ namespace Game.Core
         /// </summary>
         public static bool AllDecided(MatchState state)
         {
-            if (state.Phase == RoundPhase.Shape || state.Phase == RoundPhase.Commit)
+            // During Shape, "done shaping" is as good as a decision — the point of the phase is the
+            // dice, and everyone has said theirs are final. It counts for nothing in Commit, where
+            // only an actual commit or pass settles a player.
+            if (state.Phase == RoundPhase.Shape)
+                return state.Players.All(p => HasDecided(p) || p.DoneShaping);
+
+            if (state.Phase == RoundPhase.Commit)
                 return state.Players.All(HasDecided);
 
             if (state.Phase == RoundPhase.Repick)

@@ -65,6 +65,8 @@ namespace Game.Core
 
         public void RequestPass() => Pass(ViewAs);
 
+        public void RequestDone() => Done(ViewAs);
+
         public void RequestWithdraw() => Withdraw(ViewAs);
 
         // ------------------------------------------------------------------ per-seat commands
@@ -78,6 +80,9 @@ namespace Game.Core
 
         public MoveResult Pass(PlayerId player) =>
             Resolve(RulesEngine.Pass(_state, player));
+
+        public MoveResult Done(PlayerId player) =>
+            Resolve(RulesEngine.Done(_state, player));
 
         public MoveResult Withdraw(PlayerId player) =>
             Resolve(RulesEngine.Withdraw(_state, player));

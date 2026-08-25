@@ -63,6 +63,13 @@ namespace Game.Core
         /// <summary>True once the player has explicitly passed this pass.</summary>
         public bool HasPassed { get; internal set; }
 
+        /// <summary>
+        /// True once the player has said they are finished shaping, without yet deciding a claim.
+        /// Meaningful during Shape only — it lets the driver close Shape early without forcing a
+        /// commit-or-pass — and is guarded by phase at every read rather than cleared mid-round.
+        /// </summary>
+        public bool DoneShaping { get; internal set; }
+
         /// <summary>Set when a claim is granted, so Upkeep knows who is owed consolation Sparks.</summary>
         public bool GainedCardThisRound { get; internal set; }
 
@@ -130,6 +137,7 @@ namespace Game.Core
         {
             Pending = null;
             HasPassed = false;
+            DoneShaping = false;
             GainedCardThisRound = false;
             RefillAllowance();
         }

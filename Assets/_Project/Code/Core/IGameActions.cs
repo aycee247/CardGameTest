@@ -22,6 +22,12 @@ namespace Game.Core
         /// <summary>Decline to claim anything this pass.</summary>
         void RequestPass();
 
+        /// <summary>
+        /// Finished shaping (Shape phase only). Lighter than a pass: the claim stays open for the
+        /// Commit window, but the server may close Shape early once everyone is done.
+        /// </summary>
+        void RequestDone();
+
         /// <summary>Take back a commit or pass, freeing the dice to be shaped again.</summary>
         void RequestWithdraw();
     }

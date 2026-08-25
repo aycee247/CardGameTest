@@ -120,6 +120,10 @@ namespace Game.App
             presenter.Bind(networkController, networkController);
             networkController.HostLost += OnHostLost;
 
+            // Online, DONE is a real engine intent (#44): the server marks the seat done and closes
+            // Shape early once everyone is. Hot-seat routes the same event to the director instead.
+            presenter.DoneRequested += OnOnlineDone;
+
             // The reveal spotlight plays inside the server's Reveal window; the phase change
             // tears it down if the player out-waits the beats.
             networkController.Changed += OnOnlineSnapshot;
@@ -141,11 +145,18 @@ namespace Game.App
 
         private void OnDestroy()
         {
+            if (presenter != null) presenter.DoneRequested -= OnOnlineDone;
+
             if (networkController != null)
             {
                 networkController.HostLost -= OnHostLost;
                 networkController.Changed -= OnOnlineSnapshot;
             }
+        }
+
+        private void OnOnlineDone()
+        {
+            if (networkController != null) networkController.RequestDone();
         }
 
         private void OnOnlineSnapshot(MatchSnapshot snapshot)

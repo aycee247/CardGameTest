@@ -96,8 +96,18 @@ namespace Game.Core
         /// <summary>Priority position, 0 = first pick. Public — the whole table reasons about it.</summary>
         public int PriorityRank;
 
-        /// <summary>True once this player has committed or passed. Public; the choice itself is not.</summary>
+        /// <summary>
+        /// True once this player has committed or passed — or, during Shape, said they are done
+        /// shaping. Public; the choice itself is not.
+        /// </summary>
         public bool HasDecided;
+
+        /// <summary>
+        /// True once this player has said their dice are final (Shape only). Public, like
+        /// <see cref="HasDecided"/> — the rail shows who is holding the phase open. It is what
+        /// the Withdraw affordance keys on for a player who is done but has not committed.
+        /// </summary>
+        public bool DoneShaping;
 
         /// <summary>True if they committed rather than passed. Public from Reveal onward.</summary>
         public bool HasCommitted;
@@ -318,7 +328,10 @@ namespace Game.Core
                 PriorityRank = state.PriorityRank(p.Id),
 
                 // Whether someone has locked in is public — it is what the opponent rail shows (UI-1).
-                HasDecided = p.HasCommitted || p.HasPassed,
+                // Done-shaping counts only while Shape is the phase being decided (CORE follow-up #44).
+                HasDecided = p.HasCommitted || p.HasPassed ||
+                             (state.Phase == RoundPhase.Shape && p.DoneShaping),
+                DoneShaping = state.Phase == RoundPhase.Shape && p.DoneShaping,
                 HasCommitted = maySeeCommit && p.HasCommitted,
 
                 PendingCardId = -1,
