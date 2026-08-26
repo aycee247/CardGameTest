@@ -107,9 +107,17 @@ namespace Game.SceneTools
             SetRef(boot, "audioManager", audio);
             SetRef(boot, "networkManager", nm);
 
+            // The boot beat is the wordmark alone on the theme surface — the same identity block
+            // as the MainMenu hero (STORY-6.8), so launch screen → boot → menu reads as one
+            // continuous surface rather than three products.
             CreateCanvas(out var content);
-            UiFactory.Label(content, "Title", "Dice Cards", new Vector2(0, 200), new Vector2(900, 120), 72f);
-            UiFactory.Label(content, "Loading", "Loading…", Vector2.zero, new Vector2(900, 80), 40f);
+            UiFactory.Label(content, "Eyebrow", "SIMULTANEOUS DICE ENGINE BUILDER",
+                new Vector2(0, 330), new Vector2(900, 44), 28f,
+                TextAlignmentOptions.Center, FontRole.BodySemibold, _theme.Accent(700), 0.22f);
+            UiFactory.Label(content, "Wordmark", "FOUNDRY", new Vector2(0, 160), new Vector2(940, 230), 190f,
+                TextAlignmentOptions.Center, FontRole.HeadingBold);
+            UiFactory.Label(content, "Loading", "LOADING…", new Vector2(0, -120), new Vector2(900, 60), 32f,
+                TextAlignmentOptions.Center, FontRole.BodyMedium, Muted(0.55f), 0.08f);
 
             return Save(scene, SceneNames.Boot);
         }

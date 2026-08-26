@@ -84,3 +84,19 @@ save/resume, replay and bug-report reproduction later.
   encryption → exempt), so TestFlight builds don't stall on the questionnaire.
 
 **M**
+
+### STORY-6.8: Branded boot and splash
+The scaffolded Boot scene showed a stale "Dice Cards" label, and the Unity
+splash ran on template defaults over a dark background that clashed with the
+blueprint surface.
+
+- AC1 The boot label matches the product name (**Foundry**) in the wordmark
+  styling the theme/MainMenu already use — no new color or font literals.
+- AC2 Splash settings deliberately chosen: Unity 6 allows disabling the Unity
+  logo even on a Personal license — decided **off**, background on the theme
+  surface so any residual flash matches.
+- AC3 The iOS launch-screen background matches the theme background, so
+  launch → splash → Boot reads as one continuous surface.
+- AC4 Scenes regenerated and committed.
+
+**S** — filed as issue #57, after the E6 epic was first written.
