@@ -5,8 +5,10 @@
 #   tools/run-core-tests.sh              # whole suite
 #   tools/run-core-tests.sh Contention   # only tests whose Fixture.Method contains "Contention"
 #
-# Uses the .NET SDK and nunit.framework.dll that ship inside the Unity installation, so it
-# needs no network access and no separately installed dotnet.
+# Prefers the .NET SDK and nunit.framework.dll that ship inside the Unity installation —
+# in that case it needs no network access and no separately installed dotnet. On a machine
+# without Unity (a clean clone, a CI runner) it falls back to `dotnet` on PATH and restores
+# NUnit from NuGet, which does need the network once.
 
 set -euo pipefail
 
@@ -17,10 +19,13 @@ export DOTNET_NOLOGO=1
 export DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1
 
 find_first() {
-  # Prints the newest match of a glob, or nothing.
+  # Prints the newest match of a glob, or nothing. Always returns 0: callers
+  # assign the output and test for emptiness, and under `set -e` a non-zero
+  # status here would kill the script silently on a clean clone (no Library/).
   local match
   match="$(ls -d $1 2>/dev/null | sort -V | tail -n 1 || true)"
   [ -n "$match" ] && printf '%s' "$match"
+  return 0
 }
 
 DOTNET="$(find_first '/Applications/Unity/Hub/Editor/*/Unity.app/Contents/Resources/Scripting/DotNetSdk/dotnet')"

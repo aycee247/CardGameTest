@@ -61,7 +61,7 @@ harness. `Game.UI` depends on `IGameActions` / `IMatchView` in Core — never on
 
 1. **Open the project.** Package Manager resolves everything from Unity's
    official registry — NGO, `com.unity.services.multiplayer`, Authentication,
-   Addressables, Newtonsoft. No third-party or scoped registries.
+   Newtonsoft. No third-party or scoped registries.
 
 2. **Import TMP essentials:** Window ▸ TextMeshPro ▸ Import TMP Essential Resources.
 
@@ -69,11 +69,18 @@ harness. `Game.UI` depends on `IGameActions` / `IMatchView` in Core — never on
    the `CardDatabase`. Validates as it goes and errors on any cost no legal dice
    pool could pay.
 
-4. **Foundry ▸ Generate Scenes & Build Settings** — rebuilds Boot / MainMenu /
-   Lobby / Game, wires every component reference, and sets the build list in
-   order. Run *after* step 3 so the Game scene can bind the database.
+4. **Foundry ▸ Generate Font Assets**, then **Foundry ▸ Generate Theme** — bakes
+   the Barlow TTFs into static TMP font assets, then writes
+   `Theme_BlueprintLight.asset` from code. The order matters: fonts → theme →
+   scenes, because each later generator binds what the earlier one wrote.
+   **Foundry ▸ Validate Theme** flags any unassigned token.
 
-5. **Unity Gaming Services** (online only): Edit ▸ Project Settings ▸ Services —
+5. **Foundry ▸ Generate Scenes & Build Settings** — rebuilds Boot / MainMenu /
+   Lobby / Game, wires every component reference, and sets the build list in
+   order. Run *after* steps 3–4 so the Game scene can bind the database, fonts
+   and theme.
+
+6. **Unity Gaming Services** (online only): Edit ▸ Project Settings ▸ Services —
    link a project, then enable Authentication, Relay and Lobby in the Unity Cloud
    dashboard. Anonymous sign-in is used by default.
 
@@ -99,10 +106,11 @@ host presses Start. Both modes share the entire presentation layer, because
 ## Testing
 
 ```
-tools/run-core-tests.sh              # 119 tests, ~2s, no Editor needed
+tools/run-core-tests.sh              # 150 tests, ~3s, no Editor needed
 tools/run-core-tests.sh Contention   # substring filter
 FOUNDRY_BALANCE=1 tools/run-core-tests.sh Balance    # full balance report
 tools/verify-unity-compile.sh        # type-check while the Editor holds its lock
+tools/run-playmode-tests.sh          # netcode suite, headless — Editor must be CLOSED
 ```
 
 `tools/CoreTests` compiles **the same source files** the Unity assemblies do, so
@@ -113,6 +121,19 @@ supports only `[Test]`/`[TestFixture]`/`[SetUp]`/`[TearDown]` and exits with cod
 `verify-unity-compile.sh` verifies **types, not asmdef boundaries** — everything
 compiles into one assembly, so a script reaching across an undeclared reference
 passes there and fails in Unity.
+
+The networking layer has its own PlayMode suite, `Game.PlayModeTests`
+(`NetcodeMatchTests`): a real in-process NGO host plus clients, asserting seat
+assignment, wire-level secrecy, seat reclaim by key and the forged-RPC guard.
+`tools/run-playmode-tests.sh` runs it headless and always filters to
+`Game.PlayModeTests` — the manifest's `testables` entry exposes NGO's own
+several-hundred-test suite, and an unfiltered run would run Unity's tests, not
+ours.
+
+CI: every push runs the core suite (`.github/workflows/core-tests.yml`, ~30s, no
+Unity licence), and a required check gates merges to `main`. The PlayMode suite
+runs nightly in `.github/workflows/nightly-playmode.yml`. Both badges are on
+`docs/README.md`, the repository front page.
 
 Notable suites: `SecrecyGateTests` (two matches differing only in a secret commit
 must produce byte-identical opponent snapshots, compared by reflective dump),
@@ -126,7 +147,7 @@ must produce byte-identical opponent snapshots, compared by reflective dump),
   raise it, add a `link.xml` preserving `Newtonsoft.Json`, `Unity.Services.*`
   and the `[Serializable]` save types.
 - `SafeAreaFitter` handles notches. The Game scene is laid out for portrait
-  1080×1920 — see `docs/backlog/E6-ship.md` on locking orientation.
+  1080×1920 and the app is locked to portrait (STORY-6.3).
 - Build: File ▸ Build Profiles ▸ iOS, switch platform, build the Xcode project.
 
 ## Extending
