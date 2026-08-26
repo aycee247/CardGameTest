@@ -35,6 +35,9 @@ namespace Game.App
             DontDestroyOnLoad(gameObject);
             if (networkManager != null) DontDestroyOnLoad(networkManager.gameObject);
 
+            // Crash/exception context rides on this persistent object (STORY-6.6).
+            gameObject.AddComponent<CrashContextReporter>();
+
             BuildServiceGraph();
         }
 
