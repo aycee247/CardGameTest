@@ -2,10 +2,12 @@
 # The fast per-push lane is core-tests.yml.
 #
 # Runs inside GameCI's Unity editor image, which needs a Unity license at activation time.
-# Provide ONE of these repository secrets (Settings ▸ Secrets and variables ▸ Actions):
-#   UNITY_LICENSE            — the contents of a personal .ulf license file (recommended), or
-#   UNITY_EMAIL + UNITY_PASSWORD + UNITY_SERIAL — a serial-based (Plus/Pro) activation.
-# Until one exists, this job fails fast on the first step with a pointer here.
+# ALL of these repository secrets are required (Settings ▸ Secrets and variables ▸ Actions):
+#   UNITY_EMAIL + UNITY_PASSWORD  — the Unity account; required on every activation path
+# plus ONE of:
+#   UNITY_LICENSE                 — the contents of a personal Unity_lic.ulf, or
+#   UNITY_SERIAL                  — a serial-based (Plus/Pro) activation.
+# Until they all exist, this job fails fast on the first step with a pointer here.
 #
 # Note: GitHub pauses cron schedules after ~60 days without repository activity; a push
 # re-enables them.
@@ -17,30 +19,47 @@ on:
     - cron: '17 9 * * *'   # 09:17 UTC nightly — early morning US time, quiet hours
   workflow_dispatch: {}     # manual runs for testing the lane itself
 
+permissions:
+  contents: read
+  checks: write   # unity-test-runner publishes a check run through githubToken
+
+# A manual dispatch overlapping the cron would double the repo's most expensive job and
+# race the Library cache write for no extra signal.
+concurrency:
+  group: nightly-playmode
+  cancel-in-progress: false
+
 jobs:
   playmode:
     runs-on: ubuntu-latest
+    timeout-minutes: 60   # a hung headless editor otherwise runs to GitHub's 6-hour cap
     steps:
-      - name: Require a Unity license secret
+      - name: Require the Unity activation secrets
         env:
+          HAS_ACCOUNT: ${{ secrets.UNITY_EMAIL != '' && secrets.UNITY_PASSWORD != '' }}
           HAS_LICENSE: ${{ secrets.UNITY_LICENSE != '' || secrets.UNITY_SERIAL != '' }}
         run: |
-          if [ "$HAS_LICENSE" != "true" ]; then
-            echo "::error::No Unity license secret is configured, so the editor cannot activate. Add UNITY_LICENSE (contents of a personal .ulf) or UNITY_EMAIL/UNITY_PASSWORD/UNITY_SERIAL under Settings > Secrets and variables > Actions. Setup steps: see the closing comment on issue #32."
+          if [ "$HAS_ACCOUNT" != "true" ] || [ "$HAS_LICENSE" != "true" ]; then
+            echo "::error::Unity activation needs UNITY_EMAIL and UNITY_PASSWORD plus either UNITY_LICENSE (contents of a personal Unity_lic.ulf) or UNITY_SERIAL, under Settings > Secrets and variables > Actions. See the header comment in .github/workflows/nightly-playmode.yml."
             exit 1
           fi
 
       - uses: actions/checkout@v4
 
-      # The imported Library is the expensive part of a cold editor run; keyed on the lock file
-      # so a package change rebuilds it.
-      - uses: actions/cache@v4
+      # The imported Library is the expensive part of a cold editor run. restore/save are
+      # split because plain actions/cache saves only on job success, so a red night would
+      # pay the full import again the next night; and Assets/ProjectSettings are in the
+      # key so the entry rolls forward as content changes (an existing key is never
+      # overwritten).
+      - uses: actions/cache/restore@v4
+        id: library-cache
         with:
           path: Library
-          key: library-playmode-${{ hashFiles('Packages/packages-lock.json', 'ProjectSettings/ProjectVersion.txt') }}
+          key: library-playmode-${{ hashFiles('Packages/packages-lock.json', 'ProjectSettings/**', 'Assets/**') }}
           restore-keys: library-playmode-
 
       - name: Run PlayMode suite
+        id: run-tests
         uses: game-ci/unity-test-runner@v4
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
@@ -56,8 +75,44 @@ jobs:
           artifactsPath: playmode-results
           githubToken: ${{ secrets.GITHUB_TOKEN }}
 
+      # unity-test-runner passes whenever failedTestCount is 0 — which includes "no tests
+      # ran at all", e.g. if the assembly name above ever drifts from the asmdef. Same gate
+      # as tools/run-playmode-tests.sh: the XML must say Passed AND have run at least one
+      # test, or the night is red.
+      - name: Require a non-empty green result
+        if: ${{ always() && steps.run-tests.conclusion != 'skipped' }}
+        run: |
+          python3 - <<'EOF'
+          import glob, sys, xml.etree.ElementTree as ET
+          files = glob.glob('playmode-results/**/*.xml', recursive=True)
+          if not files:
+              print('::error::no results XML found under playmode-results/ — the editor likely crashed before writing results')
+              sys.exit(1)
+          ok, total_run = True, 0
+          for f in files:
+              root = ET.parse(f).getroot()
+              total, result = int(root.get('total', 0)), root.get('result')
+              print(f'{f}: {result}, {total} tests')
+              total_run += total
+              if result != 'Passed':
+                  ok = False
+          if total_run == 0:
+              print('::error::zero tests ran — has the Game.PlayModeTests assembly been renamed? Update -assemblyNames here and in tools/run-playmode-tests.sh together.')
+              ok = False
+          sys.exit(0 if ok else 1)
+          EOF
+
+      - uses: actions/cache/save@v4
+        if: ${{ always() && steps.run-tests.conclusion != 'skipped' }}
+        with:
+          path: Library
+          key: ${{ steps.library-cache.outputs.cache-primary-key }}
+
       - uses: actions/upload-artifact@v4
-        if: always()
+        # Skipped on the fail-fast secrets path (checkout never ran, so an empty upload
+        # warning there would train us to ignore the same warning on a real crash).
+        if: ${{ always() && steps.run-tests.conclusion != 'skipped' }}
         with:
           name: playmode-results
           path: playmode-results
+          if-no-files-found: error

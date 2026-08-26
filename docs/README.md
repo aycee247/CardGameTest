@@ -32,15 +32,20 @@ Two caveats worth knowing before you trust the milestone table:
 
 1. **Everything is proven under test, not by a player.** M2 awaits its first
    playtest; M3 and M4 say live play is untested; M5 is simulated.
-2. **The proof stops at the assembly boundary.** `Game.EditModeTests` references
-   only `Game.Core` and `Game.Data`, and `Tests/PlayMode/` holds an asmdef with
-   no test files — so the networking layer has no automated coverage at all.
+2. **Networking coverage is real but nightly, not per-push.** `Game.EditModeTests`
+   covers the rules; `Game.PlayModeTests` exercises the networked match over a
+   real in-process NGO host and clients (seat assignment, wire-level secrecy,
+   seat reclaim by key, the forged-RPC guard). That suite runs locally via
+   `tools/run-playmode-tests.sh` and in CI on the nightly-playmode lane — the
+   second badge above — so a regression there shows up the next morning, not on
+   the push that caused it.
 
 ## Running it
 
 ```
-tools/run-core-tests.sh          # 119 tests, ~2s, no Editor
+tools/run-core-tests.sh          # 150 tests, ~3s, no Editor
 tools/verify-unity-compile.sh    # type-check Unity assemblies
+tools/run-playmode-tests.sh      # netcode suite, headless — Editor must be closed
 ```
 
 In the Editor: **Foundry ▸ Generate Starter Deck**, then **Foundry ▸ Generate
