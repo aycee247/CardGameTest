@@ -142,10 +142,12 @@ must produce byte-identical opponent snapshots, compared by reflective dump),
 
 ## iOS build
 
-- Bundle id `com.aaroncornwell.dicecards`, company `AaronCornwell`, min iOS 15.0
-- IL2CPP + .NET Standard 2.1. Start at Managed Stripping Level = Low; if you
-  raise it, add a `link.xml` preserving `Newtonsoft.Json`, `Unity.Services.*`
-  and the `[Serializable]` save types.
+- App name **Foundry**, bundle id `com.aaroncornwell.foundry`, company
+  `AaronCornwell`, min iOS 15.0. The placeholder icon is generated —
+  **Foundry ▸ Generate App Icon** — not authored.
+- IL2CPP + .NET Standard 2.1. `Assets/link.xml` guards `Newtonsoft.Json`,
+  `Game.Core`, `Game.Persistence` and the `Unity.Services.*` runtime assemblies
+  against managed stripping.
 - `SafeAreaFitter` handles notches. The Game scene is laid out for portrait
   1080×1920 and the app is locked to portrait (STORY-6.3).
 - Build: File ▸ Build Profiles ▸ iOS, switch platform, build the Xcode project.
