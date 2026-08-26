@@ -19,6 +19,11 @@ namespace Game.App
         [Range(2, 6)]
         [SerializeField] private int maxPlayers = 6;
 
+        [Tooltip("Opponents in a solo match (STORY-7.1). An in-menu picker waits on the settings " +
+                 "screen; until then this is the one place to change it.")]
+        [Range(1, 5)]
+        [SerializeField] private int soloBotCount = 3;
+
         private SessionManager _session;
         private SceneFlowService _sceneFlow;
 
@@ -38,6 +43,7 @@ namespace Game.App
             view.HostClicked += OnHost;
             view.JoinClicked += OnJoin;
             view.PassPlayClicked += OnPassPlay;
+            view.SoloClicked += OnSolo;
 
             string status = "Ready";
             if (GameServices.Locator.TryGet<BootStatus>(out var boot))
@@ -58,6 +64,7 @@ namespace Game.App
             view.HostClicked -= OnHost;
             view.JoinClicked -= OnJoin;
             view.PassPlayClicked -= OnPassPlay;
+            view.SoloClicked -= OnSolo;
         }
 
         private void OnPassPlay()
@@ -67,6 +74,15 @@ namespace Game.App
             view.SetInteractable(false);
             view.SetStatus("Starting pass & play…");
             _sceneFlow.LoadGame();
+        }
+
+        private void OnSolo()
+        {
+            // Solo is fully local like hot-seat (NET-5): the bots live in Core, so no session,
+            // no UGS, and it works with online services entirely unavailable.
+            view.SetInteractable(false);
+            view.SetStatus("Starting solo match…");
+            _sceneFlow.LoadSoloGame(soloBotCount);
         }
 
         private async void OnHost()

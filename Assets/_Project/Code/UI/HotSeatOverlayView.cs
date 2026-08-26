@@ -69,6 +69,17 @@ namespace Game.UI
         public bool IsBlocking(HotSeatStage stage) => stage != HotSeatStage.Acting;
 
         /// <summary>
+        /// Solo (STORY-7.1) reuses only the round summary — one human means no handoffs and no
+        /// privacy panel. Reveal and MatchOver are owned by the spotlight and end screen, as ever.
+        /// </summary>
+        public void RenderSolo(bool showSummary, MatchState state)
+        {
+            Show(handoffPanel, false);
+            Show(summaryPanel, showSummary);
+            if (showSummary) RenderSummaryBody(state);
+        }
+
+        /// <summary>
         /// Ends an online match that lost its host (NET-4), showing the standings from the last
         /// snapshot this client received. Those standings are card points only — the end-of-match
         /// scoring powers are resolved by the server, which is exactly what has gone away — so the
@@ -125,14 +136,16 @@ namespace Game.UI
                     : "Everyone else: look away.\n\nTap when you are holding the device.";
         }
 
-        private void RenderSummary(HotSeatDirector director)
+        private void RenderSummary(HotSeatDirector director) => RenderSummaryBody(director.State);
+
+        private void RenderSummaryBody(MatchState state)
         {
             if (summaryBody == null) return;
 
             _sb.Clear();
-            _sb.Append("End of round ").Append(director.State.Round).Append("\n\n");
+            _sb.Append("End of round ").Append(state.Round).Append("\n\n");
 
-            foreach (var player in director.State.Players)
+            foreach (var player in state.Players)
             {
                 _sb.Append(player.DisplayName)
                    .Append("   ").Append(player.Score).Append("vp")

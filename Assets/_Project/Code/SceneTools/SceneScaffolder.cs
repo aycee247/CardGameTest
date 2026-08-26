@@ -160,10 +160,14 @@ namespace Game.SceneTools
             var join = UiFactory.Button(content, "JoinButton", "JOIN WITH CODE",
                 new Vector2(0, -660), new Vector2(970, 144), ButtonStyle.Secondary);
 
-            // Kept beyond the handoff: the only offline path in the build.
-            var passPlay = UiFactory.Button(content, "PassPlayButton", "PASS & PLAY — OFFLINE",
-                new Vector2(0, -830), new Vector2(970, 144), ButtonStyle.Ghost);
+            // Kept beyond the handoff: the offline paths — pass-the-device, and solo vs bots
+            // (STORY-7.1) — sharing one row so the online actions keep their prominence.
+            var passPlay = UiFactory.Button(content, "PassPlayButton", "PASS & PLAY",
+                new Vector2(-250, -830), new Vector2(470, 144), ButtonStyle.Ghost);
             UiFactory.BlueprintFrame((RectTransform)passPlay.transform, marks: false);
+            var solo = UiFactory.Button(content, "SoloButton", "SOLO VS BOTS",
+                new Vector2(250, -830), new Vector2(470, 144), ButtonStyle.Ghost);
+            UiFactory.BlueprintFrame((RectTransform)solo.transform, marks: false);
 
             var status = Bottom(UiFactory.Label(content, "Status", "", Vector2.zero,
                 new Vector2(970, 70), 32f, TextAlignmentOptions.Center, FontRole.Body, Muted(0.8f)), 200);
@@ -176,6 +180,7 @@ namespace Game.SceneTools
             SetRef(view, "hostButton", host);
             SetRef(view, "joinButton", join);
             SetRef(view, "passPlayButton", passPlay);
+            SetRef(view, "soloButton", solo);
             SetRef(view, "joinCodeInput", codeInput);
             SetRef(view, "statusLabel", status);
             SetRef(view, "joinCodeLabel", codeLabel);
@@ -913,6 +918,15 @@ namespace Game.SceneTools
             SetRef(hotSeat, "endScreen", endScreen);
             if (db != null) SetRef(hotSeat, "cardDatabase", db);
 
+            // Solo host: the same board with bots in the other chairs (STORY-7.1).
+            var soloGo = new GameObject("SoloHost");
+            var soloHost = soloGo.AddComponent<SoloHost>();
+            SetRef(soloHost, "presenter", presenter);
+            SetRef(soloHost, "overlay", overlay);
+            SetRef(soloHost, "spotlight", spotlight);
+            SetRef(soloHost, "endScreen", endScreen);
+            if (db != null) SetRef(soloHost, "cardDatabase", db);
+
             // In-scene networked controller (spawns when the host loads this scene via NGO).
             var ctrlGo = new GameObject("GameController");
             ctrlGo.AddComponent<NetworkObject>();
@@ -929,6 +943,7 @@ namespace Game.SceneTools
             var mode = modeGo.AddComponent<GameSceneBootstrap>();
             SetRef(mode, "presenter", presenter);
             SetRef(mode, "hotSeatHost", hotSeat);
+            SetRef(mode, "soloHost", soloHost);
             SetRef(mode, "hotSeatOverlay", overlay);
             SetRef(mode, "revealSpotlight", spotlight);
             SetRef(mode, "endScreen", endScreen);

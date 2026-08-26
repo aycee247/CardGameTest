@@ -20,6 +20,7 @@ namespace Game.App
     {
         [SerializeField] private GameHudPresenter presenter;
         [SerializeField] private HotSeatHost hotSeatHost;
+        [SerializeField] private SoloHost soloHost;
         [SerializeField] private HotSeatOverlayView hotSeatOverlay;
         [SerializeField] private RevealSpotlightView revealSpotlight;
         [SerializeField] private EndScreenView endScreen;
@@ -44,7 +45,19 @@ namespace Game.App
 
             if (endScreen != null) endScreen.MenuClicked += OnMenuFromEndScreen;
 
-            if (IsOnline) StartOnline();
+            if (IsOnline)
+            {
+                StartOnline();
+                return;
+            }
+
+            // A pending solo request (set by the menu, carried on the locator-registered flow
+            // service — never a static) turns this local load into a bots match (STORY-7.1).
+            int soloBots = GameServices.IsReady
+                ? GameServices.Locator.Get<SceneFlowService>().ConsumeSoloRequest()
+                : 0;
+
+            if (soloBots > 0) StartSolo(soloBots);
             else StartHotSeat();
         }
 
@@ -93,6 +106,7 @@ namespace Game.App
         {
             if (networkController != null) networkController.gameObject.SetActive(false);
             if (matchLauncher != null) matchLauncher.gameObject.SetActive(false);
+            if (soloHost != null) soloHost.enabled = false;
 
             if (hotSeatHost == null)
             {
@@ -104,12 +118,29 @@ namespace Game.App
             hotSeatHost.StartMatch();
         }
 
+        private void StartSolo(int botCount)
+        {
+            if (networkController != null) networkController.gameObject.SetActive(false);
+            if (matchLauncher != null) matchLauncher.gameObject.SetActive(false);
+            if (hotSeatHost != null) hotSeatHost.enabled = false;
+
+            if (soloHost == null)
+            {
+                Debug.LogError("[Foundry] GameSceneBootstrap has no SoloHost to start.");
+                return;
+            }
+
+            soloHost.enabled = true;
+            soloHost.StartMatch(botCount);
+        }
+
         private void StartOnline()
         {
             // The handoff and reveal panels are a hot-seat device-passing idea; online, the server
             // clock drives the round and every player watches the same board at once.
             if (hotSeatOverlay != null) hotSeatOverlay.gameObject.SetActive(false);
             if (hotSeatHost != null) hotSeatHost.enabled = false;
+            if (soloHost != null) soloHost.enabled = false;
 
             if (networkController == null || presenter == null)
             {

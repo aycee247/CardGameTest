@@ -14,6 +14,7 @@ namespace Game.UI
         [SerializeField] private Button hostButton;
         [SerializeField] private Button joinButton;
         [SerializeField] private Button passPlayButton;
+        [SerializeField] private Button soloButton;
         [SerializeField] private TMP_InputField joinCodeInput;
         [SerializeField] private TMP_Text statusLabel;
         [SerializeField] private TMP_Text joinCodeLabel;
@@ -21,6 +22,7 @@ namespace Game.UI
         public event Action HostClicked;
         public event Action<string> JoinClicked;
         public event Action PassPlayClicked;
+        public event Action SoloClicked;
 
         private void Awake()
         {
@@ -28,6 +30,7 @@ namespace Game.UI
             if (joinButton != null) joinButton.onClick.AddListener(() =>
                 JoinClicked?.Invoke(joinCodeInput != null ? joinCodeInput.text?.Trim() : string.Empty));
             if (passPlayButton != null) passPlayButton.onClick.AddListener(() => PassPlayClicked?.Invoke());
+            if (soloButton != null) soloButton.onClick.AddListener(() => SoloClicked?.Invoke());
         }
 
         public void SetStatus(string message)
@@ -45,6 +48,7 @@ namespace Game.UI
             if (hostButton != null) hostButton.interactable = interactable;
             if (joinButton != null) joinButton.interactable = interactable;
             if (passPlayButton != null) passPlayButton.interactable = interactable;
+            if (soloButton != null) soloButton.interactable = interactable;
         }
     }
 }
