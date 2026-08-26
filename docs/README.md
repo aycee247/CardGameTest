@@ -1,5 +1,8 @@
 # Foundry Documentation
 
+[![core-tests](https://github.com/aycee247/CardGameTest/actions/workflows/core-tests.yml/badge.svg)](https://github.com/aycee247/CardGameTest/actions/workflows/core-tests.yml)
+[![nightly-playmode](https://github.com/aycee247/CardGameTest/actions/workflows/nightly-playmode.yml/badge.svg)](https://github.com/aycee247/CardGameTest/actions/workflows/nightly-playmode.yml)
+
 **Foundry** (working codename) — a simultaneous-roll dice engine builder for iOS.
 2–6 players, 10 rounds, ~12 minutes, real-time online with friends by code.
 
