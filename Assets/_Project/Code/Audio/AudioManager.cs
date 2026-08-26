@@ -19,6 +19,10 @@ namespace Game.Audio
         [SerializeField] private string musicParam = "MusicVolume";
         [SerializeField] private string sfxParam = "SfxVolume";
 
+        public float MasterVolume { get; private set; } = 1f;
+        public float MusicVolume { get; private set; } = 1f;
+        public float SfxVolume { get; private set; } = 1f;
+
         private void Reset()
         {
             // Auto-create sources if added via AddComponent.
@@ -47,14 +51,29 @@ namespace Game.Audio
 
         public void SetVolumes(float master, float music, float sfx)
         {
-            SetMixer(masterParam, master);
-            SetMixer(musicParam, music);
-            SetMixer(sfxParam, sfx);
+            MasterVolume = Mathf.Clamp01(master);
+            MusicVolume = Mathf.Clamp01(music);
+            SfxVolume = Mathf.Clamp01(sfx);
+
+            if (mixer != null)
+            {
+                SetMixer(masterParam, MasterVolume);
+                SetMixer(musicParam, MusicVolume);
+                SetMixer(sfxParam, SfxVolume);
+            }
+            else
+            {
+                // No mixer wired (the scaffolded Boot scene adds this component bare) — fold
+                // master into each source directly so volume settings still do something.
+                // PlayOneShot scales by the source volume, so SFX are covered too.
+                if (musicSource != null) musicSource.volume = MasterVolume * MusicVolume;
+                if (sfxSource != null) sfxSource.volume = MasterVolume * SfxVolume;
+            }
         }
 
         private void SetMixer(string param, float linear)
         {
-            if (mixer == null || string.IsNullOrEmpty(param)) return;
+            if (string.IsNullOrEmpty(param)) return;
             // Convert linear 0..1 to decibels; -80 dB is effectively silent.
             float dB = linear <= 0.0001f ? -80f : Mathf.Log10(Mathf.Clamp01(linear)) * 20f;
             mixer.SetFloat(param, dB);

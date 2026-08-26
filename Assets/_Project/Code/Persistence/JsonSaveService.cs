@@ -20,6 +20,10 @@ namespace Game.Persistence
 
         public PlayerProfile Profile { get; private set; }
 
+        public bool ProfileWasReset { get; private set; }
+
+        public event Action ProfileChanged;
+
         public JsonSaveService(string directory = null)
         {
             var dir = string.IsNullOrEmpty(directory) ? Application.persistentDataPath : directory;
@@ -35,6 +39,7 @@ namespace Game.Persistence
 
         public PlayerProfile Load()
         {
+            ProfileWasReset = false;
             try
             {
                 if (File.Exists(_path))
@@ -44,6 +49,7 @@ namespace Game.Persistence
                 }
                 else
                 {
+                    // A fresh install, not a reset — the flag stays false.
                     Profile = PlayerProfile.CreateDefault();
                 }
             }
@@ -51,13 +57,18 @@ namespace Game.Persistence
             {
                 Debug.LogError($"[Save] Failed to load profile, using default: {e.Message}");
                 Profile = PlayerProfile.CreateDefault();
+                ProfileWasReset = true;
             }
 
             _dirty = false;
             return Profile;
         }
 
-        public void MarkDirty() => _dirty = true;
+        public void MarkDirty()
+        {
+            _dirty = true;
+            ProfileChanged?.Invoke();
+        }
 
         public void FlushIfDirty()
         {
@@ -75,6 +86,7 @@ namespace Game.Persistence
                 if (File.Exists(_path)) File.Delete(_path);
                 File.Move(tmp, _path);
                 _dirty = false;
+                ProfileChanged?.Invoke();
             }
             catch (Exception e)
             {

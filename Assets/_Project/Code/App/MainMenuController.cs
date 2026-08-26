@@ -39,11 +39,17 @@ namespace Game.App
             view.JoinClicked += OnJoin;
             view.PassPlayClicked += OnPassPlay;
 
-            if (GameServices.Locator.TryGet<BootStatus>(out var boot) && boot.OnlineFailed)
-                view.SetStatus("Online unavailable — couldn't reach Unity services. " +
-                               "Host/Join will retry; Pass & Play works offline.");
-            else
-                view.SetStatus("Ready");
+            string status = "Ready";
+            if (GameServices.Locator.TryGet<BootStatus>(out var boot))
+            {
+                if (boot.OnlineFailed)
+                    status = "Online unavailable — couldn't reach Unity services. " +
+                             "Host/Join will retry; Pass & Play works offline.";
+                // One-shot by contract: ConsumeProfileReset clears the flag (STORY-4.2 AC3).
+                if (boot.ConsumeProfileReset())
+                    status = "Saved settings couldn't be read and were reset to defaults. " + status;
+            }
+            view.SetStatus(status);
         }
 
         private void OnDestroy()

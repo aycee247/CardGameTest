@@ -77,6 +77,9 @@ namespace Game.App
             var s = profile.Settings;
             audioManager.SetVolumes(s.MasterVolume, s.MusicVolume, s.SfxVolume);
 
+            // Re-apply whenever the profile changes, so volume edits land live (STORY-4.2).
+            _saveService.ProfileChanged += ApplyAudioSettings;
+
             // Networking / online services
             locator.Register(new SessionManager());
 
@@ -84,9 +87,22 @@ namespace Game.App
             locator.Register(new SceneFlowService());
 
             // Boot outcome, for the menu to explain a degraded (offline) start.
-            locator.Register(new BootStatus());
+            var bootStatus = new BootStatus();
+            if (_saveService.ProfileWasReset) bootStatus.ReportProfileReset();
+            locator.Register(bootStatus);
 
             GameServices.Locator = locator;
+        }
+
+        private void ApplyAudioSettings()
+        {
+            var s = _saveService.Profile.Settings;
+            audioManager.SetVolumes(s.MasterVolume, s.MusicVolume, s.SfxVolume);
+        }
+
+        private void OnDestroy()
+        {
+            if (_saveService != null) _saveService.ProfileChanged -= ApplyAudioSettings;
         }
 
         // iOS suspends (not closes) apps — persist on pause as well as quit.

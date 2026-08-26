@@ -1,3 +1,5 @@
+using System;
+
 namespace Game.Persistence
 {
     /// <summary>
@@ -8,6 +10,21 @@ namespace Game.Persistence
     public interface ISaveService
     {
         PlayerProfile Profile { get; }
+
+        /// <summary>
+        /// True when <see cref="Load"/> found a profile on disk but could not read it and fell
+        /// back to defaults (STORY-4.2 AC3). A missing file — a fresh install — does not count.
+        /// </summary>
+        bool ProfileWasReset { get; }
+
+        /// <summary>
+        /// Raised whenever the profile is mutated (<see cref="MarkDirty"/>) or written
+        /// (<see cref="Save"/>). Appliers subscribe and re-read the settings they care about,
+        /// which is what makes a future settings screen take effect live rather than on the
+        /// next scene load (STORY-4.2).
+        /// </summary>
+        event Action ProfileChanged;
+
         PlayerProfile Load();
         void Save();
         void MarkDirty();

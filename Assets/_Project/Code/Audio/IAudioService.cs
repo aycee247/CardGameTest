@@ -8,6 +8,11 @@ namespace Game.Audio
     /// </summary>
     public interface IAudioService
     {
+        /// <summary>The last applied linear volumes — what a settings slider renders on open.</summary>
+        float MasterVolume { get; }
+        float MusicVolume { get; }
+        float SfxVolume { get; }
+
         void PlayMusic(AudioClip clip, bool loop = true);
         void StopMusic();
         void PlaySfx(AudioClip clip, float volumeScale = 1f);

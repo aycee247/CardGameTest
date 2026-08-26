@@ -13,14 +13,29 @@ namespace Game.App
     [RequireComponent(typeof(UiAnimationService))]
     public sealed class UiMotionSettingsApplier : MonoBehaviour
     {
+        private ISaveService _save;
+
         private void Start()
         {
             if (!GameServices.IsReady) return;
-            if (!GameServices.Locator.TryGet<ISaveService>(out var save)) return;
+            if (!GameServices.Locator.TryGet<ISaveService>(out _save)) return;
 
+            // Re-apply on every profile mutation so a settings change lands mid-scene, not on
+            // the next load (STORY-4.2).
+            _save.ProfileChanged += Apply;
+            Apply();
+        }
+
+        private void OnDestroy()
+        {
+            if (_save != null) _save.ProfileChanged -= Apply;
+        }
+
+        private void Apply()
+        {
             var anims = GetComponent<UiAnimationService>();
-            anims.ReducedMotion = save.Profile.Settings.ReducedMotion;
-            anims.SpeedMultiplier = Mathf.Max(0.1f, save.Profile.Settings.AnimationSpeed);
+            anims.ReducedMotion = _save.Profile.Settings.ReducedMotion;
+            anims.SpeedMultiplier = Mathf.Max(0.1f, _save.Profile.Settings.AnimationSpeed);
         }
     }
 }
