@@ -139,11 +139,17 @@ that test.
 ## Testing
 
 ```
-tools/run-core-tests.sh              # 119 tests, ~2s, no Editor needed
+tools/run-core-tests.sh              # 150 tests, ~3s, no Editor needed
 tools/run-core-tests.sh Contention   # substring filter on Fixture.Method
 FOUNDRY_BALANCE=1 tools/run-core-tests.sh Balance   # full balance report
 tools/verify-unity-compile.sh        # type-check Unity assemblies while the Editor holds its lock
+tools/run-playmode-tests.sh          # headless PlayMode suite — Editor must be CLOSED
 ```
+
+`run-playmode-tests.sh` always filters to `Game.PlayModeTests`: the manifest's
+`testables` entry (needed for NGO's `NetcodeIntegrationTest` harness) also
+exposes NGO's own several-hundred-test suite, and an unfiltered run would run
+Unity's tests, not ours. Keep the filter in any CI lane too.
 
 `tools/CoreTests` compiles **the same source files** Unity does — it does not
 fork them — and runs the same NUnit `[Test]` methods by reflection.

@@ -129,7 +129,10 @@ namespace Game.Networking
         {
             if (!IsServer) return false;
 
-            var nm = NetworkManager.Singleton;
+            // The inherited NetworkManager, never the Singleton: with several in-process peers
+            // (host + clients in the PlayMode netcode suite) the Singleton is whichever manager
+            // was created last, not necessarily ours.
+            var nm = NetworkManager;
             if (nm == null) return false;
 
             foreach (ulong clientId in nm.ConnectedClientsIds)
@@ -147,7 +150,7 @@ namespace Game.Networking
         /// </summary>
         public void ServerBuildRoster(out ulong[] orderedClientIds, out string[] orderedSeatKeys)
         {
-            var nm = NetworkManager.Singleton;
+            var nm = NetworkManager;
 
             var ids = new List<ulong>(nm.ConnectedClientsIds);
             if (ids.Count == 0) ids.Add(nm.LocalClientId);   // a server-only editor run
@@ -203,7 +206,7 @@ namespace Game.Networking
 
         public override void OnNetworkSpawn()
         {
-            var nm = NetworkManager.Singleton;
+            var nm = NetworkManager;
             if (nm == null) return;
 
             if (IsServer) nm.OnClientDisconnectCallback += OnServerSawClientLeave;
@@ -216,7 +219,7 @@ namespace Game.Networking
 
         public override void OnNetworkDespawn()
         {
-            var nm = NetworkManager.Singleton;
+            var nm = NetworkManager;
             if (nm == null) return;
 
             nm.OnClientDisconnectCallback -= OnServerSawClientLeave;
@@ -253,7 +256,7 @@ namespace Game.Networking
         /// </summary>
         private void OnClientLostConnection(ulong clientId)
         {
-            var nm = NetworkManager.Singleton;
+            var nm = NetworkManager;
             if (nm == null || clientId != NetworkManager.ServerClientId) return;
 
             HostLost?.Invoke(Current);
@@ -265,11 +268,22 @@ namespace Game.Networking
         public event Action<MatchSnapshot> HostLost;
 
         /// <summary>
+        /// Test seam: hands each in-process peer a distinct stable key, since a test run has no
+        /// UGS sign-in. Static out of necessity — the client-side controller is instantiated by
+        /// the spawn message itself, leaving no window to inject per-instance — null in
+        /// production, and cleared by the suite's teardown.
+        /// </summary>
+        internal static Func<NetworkManager, string> SeatKeyProviderForTests;
+
+        /// <summary>
         /// The identity that survives a reconnect. The UGS authentication id is stable for the
         /// signed-in player, where the transport id is regenerated on every connection.
         /// </summary>
-        private static string LocalSeatKey()
+        private string LocalSeatKey()
         {
+            var provider = SeatKeyProviderForTests;
+            if (provider != null) return provider(NetworkManager) ?? string.Empty;
+
             try
             {
                 return AuthenticationService.Instance.IsSignedIn
@@ -497,11 +511,19 @@ namespace Game.Networking
         private bool FromServer(RpcParams rpc) =>
             rpc.Receive.SenderClientId == NetworkManager.ServerClientId;
 
+        /// <summary>
+        /// The last state payload this peer received over the wire, before decoding. Test seam:
+        /// the secrecy assertions (STORY-2.1 AC3) run against the actual bytes a client was sent,
+        /// not against a locally rebuilt snapshot.
+        /// </summary>
+        internal byte[] LastStateBytes { get; private set; }
+
         [Rpc(SendTo.SpecifiedInParams)]
         private void StateRpc(byte[] snapshotBytes, float secondsLeft, RpcParams rpc = default)
         {
             if (!FromServer(rpc)) return;
 
+            LastStateBytes = snapshotBytes;
             Current = SnapshotCodec.Decode(snapshotBytes);
             SecondsLeft = secondsLeft;
             Changed?.Invoke(Current);
