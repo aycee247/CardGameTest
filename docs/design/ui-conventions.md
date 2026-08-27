@@ -28,7 +28,10 @@ Consequences to respect:
 
 ## Layout
 
-- Portrait 1080×1920 reference, `CanvasScaler.ScaleWithScreenSize`, match 0.5.
+- Portrait 1080×1920 reference, `CanvasScaler.ScaleWithScreenSize`, **match
+  width (0)** — the app is portrait-locked and every layout is authored at 1080
+  units wide; matching width keeps that exactly on-screen, and tall phones gain
+  vertical room instead of clipping the edges (found on device, #66).
 - Three bands: opponent rail across the top, market through the middle, dice tray
   filling the bottom third where thumbs reach.
 - Anchor to screen edges rather than using absolute offsets from centre — the

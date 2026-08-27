@@ -1,7 +1,9 @@
 # Theming
 
-> **Status: not built.** This describes the intended design for E5. Today every
-> colour in the game is a hard-coded literal.
+> **Status: built (STORY-5.1/5.2, mobile redesign).** `ThemeAsset` holds the
+> semantic tokens below, `ThemeGenerator` writes `Theme_BlueprintLight.asset`
+> from code, `ThemeValidator` gates scene generation, and no `new Color(...)`
+> literal remains in non-test code. The second theme (AC4) is the one open item.
 
 ## The problem
 
@@ -58,9 +60,10 @@ are themed.
 
 ## Accessibility constraint
 
-`DieView` currently distinguishes idle / selected / spent **by colour alone**, and
-`CardButtonView` does the same for affordability. Whatever the theme, those
-states must also differ by shape, border or icon — see E4 STORY-4.5.
+State must never be communicated by colour alone. The shipped views honour
+this — `DieView` marks selection with a position lift and spent with a rotated
+watermark; `CardButtonView` marks affordability with opacity, border and fill
+together — and new work must keep it true. See E4 STORY-4.5.
 
 ## Skins vs themes
 
