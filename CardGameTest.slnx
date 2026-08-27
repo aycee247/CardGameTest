@@ -8,6 +8,6 @@
   <Project Path="Game.App.csproj" />
   <Project Path="Game.SceneTools.csproj" />
   <Project Path="Game.PlayModeTests.csproj" />
-  <Project Path="Game.Audio.csproj" />
   <Project Path="Game.EditorTools.csproj" />
+  <Project Path="Game.Audio.csproj" />
 </Solution>
