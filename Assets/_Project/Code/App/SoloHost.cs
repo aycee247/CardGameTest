@@ -40,7 +40,9 @@ namespace Game.App
             _botCount = Mathf.Clamp(botCount, 1, 5);
             int seed = fixedSeed != 0 ? fixedSeed : MatchFactory.NewSeed();
 
-            var names = new List<string>(1 + _botCount) { "You" };
+            // "Player 1", not "You": the rail appends its own "— YOU" marker to the local seat,
+            // and a seat literally named You rendered as "YOU — YOU" on device (#66).
+            var names = new List<string>(1 + _botCount) { "Player 1" };
             for (int i = 1; i <= _botCount; i++) names.Add("Bot " + i);
 
             var state = MatchFactory.Build(config, cardDatabase, names, seed);

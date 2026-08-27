@@ -336,8 +336,11 @@ namespace Game.Core
 
                 // Whether someone has locked in is public — it is what the opponent rail shows (UI-1).
                 // Done-shaping counts only while Shape is the phase being decided (CORE follow-up #44).
+                // During Repick, a non-contender has no decision to make and reads as decided —
+                // a locked-out seat showing THINKING confused the rail on device (#66).
                 HasDecided = p.HasCommitted || p.HasPassed ||
-                             (state.Phase == RoundPhase.Shape && p.DoneShaping),
+                             (state.Phase == RoundPhase.Shape && p.DoneShaping) ||
+                             (state.Phase == RoundPhase.Repick && !state.RepickContenders.Contains(p.Id)),
                 DoneShaping = state.Phase == RoundPhase.Shape && p.DoneShaping,
                 HasCommitted = maySeeCommit && p.HasCommitted,
 

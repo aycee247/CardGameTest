@@ -65,7 +65,11 @@ namespace Game.UI
             if (standings.Length > 0)
             {
                 var winner = standings[0];
-                if (headline != null) headline.text = $"{winner.DisplayName.ToUpperInvariant()} WINS";
+                // Second person for the local player — "YOU WIN", never "YOU WINS" (#66).
+                if (headline != null)
+                    headline.text = winner.PlayerId == snapshot.ObserverId
+                        ? "YOU WIN"
+                        : $"{winner.DisplayName.ToUpperInvariant()} WINS";
                 if (note != null) note.text = DescribeOutcome(snapshot, standings);
             }
             else

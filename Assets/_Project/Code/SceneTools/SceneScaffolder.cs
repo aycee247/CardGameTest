@@ -1104,7 +1104,12 @@ namespace Game.SceneTools
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = RefRes;
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight = 0.5f;
+            // Match WIDTH only: the app is portrait-locked and every layout is authored against
+            // the 1080-unit reference width. A modern iPhone is taller than 16:9 — the 0.5 blend
+            // spilled half the aspect difference off the left and right edges on device (#66);
+            // matching width keeps 1080 units exactly on-screen and gives tall screens extra
+            // vertical room instead.
+            scaler.matchWidthOrHeight = 0f;
 
             // The one tween router every animating view in the scene shares (ui-conventions.md),
             // plus the applier that feeds it the profile's reduced-motion and speed settings.

@@ -229,7 +229,11 @@ namespace Game.App
         {
             if (upkeepModal == null) return;
 
-            bool inUpkeep = snapshot.Phase == RoundPhase.Upkeep;
+            // Server-clocked matches only: the clock is this modal's auto-dismiss. An untimed
+            // session (SecondsLeft < 0 — hot-seat, solo) renders the round summary panel over
+            // this beat instead, and showing both stacked their text on device (#66).
+            bool inUpkeep = snapshot.Phase == RoundPhase.Upkeep
+                            && _match != null && _match.SecondsLeft >= 0f;
             if (inUpkeep && _lastModalPhase != RoundPhase.Upkeep)
             {
                 var me = snapshot.Observer;
