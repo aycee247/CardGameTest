@@ -9,8 +9,10 @@
 #   - appleDeveloperTeamID set in ProjectSettings/ProjectSettings.asset
 #   - the app record exists in App Store Connect (bundle id com.aaroncornwell.foundry)
 #
-#   tools/build-ios.sh              # full pipeline: Unity export -> archive -> upload
-#   tools/build-ios.sh --archive    # stop after the .xcarchive (no upload)
+#   tools/build-ios.sh                        # full pipeline: Unity export -> archive -> upload
+#   tools/build-ios.sh --archive              # stop after the .xcarchive (no upload)
+#   tools/build-ios.sh --skip-unity           # reuse the existing Builds/iOS export
+#   (flags combine: --archive --skip-unity)
 #
 # Remember to bump buildNumber.iPhone in ProjectSettings before each upload — App Store
 # Connect rejects a build number it has already seen.
@@ -35,14 +37,26 @@ if [[ -z "$TEAM_ID" ]]; then
   exit 1
 fi
 
+ARCHIVE_ONLY=false
+SKIP_UNITY=false
+for arg in "$@"; do
+  case "$arg" in
+    --archive) ARCHIVE_ONLY=true ;;
+    --skip-unity) SKIP_UNITY=true ;;
+    *) echo "error: unknown flag '$arg'" >&2; exit 1 ;;
+  esac
+done
+
 mkdir -p "$REPO/Builds"
 
-echo "== Unity: exporting the Xcode project (first run after a platform switch is slow) =="
-"$UNITY" -batchmode -quit -projectPath "$REPO" -buildTarget iOS \
-  -executeMethod Game.EditorTools.BuildTools.BuildIos -logFile "$LOG"
+if [[ "$SKIP_UNITY" == false ]]; then
+  echo "== Unity: exporting the Xcode project (first run after a platform switch is slow) =="
+  "$UNITY" -batchmode -quit -projectPath "$REPO" -buildTarget iOS \
+    -executeMethod Game.EditorTools.BuildTools.BuildIos -logFile "$LOG"
+fi
 
 if [[ ! -d "$OUT" ]]; then
-  echo "error: Unity produced no Xcode project at $OUT — see $LOG" >&2
+  echo "error: no Xcode project at $OUT — run without --skip-unity. Log: $LOG" >&2
   exit 1
 fi
 
@@ -57,7 +71,7 @@ xcodebuild "${XCODE_TARGET[@]}" -scheme Unity-iPhone -configuration Release \
   -destination 'generic/platform=iOS' -archivePath "$ARCHIVE" archive \
   -allowProvisioningUpdates DEVELOPMENT_TEAM="$TEAM_ID"
 
-if [[ "${1:-}" == "--archive" ]]; then
+if [[ "$ARCHIVE_ONLY" == true ]]; then
   echo "Archive ready at $ARCHIVE (upload skipped)."
   exit 0
 fi
