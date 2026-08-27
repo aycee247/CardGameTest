@@ -80,6 +80,18 @@ namespace Game.UI
         /// roll is in flight (NET-1). Never called with a face the player could mistake for state —
         /// the next Render overwrites it with the real one.
         /// </summary>
+        /// <summary>
+        /// Scales the fixed-size internals (pips, SPENT watermark) when the tray shrinks its
+        /// cells to keep a grown pool on one row (#68). The background and frame stretch with
+        /// the rect on their own; only the absolutely-positioned children need this.
+        /// </summary>
+        public void SetContentScale(float scale)
+        {
+            var s = new Vector3(scale, scale, 1f);
+            if (pips != null) pips.transform.localScale = s;
+            if (spentWatermark != null) spentWatermark.transform.localScale = s;
+        }
+
         public void PreviewFace(int face)
         {
             if (pips != null) pips.SetFace(face);

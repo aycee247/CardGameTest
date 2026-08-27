@@ -290,6 +290,8 @@ namespace Game.UI
             var faces = me.DiceFaces ?? Array.Empty<int>();
             var spent = me.DiceSpent ?? Array.Empty<bool>();
 
+            FitDiceToOneRow(faces.Length);
+
             // Drop selections that no longer point at a live, unspent die — the pool resizes
             // between rounds and dice get spent underneath us.
             _selected.RemoveAll(i => i >= faces.Length || (i < spent.Length && spent[i]));
@@ -313,8 +315,33 @@ namespace Game.UI
                     : DieVisualState.Idle;
 
                 _dice[i].Set(i, faces[i], state, interactable);
+                _dice[i].SetContentScale(_dieContentScale);
             }
         }
+
+        /// <summary>
+        /// Shrinks the tray's grid cells so every die fits ONE row. The tray band was sized for
+        /// the 4-die start; a grown engine (capacity max 8) used to wrap onto the shape-action
+        /// buttons below it (#68). Cells scale down from the authored size only when needed, and
+        /// the authored size is recovered from the grid itself so this stays in sync with the
+        /// scaffolder rather than duplicating the design token.
+        /// </summary>
+        private void FitDiceToOneRow(int diceCount)
+        {
+            var grid = diceRoot.GetComponent<UnityEngine.UI.GridLayoutGroup>();
+            if (grid == null || diceCount <= 0) return;
+
+            if (_authoredCell <= 0f) _authoredCell = grid.cellSize.x;
+
+            float width = ((RectTransform)diceRoot).rect.width;
+            float available = width - grid.spacing.x * (diceCount - 1);
+            float cell = Mathf.Min(_authoredCell, Mathf.Floor(available / diceCount));
+            grid.cellSize = new Vector2(cell, cell);
+            _dieContentScale = cell / _authoredCell;
+        }
+
+        private float _authoredCell;
+        private float _dieContentScale = 1f;
 
         private void RenderMarket(in MatchSnapshot snapshot, bool interactable)
         {
