@@ -769,15 +769,17 @@ namespace Game.SceneTools
             Top(railRoot, -310);
             Row(railRoot, spacing: 6);
 
-            // Market label row + 5-card band (handoff 6c).
-            Top(UiFactory.Label(content, "MarketLabel", "MARKET", new Vector2(-430, 0), new Vector2(220, 40), 28f,
-                TextAlignmentOptions.Left, FontRole.BodySemibold, Muted(0.8f), 0.2f), -440);
-            var marketMeta = Top(UiFactory.Label(content, "MarketMeta", "", new Vector2(150, 0), new Vector2(720, 40), 26f,
-                TextAlignmentOptions.Right, FontRole.BodyMedium, Muted(0.55f), 0.06f), -440);
+            // Market label row + 5-card band (handoff 6c). Anchored proportionally, not to the
+            // top edge: on a tall phone the extra height then breathes above AND below the
+            // market instead of pooling in one dead gap between market and tray.
+            AtHeight(UiFactory.Label(content, "MarketLabel", "MARKET", new Vector2(-430, 0), new Vector2(220, 40), 28f,
+                TextAlignmentOptions.Left, FontRole.BodySemibold, Muted(0.8f), 0.2f), 0.60f, 232);
+            var marketMeta = AtHeight(UiFactory.Label(content, "MarketMeta", "", new Vector2(150, 0), new Vector2(720, 40), 26f,
+                TextAlignmentOptions.Right, FontRole.BodyMedium, Muted(0.55f), 0.06f), 0.60f, 232);
 
             var marketRoot = UiFactory.Panel(content, "Market", stretch: false);
-            marketRoot.sizeDelta = new Vector2(1020, 340);
-            Top(marketRoot, -650);
+            marketRoot.sizeDelta = new Vector2(1020, 380);
+            AtHeight(marketRoot, 0.60f);
             Row(marketRoot, spacing: 12);
 
             // --- controls, from the bottom up (handoff 6d-6g) ---
@@ -1018,6 +1020,17 @@ namespace Game.SceneTools
             return target;
         }
 
+        /// <summary>
+        /// Anchors at a height *fraction* of the safe area, plus an offset. Edge-pinned bands let
+        /// all of a tall phone's extra height pool into one dead gap (found on device, #66's
+        /// sibling); a proportional band splits that surplus above and below itself instead.
+        /// </summary>
+        private static T AtHeight<T>(T target, float fraction, float y = 0f) where T : Component
+        {
+            Anchor(target, new Vector2(0.5f, fraction), y);
+            return target;
+        }
+
         private static RectTransform Anchor(Component target, Vector2 anchor, float y)
         {
             var rt = (RectTransform)target.transform;
@@ -1125,14 +1138,17 @@ namespace Game.SceneTools
         private static CardButtonView BuildCardButtonTemplate(Transform parent)
         {
             // 5 cards must fit a 1080-wide canvas: 5 x 190 plus four 12pt gaps leaves a little room.
+            // Height grew 320 -> 360 when the market band went proportional (UI-character P1):
+            // the room exists now, and the extra padding keeps five text runs from feeling packed.
             const float CardWidth = 190f;
-            const float CardHeight = 320f;
+            const float CardHeight = 360f;
 
             var go = new GameObject("CardButton", typeof(RectTransform), typeof(Image), typeof(Button));
             var rt = (RectTransform)go.transform;
             rt.SetParent(parent, false);
             rt.sizeDelta = new Vector2(CardWidth, CardHeight);
             go.GetComponent<Image>().color = _theme.surfaceRaised;
+            go.AddComponent<PressableButton>();   // cards press like machine buttons too (P1)
 
             // A card has to show all three of cost, power and value — a player cannot choose without them.
             var tierLabel = UiFactory.Label(rt, "Tier", "T1", new Vector2(-64, 138), new Vector2(56, 40), 22f);

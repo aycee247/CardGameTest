@@ -18,6 +18,10 @@ namespace Game.UI
 
         public event Action Dismissed;
 
+        private UiAnimationService _anims;
+        private Vector2 _restPosition;
+        private bool _restCached;
+
         private void Awake()
         {
             if (gotItButton != null) gotItButton.onClick.AddListener(() =>
@@ -25,12 +29,25 @@ namespace Game.UI
                 Hide();
                 Dismissed?.Invoke();
             });
+            _anims = GetComponentInParent<UiAnimationService>(true);
         }
 
         public void Show(string message)
         {
             if (bodyText != null) bodyText.text = message ?? string.Empty;
-            if (root != null) root.SetActive(true);
+            if (root != null)
+            {
+                bool wasOpen = root.activeSelf;
+                root.SetActive(true);
+
+                var rt = (RectTransform)root.transform;
+                if (!_restCached)
+                {
+                    _restPosition = rt.anchoredPosition;
+                    _restCached = true;
+                }
+                if (!wasOpen) UiEntrance.SlideIn(_anims, rt, _restPosition, new Vector2(0f, -60f));
+            }
         }
 
         public void Hide()

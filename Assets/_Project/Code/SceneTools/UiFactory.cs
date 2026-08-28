@@ -98,6 +98,9 @@ namespace Game.SceneTools
             textRt.offsetMin = Vector2.zero;
             textRt.offsetMax = Vector2.zero;
 
+            // Every button is a machine button (UI-character P1): press sinks, release springs.
+            go.AddComponent<PressableButton>();
+
             return go.GetComponent<Button>();
         }
 

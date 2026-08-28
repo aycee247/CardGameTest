@@ -35,11 +35,14 @@ namespace Game.UI
         public int CardId { get; private set; } = -1;
         public bool IsOpen => root != null && root.activeSelf;
 
+        private UiAnimationService _anims;
+
         private void Awake()
         {
             if (scrimButton != null) scrimButton.onClick.AddListener(() => Dismissed?.Invoke());
             if (closeButton != null) closeButton.onClick.AddListener(() => Dismissed?.Invoke());
             if (commitButton != null) commitButton.onClick.AddListener(() => CommitConfirmed?.Invoke());
+            _anims = GetComponentInParent<UiAnimationService>(true);
         }
 
         public void Show(in CardSnapshot card)
@@ -53,7 +56,12 @@ namespace Game.UI
             if (costText != null) costText.text = card.CostText;
             if (powerText != null) powerText.text = card.PowerText;
 
-            if (root != null) root.SetActive(true);
+            if (root != null)
+            {
+                bool wasOpen = root.activeSelf;
+                root.SetActive(true);
+                if (!wasOpen) UiEntrance.StampIn(_anims, root.transform);
+            }
         }
 
         /// <summary>Whether the current dice selection validates against the cost.</summary>

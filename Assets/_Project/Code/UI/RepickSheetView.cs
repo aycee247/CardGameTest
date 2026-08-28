@@ -27,14 +27,22 @@ namespace Game.UI
 
         public bool IsOpen => root != null && root.activeSelf;
 
+        private UiAnimationService _anims;
+
         private void Awake()
         {
             if (passButton != null) passButton.onClick.AddListener(() => PassClicked?.Invoke());
+            _anims = GetComponentInParent<UiAnimationService>(true);
         }
 
         public void Show(in MatchSnapshot snapshot)
         {
-            if (root != null) root.SetActive(true);
+            if (root != null)
+            {
+                bool wasOpen = root.activeSelf;
+                root.SetActive(true);
+                if (!wasOpen) UiEntrance.StampIn(_anims, root.transform);
+            }
             Render(snapshot);
         }
 

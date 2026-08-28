@@ -35,9 +35,14 @@ namespace Game.UI
 
         public event Action<int> Clicked;
 
+        private UiAnimationService _anims;
+        private AnimHandle _liftTween;
+        private bool _lifted;
+
         private void Awake()
         {
             if (button != null) button.onClick.AddListener(() => Clicked?.Invoke(Index));
+            _anims = GetComponentInParent<UiAnimationService>(true);
         }
 
         public void Set(int index, int face, DieVisualState state, bool interactable)
@@ -48,10 +53,25 @@ namespace Game.UI
             if (button != null) button.interactable = interactable && state != DieVisualState.Spent;
             if (spentWatermark != null) spentWatermark.SetActive(state == DieVisualState.Spent);
 
-            if (body != null)
-                body.anchoredPosition = state == DieVisualState.Selected
-                    ? new Vector2(0f, SelectedLift)
-                    : Vector2.zero;
+            // The selection lift springs rather than snaps (UI-character P1). Only on the
+            // transition — Set runs every render and must not restart tweens.
+            bool lifted = state == DieVisualState.Selected;
+            if (body != null && lifted != _lifted)
+            {
+                _lifted = lifted;
+                float to = lifted ? SelectedLift : 0f;
+                if (_anims == null)
+                {
+                    body.anchoredPosition = new Vector2(0f, to);
+                }
+                else
+                {
+                    _anims.Skip(_liftTween);
+                    float from = body.anchoredPosition.y;
+                    _liftTween = _anims.Play(0.16f, UiEase.OutBack, t =>
+                        body.anchoredPosition = new Vector2(0f, Mathf.LerpUnclamped(from, to, t)));
+                }
+            }
 
             if (theme == null) return;
 

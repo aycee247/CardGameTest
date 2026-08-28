@@ -13,10 +13,22 @@ namespace Game.UI
         [SerializeField] private GameObject root;
         [SerializeField] private TMP_Text bodyText;
 
+        private UiAnimationService _anims;
+
+        private void Awake()
+        {
+            _anims = GetComponentInParent<UiAnimationService>(true);
+        }
+
         public void Show(string body)
         {
             if (bodyText != null) bodyText.text = body ?? string.Empty;
-            if (root != null) root.SetActive(true);
+            if (root != null)
+            {
+                bool wasOpen = root.activeSelf;
+                root.SetActive(true);
+                if (!wasOpen) UiEntrance.StampIn(_anims, root.transform);
+            }
         }
 
         public void Hide()
