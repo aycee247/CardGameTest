@@ -123,6 +123,51 @@ namespace Game.UI
             if (body != null) body.localRotation = Quaternion.Euler(0f, 0f, degrees);
         }
 
+        // ---------------------------------------------------------------- action beats (P2)
+        // Presentation only, all on `body`, all routed through the canvas service so reduced
+        // motion collapses them. Each shape action reads differently on purpose (STORY-3.2 AC2).
+
+        /// <summary>Roll-end landing: a decaying wobble and a shrink from a small pop, staggered
+        /// per die by <paramref name="delay"/> so the tray settles left to right.</summary>
+        public void PlaySettle(UiAnimationService anims, float delay = 0f)
+        {
+            if (anims == null || body == null) return;
+            const float dur = 0.34f;
+            float total = delay + dur;
+            anims.Play(total, UiEase.Linear, t =>
+            {
+                float u = Mathf.Clamp01((t * total - delay) / dur);
+                float e = 1f - (1f - u) * (1f - u);
+                SetWobble(Mathf.Sin(u * 22f) * (1f - e) * 6f);
+                body.localScale = Vector3.one * (1f + 0.1f * (1f - e));
+            });
+        }
+
+        /// <summary>Re-roll: one quick full spin.</summary>
+        public void PlaySpin(UiAnimationService anims)
+        {
+            if (anims == null || body == null) return;
+            anims.Play(0.3f, UiEase.OutCubic, t =>
+                body.localRotation = Quaternion.Euler(0f, 0f, 360f * t));
+        }
+
+        /// <summary>Nudge: a single ratchet step in the nudge's direction.</summary>
+        public void PlayTick(UiAnimationService anims, int direction)
+        {
+            if (anims == null || body == null) return;
+            float baseY = _lifted ? SelectedLift : 0f;
+            anims.Play(0.18f, UiEase.OutCubic, t =>
+                body.anchoredPosition = new Vector2(0f, baseY + direction * 10f * Mathf.Sin(Mathf.PI * t)));
+        }
+
+        /// <summary>Set face: the chosen face stamps in.</summary>
+        public void PlayStamp(UiAnimationService anims)
+        {
+            if (anims == null || body == null) return;
+            anims.Play(0.22f, UiEase.OutCubic, t =>
+                body.localScale = Vector3.one * (1.15f - 0.15f * t));
+        }
+
         private void Paint(Color fill, Color border, Color pipColor)
         {
             if (background != null) background.color = fill;

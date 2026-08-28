@@ -98,9 +98,12 @@ namespace Game.UI
 
         private void Awake()
         {
-            Hook(rerollButton, () => RerollSelected?.Invoke());
-            Hook(nudgeUpButton, () => NudgeSelected?.Invoke(1));
-            Hook(nudgeDownButton, () => NudgeSelected?.Invoke(-1));
+            // Each shape action gets its own beat on the selected dice (STORY-3.2 AC2): re-roll
+            // spins, nudge ratchets, set-face stamps. Presentation only — the engine's answer
+            // arrives as the next snapshot regardless.
+            Hook(rerollButton, () => { PlayOnSelected(d => d.PlaySpin(anims)); RerollSelected?.Invoke(); });
+            Hook(nudgeUpButton, () => { PlayOnSelected(d => d.PlayTick(anims, 1)); NudgeSelected?.Invoke(1); });
+            Hook(nudgeDownButton, () => { PlayOnSelected(d => d.PlayTick(anims, -1)); NudgeSelected?.Invoke(-1); });
             Hook(passButton, () => PassClicked?.Invoke());
             Hook(withdrawButton, () => WithdrawClicked?.Invoke());
             if (doneTimer != null) doneTimer.Clicked += () => DoneClicked?.Invoke();
@@ -127,6 +130,7 @@ namespace Game.UI
                     Hook(button, () =>
                     {
                         _facePickerOpen = false;
+                        PlayOnSelected(d => d.PlayStamp(anims));
                         SetSelected?.Invoke(face);
                     });
                 }
@@ -139,6 +143,12 @@ namespace Game.UI
         private static void Hook(Button button, UnityEngine.Events.UnityAction action)
         {
             if (button != null) button.onClick.AddListener(action);
+        }
+
+        private void PlayOnSelected(Action<DieView> beat)
+        {
+            for (int i = 0; i < _selected.Count; i++)
+                if (_selected[i] < _dice.Count) beat(_dice[_selected[i]]);
         }
 
         public void ShowMessage(string message)
@@ -231,6 +241,11 @@ namespace Game.UI
                 trayHintLabel.text = "YOUR DICE — " + hint;
             }
 
+            // Remember the latest reveal outcomes: they name the winners the claim flights
+            // deliver to once the cards leave the market (P2).
+            if (snapshot.Reveals != null && snapshot.Reveals.Length > 0)
+                _lastReveals = snapshot.Reveals;
+
             RenderRail(snapshot);
             // Dice selection tracks "can I act" (Shape, Commit, or Repick — CORE-5, MKT-3), not
             // "can I shape": shapingAllowed only gates the free reroll/nudge/set powers below,
@@ -243,14 +258,36 @@ namespace Game.UI
             RenderDoneButton(me, snapshot, canAct);
             Tick(secondsLeft, snapshot.IsMatchOver);
 
-            // The server roll is authoritative; while it lands, the tray plays pure animation.
+            // The server roll is authoritative; while it lands, the tray plays pure animation —
+            // and when it lands, the dice settle left to right instead of teleporting (AC1).
             if (anims != null && snapshot.Phase != _lastPhase)
             {
+                bool wasRolling = _lastPhase == RoundPhase.Roll;
                 if (snapshot.Phase == RoundPhase.Roll) StartRollAnimation();
-                else StopRollAnimation();
+                else
+                {
+                    StopRollAnimation();
+                    if (wasRolling)
+                        for (int i = 0; i < _dice.Count; i++)
+                            if (_dice[i].gameObject.activeSelf)
+                                _dice[i].PlaySettle(anims, i * 0.05f);
+                }
             }
+
+            // The observer gaining Sparks gets a chip pop — the payout beat (P2; the gauge with
+            // its needle jiggle arrives in P5).
+            if (anims != null && sparksLabel != null && me.Sparks > _lastSparks && _lastSparks >= 0)
+            {
+                var chipTransform = sparksLabel.transform;
+                anims.Play(0.3f, UiEase.OutBack, t =>
+                    chipTransform.localScale = Vector3.one * Mathf.LerpUnclamped(1.12f, 1f, t));
+            }
+            _lastSparks = me.Sparks;
+
             _lastPhase = snapshot.Phase;
         }
+
+        private int _lastSparks = -1;
 
         // ------------------------------------------------------------------ sections
 
@@ -356,6 +393,29 @@ namespace Game.UI
                 _cards.Add(card);
             }
 
+            // Claimed cards fly to their winner before the belt moves (P2, STORY-3.2 AC3);
+            // restocks slide the whole belt in like a conveyor.
+            bool restocked = false;
+            if (anims != null && _lastMarketIds.Count > 0)
+            {
+                foreach (int id in _lastMarketIds)
+                    if (!MarketContains(market, id))
+                        TryFlyClaim(id, snapshot);
+                for (int i = 0; i < market.Length; i++)
+                    if (!_lastMarketIds.Contains(market[i].CardId)) restocked = true;
+            }
+
+            _lastMarketIds.Clear();
+            for (int i = 0; i < market.Length; i++) _lastMarketIds.Add(market[i].CardId);
+
+            if (restocked)
+            {
+                var belt = (RectTransform)marketRoot;
+                anims.Skip(_beltTween);
+                _beltTween = anims.Play(0.4f, UiEase.OutCubic, t =>
+                    belt.anchoredPosition = new Vector2(202f * (1f - t), belt.anchoredPosition.y));
+            }
+
             // The stamp is a local echo of the observer's own secret pick — never anyone else's.
             int myPendingCard = snapshot.Observer.PendingCardId;
 
@@ -367,7 +427,78 @@ namespace Game.UI
 
                 _cards[i].Set(market[i], interactable);
                 _cards[i].SetCommitted(market[i].CardId == myPendingCard);
+                _marketCellPos[market[i].CardId] = _cards[i].transform.position;
             }
+        }
+
+        private readonly HashSet<int> _lastMarketIds = new HashSet<int>();
+        private readonly Dictionary<int, Vector3> _marketCellPos = new Dictionary<int, Vector3>();
+        private RevealSnapshot[] _lastReveals;
+        private AnimHandle _beltTween;
+
+        private static bool MarketContains(CardSnapshot[] market, int cardId)
+        {
+            for (int i = 0; i < market.Length; i++)
+                if (market[i].CardId == cardId) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// A card that just left the market flies from its old cell to its winner's rail cell —
+        /// a clone of the real card template, shrinking as it goes. Needs a reveal that names a
+        /// winner; anything else (deck churn, no animation service) just skips.
+        /// </summary>
+        private void TryFlyClaim(int cardId, in MatchSnapshot snapshot)
+        {
+            if (_lastReveals == null || !_marketCellPos.TryGetValue(cardId, out var fromPos)) return;
+
+            int winnerId = -1;
+            RevealSnapshot reveal = default;
+            for (int i = 0; i < _lastReveals.Length; i++)
+                if (_lastReveals[i].CardId == cardId && _lastReveals[i].WinnerId >= 0)
+                {
+                    winnerId = _lastReveals[i].WinnerId;
+                    reveal = _lastReveals[i];
+                    break;
+                }
+            if (winnerId < 0) return;
+
+            Transform target = null;
+            var players = snapshot.Players ?? Array.Empty<PlayerSnapshot>();
+            for (int i = 0; i < players.Length && i < _rows.Count; i++)
+                if (players[i].PlayerId == winnerId) { target = _rows[i].transform; break; }
+            if (target == null) return;
+
+            var fly = Instantiate(cardButtonPrefab, marketRoot.parent);
+            fly.transform.SetAsLastSibling();
+            fly.gameObject.SetActive(true);
+            fly.Set(new CardSnapshot
+            {
+                CardId = reveal.CardId,
+                DisplayName = reveal.DisplayName,
+                Tier = reveal.Tier,
+                Points = reveal.Points,
+                PowerText = reveal.PowerText,
+                Family = reveal.Family,
+                CostText = string.Empty,
+                AffordableNow = true
+            }, false);
+
+            var group = fly.gameObject.GetComponent<CanvasGroup>();
+            if (group == null) group = fly.gameObject.AddComponent<CanvasGroup>();
+            group.blocksRaycasts = false;
+
+            var flyTransform = fly.transform;
+            flyTransform.position = fromPos;
+            Vector3 toPos = target.position;
+            var flyGo = fly.gameObject;
+
+            anims.Play(0.45f, UiEase.OutCubic, t =>
+            {
+                if (flyGo == null) return;
+                flyTransform.position = Vector3.LerpUnclamped(fromPos, toPos, t);
+                flyTransform.localScale = Vector3.one * Mathf.Lerp(1f, 0.3f, t);
+            }, () => { if (flyGo != null) Destroy(flyGo); });
         }
 
         /// <summary>Only-when-usable chips for the observer's powers (handoff 6d, UI-5).</summary>
