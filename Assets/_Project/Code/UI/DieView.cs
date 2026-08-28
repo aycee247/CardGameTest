@@ -26,6 +26,7 @@ namespace Game.UI
         [SerializeField] private BlueprintFrame frame;
         [SerializeField] private DiePipGrid pips;
         [SerializeField] private GameObject spentWatermark;
+        [SerializeField] private GameObject wildTag;
         [SerializeField] private ThemeAsset theme;
 
         /// <summary>Selected dice lift by the handoff's 3px, in canvas units.</summary>
@@ -45,13 +46,14 @@ namespace Game.UI
             _anims = GetComponentInParent<UiAnimationService>(true);
         }
 
-        public void Set(int index, int face, DieVisualState state, bool interactable)
+        public void Set(int index, int face, DieVisualState state, bool interactable, bool wild = false)
         {
             Index = index;
 
             if (pips != null) pips.SetFace(face);
             if (button != null) button.interactable = interactable && state != DieVisualState.Spent;
             if (spentWatermark != null) spentWatermark.SetActive(state == DieVisualState.Spent);
+            if (wildTag != null) wildTag.SetActive(wild && state != DieVisualState.Spent);
 
             // The selection lift springs rather than snaps (UI-character P1). Only on the
             // transition — Set runs every render and must not restart tweens.

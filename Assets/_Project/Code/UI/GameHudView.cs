@@ -24,6 +24,7 @@ namespace Game.UI
         [SerializeField] private TMP_Text roundLabel;
         [SerializeField] private TMP_Text phaseLabel;
         [SerializeField] private TMP_Text sparksLabel;
+        [SerializeField] private SquareTimerRing sparksGauge;   // the pressure gauge (P5)
         [SerializeField] private TMP_Text messageLabel;
 
         [Header("Standings rail")]
@@ -151,6 +152,14 @@ namespace Game.UI
                 if (_selected[i] < _dice.Count) beat(_dice[_selected[i]]);
         }
 
+        private static bool IsWildFace(int[] wildFaces, int face)
+        {
+            if (wildFaces == null) return false;
+            for (int i = 0; i < wildFaces.Length; i++)
+                if (wildFaces[i] == face) return true;
+            return false;
+        }
+
         public void ShowMessage(string message)
         {
             if (messageLabel != null) messageLabel.text = message ?? string.Empty;
@@ -224,6 +233,8 @@ namespace Game.UI
             if (sparksLabel != null)
             {
                 int cap = snapshot.Config?.SparkCap ?? 0;
+                if (sparksGauge != null && cap > 0)
+                    sparksGauge.Fill01 = Mathf.Clamp01(me.Sparks / (float)cap);   // the gauge fills (P5)
                 sparksLabel.text = cap > 0 ? $"SPARKS {me.Sparks}/{cap}" : $"SPARKS {me.Sparks}";
             }
 
@@ -234,7 +245,7 @@ namespace Game.UI
 
             if (trayHintLabel != null)
             {
-                string hint = snapshot.Phase == RoundPhase.Roll ? "SERVER ROLLING"
+                string hint = snapshot.Phase == RoundPhase.Roll ? "THE FOUNDRY ROLLS"
                     : _costFocusActive ? "HIGHLIGHTED DICE PAY THE COST"
                     : _selected.Count > 0 ? $"{_selected.Count} SELECTED"
                     : "TAP TO SELECT";
@@ -351,7 +362,7 @@ namespace Game.UI
                     : _costFocusActive && !_costFocus.Contains(i) ? DieVisualState.Dimmed
                     : DieVisualState.Idle;
 
-                _dice[i].Set(i, faces[i], state, interactable);
+                _dice[i].Set(i, faces[i], state, interactable, IsWildFace(me.WildFaces, faces[i]));
                 _dice[i].SetContentScale(_dieContentScale);
             }
         }
@@ -656,12 +667,12 @@ namespace Game.UI
         {
             switch (s.Phase)
             {
-                case RoundPhase.Roll: return "Rolling…";
+                case RoundPhase.Roll: return "The foundry rolls…";
                 case RoundPhase.Shape: return "Shape phase";
                 case RoundPhase.Commit: return "Commit — secret";
                 case RoundPhase.Reveal: return "Reveal";
                 case RoundPhase.Repick: return "Re-pick";
-                case RoundPhase.Upkeep: return "Upkeep";
+                case RoundPhase.Upkeep: return "Upkeep — the works pay out";
                 case RoundPhase.MatchOver: return "Match over";
                 default: return s.Phase.ToString();
             }

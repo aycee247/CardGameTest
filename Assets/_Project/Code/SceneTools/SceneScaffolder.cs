@@ -116,7 +116,7 @@ namespace Game.SceneTools
                 TextAlignmentOptions.Center, FontRole.BodySemibold, _theme.Accent(700), 0.22f);
             UiFactory.Label(content, "Wordmark", "FOUNDRY", new Vector2(0, 160), new Vector2(940, 230), 190f,
                 TextAlignmentOptions.Center, FontRole.HeadingBold);
-            UiFactory.Label(content, "Loading", "LOADING…", new Vector2(0, -120), new Vector2(900, 60), 32f,
+            UiFactory.Label(content, "Loading", "STOKING THE FURNACE…", new Vector2(0, -120), new Vector2(900, 60), 32f,
                 TextAlignmentOptions.Center, FontRole.BodyMedium, Muted(0.55f), 0.08f);
 
             return Save(scene, SceneNames.Boot);
@@ -173,7 +173,7 @@ namespace Game.SceneTools
                 new Vector2(970, 70), 32f, TextAlignmentOptions.Center, FontRole.Body, Muted(0.8f)), 200);
             var codeLabel = Bottom(UiFactory.Label(content, "JoinCode", "", Vector2.zero,
                 new Vector2(970, 60), 32f, TextAlignmentOptions.Center, FontRole.BodySemibold), 130);
-            Bottom(UiFactory.Label(content, "Footer", "REV 0.1 · ONLINE DEMO", Vector2.zero,
+            Bottom(UiFactory.Label(content, "Footer", "REV 0.1 · FRESH FROM THE FOUNDRY", Vector2.zero,
                 new Vector2(900, 44), 26f, TextAlignmentOptions.Center, FontRole.BodyMedium, Muted(0.4f), 0.18f), 55);
 
             var view = content.gameObject.AddComponent<MainMenuView>();
@@ -660,6 +660,44 @@ namespace Game.SceneTools
             return view;
         }
 
+        /// <summary>Vertical lines every 135 units across the width; horizontal lines marching
+        /// down from the top far enough to cover the tallest phone. Non-interactive.</summary>
+        private static void BuildDraftingGrid(RectTransform content)
+        {
+            var grid = UiFactory.Panel(content, "DraftingGrid");
+            grid.SetAsFirstSibling();
+            var ink = Muted(0.05f);
+
+            for (int x = -405; x <= 405; x += 135)
+            {
+                var line = GridLine(grid, $"V{x}", ink);
+                line.anchorMin = new Vector2(0.5f, 0f);
+                line.anchorMax = new Vector2(0.5f, 1f);
+                line.sizeDelta = new Vector2(2f, 0f);
+                line.anchoredPosition = new Vector2(x, 0f);
+            }
+
+            for (int i = 0; i < 18; i++)
+            {
+                var line = GridLine(grid, $"H{i}", ink);
+                line.anchorMin = new Vector2(0f, 1f);
+                line.anchorMax = new Vector2(1f, 1f);
+                line.sizeDelta = new Vector2(0f, 2f);
+                line.anchoredPosition = new Vector2(0f, -60f - i * 135f);
+            }
+        }
+
+        private static RectTransform GridLine(RectTransform parent, string name, Color color)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image));
+            var rt = (RectTransform)go.transform;
+            rt.SetParent(parent, false);
+            var image = go.GetComponent<Image>();
+            image.color = color;
+            image.raycastTarget = false;
+            return rt;
+        }
+
         private static SquareTimerRing TimerRing(RectTransform parent, string name, Color color)
         {
             var go = new GameObject(name, typeof(RectTransform));
@@ -743,6 +781,10 @@ namespace Game.SceneTools
             CreateEventSystem();
             var canvas = CreateCanvas(out var content);
 
+            // The drafting table (P5): a whisper-quiet blueprint grid behind everything, drawn
+            // from the ink token at 5% so it survives any theme. First sibling = behind all bands.
+            BuildDraftingGrid(content);
+
             // Everything anchors to the top or bottom edge rather than to the centre. Absolute
             // offsets from centre only work at the exact reference aspect: on a wider, shorter view
             // the outermost rows simply fall off the screen.
@@ -760,7 +802,19 @@ namespace Game.SceneTools
             Top(sparksChip, -78);
             sparksChip.anchoredPosition = new Vector2(340, sparksChip.anchoredPosition.y);
             sparksChipGo.GetComponent<Image>().color = _theme.Accent(100);
-            var sparks = UiFactory.Label(sparksChip, "Value", "", Vector2.zero, new Vector2(320, 66), 30f,
+
+            // The sparks chip is a little pressure gauge (P5): a square ring that fills 0→cap,
+            // with the reading beside it. The pop on gain lives in GameHudView.
+            var gaugeHost = UiFactory.Panel(sparksChip, "Gauge", stretch: false);
+            gaugeHost.sizeDelta = new Vector2(46, 46);
+            gaugeHost.anchoredPosition = new Vector2(-128, 0);
+            var gaugeTrack = TimerRing(gaugeHost, "Track", _theme.divider);
+            gaugeTrack.Thickness = 5f;
+            var sparksGauge = TimerRing(gaugeHost, "Fill", _theme.Accent(700));
+            sparksGauge.Thickness = 5f;
+            sparksGauge.Fill01 = 0f;
+
+            var sparks = UiFactory.Label(sparksChip, "Value", "", new Vector2(24, 0), new Vector2(270, 66), 30f,
                 TextAlignmentOptions.Center, FontRole.BodySemibold, _theme.Accent(800), 0.06f);
 
             // Opponent rail (UI-1, handoff 6b): a horizontal strip, one cell per player, seat order.
@@ -863,6 +917,7 @@ namespace Game.SceneTools
             SetRef(hud, "roundLabel", round);
             SetRef(hud, "phaseLabel", phase);
             SetRef(hud, "sparksLabel", sparks);
+            SetRef(hud, "sparksGauge", sparksGauge);
             SetRef(hud, "messageLabel", message);
             SetRef(hud, "railRoot", railRoot);
             SetRef(hud, "playerRowPrefab", playerRowTemplate);
@@ -1309,6 +1364,14 @@ namespace Game.SceneTools
             spent.rectTransform.localRotation = Quaternion.Euler(0f, 0f, -30f);
             spent.gameObject.SetActive(false);
 
+            // Wild faces announce themselves on the die (STORY-3.6 AC3) — a marker, not a
+            // colour, so the state survives any palette.
+            var wild = UiFactory.Label(body, "WildTag", "WILD", Vector2.zero, new Vector2(size, 24), 16f,
+                TextAlignmentOptions.Center, FontRole.BodySemibold, _theme.Accent(700), 0.18f);
+            wild.rectTransform.anchorMin = wild.rectTransform.anchorMax = new Vector2(0.5f, 0f);
+            wild.rectTransform.anchoredPosition = new Vector2(0f, 18f);
+            wild.gameObject.SetActive(false);
+
             var view = go.AddComponent<DieView>();
             SetRef(view, "button", go.GetComponent<Button>());
             SetRef(view, "body", body);
@@ -1316,6 +1379,7 @@ namespace Game.SceneTools
             SetRef(view, "frame", frame);
             SetRef(view, "pips", pips);
             SetRef(view, "spentWatermark", spent.gameObject);
+            SetRef(view, "wildTag", wild.gameObject);
             SetRef(view, "theme", _theme);
 
             return view;

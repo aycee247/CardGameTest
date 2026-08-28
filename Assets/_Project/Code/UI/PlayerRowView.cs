@@ -28,6 +28,9 @@ namespace Game.UI
         [Tooltip("Colour tokens, re-read every render so a theme swap shows without regenerating.")]
         [SerializeField] private ThemeAsset theme;
 
+        private UiAnimationService _anims;
+        private bool _hadPriority;
+
         public void Set(in PlayerSnapshot player, bool isObserver, RoundPhase phase)
         {
             if (nameText != null)
@@ -49,7 +52,23 @@ namespace Game.UI
             }
 
             // Priority is public and worth reading at a glance: it is who wins a contested card.
-            if (priorityMarker != null) priorityMarker.enabled = player.PriorityRank == 0;
+            // Ratcheting onto a new cell gets a pop, so the handover is watchable (P5).
+            if (priorityMarker != null)
+            {
+                bool hasPriority = player.PriorityRank == 0;
+                priorityMarker.enabled = hasPriority;
+                if (hasPriority && !_hadPriority)
+                {
+                    if (_anims == null) _anims = GetComponentInParent<UiAnimationService>(true);
+                    if (_anims != null)
+                    {
+                        var marker = priorityMarker.transform;
+                        _anims.Play(0.3f, UiEase.OutBack, t =>
+                            marker.localScale = Vector3.one * Mathf.LerpUnclamped(1.7f, 1f, t));
+                    }
+                }
+                _hadPriority = hasPriority;
+            }
 
             if (stateText != null)
             {
