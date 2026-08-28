@@ -26,6 +26,9 @@ namespace Game.App
         [Tooltip("Rebuilds a card's structured cost client-side for suggestion and validation (UI-3).")]
         [SerializeField] private CardDatabase cardDatabase;
 
+        [Tooltip("Generated sound set (Foundry ▸ Generate Sound Effects). Null keeps the board silent.")]
+        [SerializeField] private SfxCatalog sfx;
+
         private IGameActions _actions;
         private IMatchView _match;
 
@@ -217,7 +220,79 @@ namespace Game.App
 
             MaybeShowHint(snapshot);
             UpdateUpkeepModal(snapshot);
+            PlayBeats(snapshot);
             Refresh();
+        }
+
+        // ------------------------------------------------------------------ sound + touch (P4)
+
+        private RoundPhase _lastSfxPhase = (RoundPhase)(-1);
+        private int _lastSfxSparks = -1;
+        private int _lastSelectionCount;
+
+        /// <summary>
+        /// The board's soundscape, driven from phase transitions and snapshot diffs — the rules
+        /// layer stays silent and unaware (STORY-3.3 AC4). Haptic beats ride the same moments
+        /// (STORY-3.4). Everything here is a no-op without a catalog or audio service.
+        /// </summary>
+        private void PlayBeats(in MatchSnapshot snapshot)
+        {
+            if (sfx == null) return;
+
+            if (snapshot.Phase != _lastSfxPhase)
+            {
+                if (snapshot.Phase == RoundPhase.Roll) PlaySfx(sfx.diceClatter);
+                else if (_lastSfxPhase == RoundPhase.Roll) PlaySfx(sfx.dieSettle);
+
+                if (snapshot.Phase == RoundPhase.Reveal)
+                {
+                    PlaySfx(sfx.revealFlip);
+
+                    // The observer learns their fate as the spotlight opens: a ting for a win,
+                    // the descending clank for a lost contest.
+                    var reveals = snapshot.Reveals;
+                    if (reveals != null)
+                        for (int i = 0; i < reveals.Length; i++)
+                        {
+                            if (reveals[i].WinnerId == snapshot.ObserverId)
+                            {
+                                PlaySfx(sfx.claimTing);
+                                Haptics.Success();
+                                break;
+                            }
+                            if (reveals[i].Contested && ClaimedBy(reveals[i], snapshot.ObserverId))
+                            {
+                                PlaySfx(sfx.contestLost);
+                                Haptics.Warning();
+                                break;
+                            }
+                        }
+                }
+
+                if (snapshot.Phase == RoundPhase.Upkeep) PlaySfx(sfx.roundWhistle);
+
+                _lastSfxPhase = snapshot.Phase;
+            }
+
+            if (_lastSfxSparks >= 0 && snapshot.Observer.Sparks > _lastSfxSparks)
+                PlaySfx(sfx.sparksChime);
+            _lastSfxSparks = snapshot.Observer.Sparks;
+        }
+
+        private static bool ClaimedBy(in RevealSnapshot reveal, int playerId)
+        {
+            var ids = reveal.ClaimantIds;
+            if (ids == null) return false;
+            for (int i = 0; i < ids.Length; i++)
+                if (ids[i] == playerId) return true;
+            return false;
+        }
+
+        private void PlaySfx(AudioClip clip)
+        {
+            if (clip == null || !GameServices.IsReady) return;
+            if (GameServices.Locator.TryGet<Game.Audio.IAudioService>(out var audio))
+                audio.PlaySfx(clip);
         }
 
         /// <summary>
@@ -350,6 +425,15 @@ namespace Game.App
 
         private void OnSelectionChanged()
         {
+            // A growing selection is a die tap: a tick and a light tap back (P4).
+            int count = view.SelectedDice.Count;
+            if (count > _lastSelectionCount)
+            {
+                if (sfx != null) PlaySfx(sfx.dieSelect);
+                Haptics.Light();
+            }
+            _lastSelectionCount = count;
+
             if (zoomSheet != null && zoomSheet.IsOpen)
             {
                 // Dimming follows the live selection while the sheet is open.
@@ -395,6 +479,10 @@ namespace Game.App
                 ShowMessage("Tap the dice you want to pay with first.");
                 return;
             }
+
+            // The press-thunk and a medium tap: committing is the round's decisive act (P4).
+            if (sfx != null) PlaySfx(sfx.commitThunk);
+            Haptics.Medium();
 
             _actions?.RequestCommit(new CardId(cardId), payment);
         }

@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1ad6684e37a94d37b85f60b3e79ab098, type: 3}
+  m_Name: SfxCatalog
+  m_EditorClassIdentifier: Game.Data::Game.Data.SfxCatalog
+  diceClatter: {fileID: 8300000, guid: ed895c0c15f3c4c7981b24bbd3add5a9, type: 3}
+  dieSelect: {fileID: 8300000, guid: 8eb5e278180fe43d2b1cf21cd2df1c5c, type: 3}
+  dieSettle: {fileID: 8300000, guid: afc3ae136a34549c19f2591f6e345ab0, type: 3}
+  commitThunk: {fileID: 8300000, guid: 8119c57c2fbb3462695ce2582fffe19c, type: 3}
+  contestLost: {fileID: 8300000, guid: feaec8de2206e4c1c9da1903c9b24806, type: 3}
+  claimTing: {fileID: 8300000, guid: d2c8b8a9a9e8a403cbff243c1633d179, type: 3}
+  revealFlip: {fileID: 8300000, guid: 0e76e7f09fd334d0aa62cbd1957bfe49, type: 3}
+  sparksChime: {fileID: 8300000, guid: eef43db36f50b49b2a58d292254168c7, type: 3}
+  roundWhistle: {fileID: 8300000, guid: 1a193debd1d784eeda657ab0c8fb798f, type: 3}

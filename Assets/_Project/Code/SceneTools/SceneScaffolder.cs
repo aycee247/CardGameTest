@@ -911,6 +911,14 @@ namespace Game.SceneTools
             else
                 SetRef(presenter, "cardDatabase", db);
 
+            // Path matches FoundrySfxGenerator.CatalogPath (EditorTools — not referenced here).
+            var sfxCatalog = AssetDatabase.LoadAssetAtPath<SfxCatalog>("Assets/_Project/Audio/SfxCatalog.asset");
+            if (sfxCatalog == null)
+                Debug.LogWarning("[Scaffold] SfxCatalog not found — run 'Foundry ▸ Generate Sound Effects' " +
+                                 "and re-run for an audible board.");
+            else
+                SetRef(presenter, "sfx", sfxCatalog);
+
             // Hot-seat host: playable immediately, with no networking involved.
             var hotSeatGo = new GameObject("HotSeatHost");
             var hotSeat = hotSeatGo.AddComponent<HotSeatHost>();
