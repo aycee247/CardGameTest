@@ -34,7 +34,14 @@ namespace Game.SceneTools
         private static ThemeAsset _theme;
 
         [MenuItem("Foundry/Generate Scenes & Build Settings")]
-        public static void Generate()
+        public static void Generate() => GenerateWith(ThemeGenerator.ThemePath);
+
+        /// <summary>Same scenes, night shift (STORY-5.1 AC4). Generation-time theming per the
+        /// E5 scope: regenerating is how the theme switches.</summary>
+        [MenuItem("Foundry/Generate Scenes (Blueprint Dark)")]
+        public static void GenerateDark() => GenerateWith(ThemeGenerator.DarkThemePath);
+
+        private static void GenerateWith(string themePath)
         {
             // EditorSceneManager.NewScene throws in Play mode. Without this guard the prefabs are
             // rebuilt, the scenes are not, and the only clue is an InvalidOperationException — so
@@ -56,10 +63,10 @@ namespace Game.SceneTools
                 return;
 
             // Every colour and typeface below comes from the theme; refuse to build without one.
-            _theme = AssetDatabase.LoadAssetAtPath<ThemeAsset>(ThemeGenerator.ThemePath);
+            _theme = AssetDatabase.LoadAssetAtPath<ThemeAsset>(themePath);
             if (_theme == null)
             {
-                Debug.LogError($"[Scaffold] No theme at {ThemeGenerator.ThemePath} — run " +
+                Debug.LogError($"[Scaffold] No theme at {themePath} — run " +
                                "Foundry ▸ Generate Font Assets, then Foundry ▸ Generate Theme, then this.");
                 return;
             }
