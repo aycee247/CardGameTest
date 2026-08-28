@@ -34,7 +34,11 @@ namespace Game.UI
         [SerializeField] private UiAnimationService anims;
         [SerializeField] private ThemeAsset theme;
 
-        private const float ResultDelay = 2.4f;
+        // Compressed to fit the phase clock (STORY-3.1 AC5): per claim the beat spends
+        // StageDelay + knockout (~0.2s per loser) + AdvanceDelay ≈ 2.4–3s against the server's
+        // 2.5s base + 2.4s per claim, so the sequence never outruns the window.
+        private const float StageDelay = 1.3f;
+        private const float AdvanceDelay = 1.0f;
 
         private readonly List<RectTransform> _chips = new List<RectTransform>();
         private readonly List<TMP_Text> _chipLabels = new List<TMP_Text>();
@@ -43,9 +47,11 @@ namespace Game.UI
         private RevealSnapshot[] _reveals = Array.Empty<RevealSnapshot>();
         private int _stageIndex;
         private bool _resultShown;
+        private bool _advancing;
         private AnimHandle _flip;
         private AnimHandle _auto;
         private AnimHandle _prompt;
+        private AnimHandle _knockout;
 
         /// <summary>Raised after the last beat. Hot-seat gates ContinueFromReveal on this.</summary>
         public event Action Finished;
@@ -78,9 +84,12 @@ namespace Game.UI
         {
             if (anims != null)
             {
+                _advancing = true;     // a skipped knockout must not stamp into a closing view
                 anims.Skip(_flip);
                 anims.Skip(_auto);
                 anims.Skip(_prompt);
+                anims.Skip(_knockout);
+                _advancing = false;
             }
             if (root != null) root.SetActive(false);
         }
@@ -122,7 +131,7 @@ namespace Game.UI
                         cardPanel.localEulerAngles = new Vector3(0f, 90f * (1f - t), 0f));
 
                 anims.Skip(_auto);
-                _auto = anims.Play(ResultDelay, UiEase.Linear, _ => { }, ShowResult);
+                _auto = anims.Play(StageDelay, UiEase.Linear, _ => { }, ShowResult);
             }
             else ShowResult();
         }
@@ -136,13 +145,117 @@ namespace Game.UI
             if (cardPanel != null) cardPanel.localEulerAngles = Vector3.zero;
 
             var reveal = _reveals[_stageIndex];
+            int claimants = reveal.ClaimantIds?.Length ?? 0;
+
+            // Contested: priority DECIDES on screen (STORY-3.1 AC3) — losing chips are knocked
+            // out one by one, highest score first because lowest wins, each getting its dice
+            // back (AC4), before the stamp lands on the survivor.
+            if (anims != null && reveal.Contested && claimants > 1 && reveal.WinnerId >= 0)
+                PlayKnockout(reveal);
+            else
+                StampResult();
+        }
+
+        private void PlayKnockout(RevealSnapshot reveal)
+        {
+            var order = new List<int>();
+            for (int i = 0; i < reveal.ClaimantIds.Length; i++)
+                if (reveal.ClaimantIds[i] != reveal.WinnerId) order.Add(i);
+            order.Sort((a, b) => ScoreOf(reveal.ClaimantIds[b]).CompareTo(ScoreOf(reveal.ClaimantIds[a])));
+
+            const float step = 0.18f, knock = 0.25f;
+            float total = (order.Count - 1) * step + knock;
+            var announced = new bool[order.Count];
+            var claimantIds = reveal.ClaimantIds;
+
+            anims.Skip(_knockout);
+            _knockout = anims.Play(total, UiEase.Linear, t =>
+            {
+                for (int k = 0; k < order.Count; k++)
+                {
+                    float u = Mathf.Clamp01((t * total - k * step) / knock);
+                    if (u <= 0f) continue;
+
+                    int chipIndex = order[k];
+                    if (chipIndex >= _chips.Count) continue;
+
+                    if (!announced[k])
+                    {
+                        announced[k] = true;
+                        MarkDiceReturned(chipIndex, claimantIds[chipIndex]);
+                    }
+
+                    var chip = _chips[chipIndex];
+                    float e = 1f - (1f - u) * (1f - u);
+                    chip.localScale = new Vector3(1f, 1f - 0.18f * e, 1f);
+                    chip.localEulerAngles = new Vector3(0f, 0f, -7f * e);
+                    ChipGroup(chip).alpha = 1f - 0.6f * e;
+                }
+            }, StampResult);
+        }
+
+        /// <summary>The knocked claimant's dice come back: the chip says so, and two pips arc
+        /// from the card down to it (STORY-3.1 AC4).</summary>
+        private void MarkDiceReturned(int chipIndex, int claimantId)
+        {
+            if (chipIndex < _chipLabels.Count && _chipLabels[chipIndex] != null)
+                _chipLabels[chipIndex].text =
+                    $"{NameOf(claimantId).ToUpperInvariant()} · {ScoreOf(claimantId)} — DICE BACK";
+
+            if (cardPanel == null || root == null || theme == null || chipIndex >= _chips.Count) return;
+
+            Vector3 from = cardPanel.position;
+            Vector3 to = _chips[chipIndex].position;
+
+            for (int p = 0; p < 2; p++)
+            {
+                var pipGo = new GameObject("ReturnPip", typeof(RectTransform), typeof(Image));
+                var rt = (RectTransform)pipGo.transform;
+                rt.SetParent(root.transform, false);
+                rt.sizeDelta = new Vector2(16f, 16f);
+                var image = pipGo.GetComponent<Image>();
+                image.color = theme.textInverse;
+                image.raycastTarget = false;
+                rt.position = from;
+
+                float side = p == 0 ? -1f : 1f;
+                float sway = 30f * rt.lossyScale.x;
+                var captured = pipGo;
+                anims.Play(0.4f + p * 0.08f, UiEase.OutCubic, t =>
+                {
+                    if (captured == null) return;
+                    Vector3 pos = Vector3.LerpUnclamped(from, to, t);
+                    pos.x += side * sway * Mathf.Sin(Mathf.PI * t);
+                    rt.position = pos;
+                }, () => { if (captured != null) Destroy(captured); });
+            }
+        }
+
+        private void StampResult()
+        {
+            if (_advancing) return;
+
+            var reveal = _reveals[_stageIndex];
             string stamp = reveal.WinnerId < 0 ? "NOBODY CLAIMS IT"
                 : reveal.WinnerId == _snapshot.ObserverId ? "YOU CLAIM IT"
                 : $"{NameOf(reveal.WinnerId).ToUpperInvariant()} CLAIMS IT";
-            string reason = reveal.Contested ? "CONTESTED — PRIORITY: LOWEST SCORE WINS" : "UNCONTESTED CLAIM";
+            string reason = reveal.Contested ? "CONTESTED — LOWEST SCORE TAKES IT" : "UNCONTESTED CLAIM";
             ShowResultTexts(stamp, reason);
 
-            if (anims != null && resultStamp != null)
+            if (anims == null) return;
+
+            // The survivor gets a pop as the stamp lands.
+            if (reveal.ClaimantIds != null)
+                for (int i = 0; i < reveal.ClaimantIds.Length && i < _chips.Count; i++)
+                    if (reveal.ClaimantIds[i] == reveal.WinnerId)
+                    {
+                        var winnerChip = _chips[i];
+                        anims.Play(0.3f, UiEase.OutBack, t =>
+                            winnerChip.localScale = Vector3.one * Mathf.LerpUnclamped(1.15f, 1f, t));
+                        break;
+                    }
+
+            if (resultStamp != null)
             {
                 var stampRt = resultStamp.rectTransform;
                 anims.Play(0.35f, UiEase.OutBack, t =>
@@ -150,10 +263,16 @@ namespace Game.UI
                     stampRt.localScale = Vector3.one * Mathf.LerpUnclamped(1.6f, 1f, t);
                     stampRt.localEulerAngles = new Vector3(0f, 0f, Mathf.LerpUnclamped(-10f, -4f, t));
                 });
-
-                anims.Skip(_auto);
-                _auto = anims.Play(ResultDelay, UiEase.Linear, _ => { }, Advance);
             }
+
+            anims.Skip(_auto);
+            _auto = anims.Play(AdvanceDelay, UiEase.Linear, _ => { }, Advance);
+        }
+
+        private static CanvasGroup ChipGroup(RectTransform chip)
+        {
+            var group = chip.GetComponent<CanvasGroup>();
+            return group != null ? group : chip.gameObject.AddComponent<CanvasGroup>();
         }
 
         private void OnTap()
@@ -165,7 +284,13 @@ namespace Game.UI
 
         private void Advance()
         {
-            if (anims != null) anims.Skip(_auto);
+            if (anims != null)
+            {
+                _advancing = true;     // a mid-knockout skip must not stamp the outgoing stage
+                anims.Skip(_auto);
+                anims.Skip(_knockout);
+                _advancing = false;
+            }
             _stageIndex++;
 
             if (_reveals.Length == 0 || _stageIndex >= _reveals.Length)
@@ -199,9 +324,12 @@ namespace Game.UI
                 if (_chipLabels[i] != null)
                     _chipLabels[i].text = $"{NameOf(claimantId).ToUpperInvariant()} · {ScoreOf(claimantId)}";
 
-                // Staggered flip-in (~0.18s apart).
+                // Staggered flip-in (~0.18s apart). Reset any knockout residue first — chips
+                // are pooled, and the previous stage may have squashed, tilted and dimmed them.
                 var chip = _chips[i];
                 chip.localScale = Vector3.one;
+                chip.localEulerAngles = Vector3.zero;
+                ChipGroup(chip).alpha = 1f;
                 if (anims != null)
                 {
                     int index = i;
