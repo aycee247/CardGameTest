@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Game.App;
 using Game.Audio;
+using Game.Core;
 using Game.Data;
 using Game.Networking;
 using Game.UI;
@@ -157,6 +158,14 @@ namespace Game.SceneTools
                 new Vector2(0, -270), new Vector2(880, 100), 36f,
                 TextAlignmentOptions.Center, FontRole.Body, Muted(0.7f));
 
+            // ---- Identity: who the other seats will see (STORY-4.3) ----
+            // Sits between the hero and the actions, in the gap the hero already leaves, so it
+            // reads as something you fill in on the way to hosting rather than a settings chore.
+            var nameInput = UiFactory.InputField(content, "NameInput", "Your name (optional)",
+                new Vector2(0, -180), new Vector2(970, 120));
+            nameInput.characterLimit = PlayerName.MaxLength;
+            nameInput.lineType = TMP_InputField.LineType.SingleLine;
+
             // ---- Actions: one solid-accent primary, everything else recedes ----
             var host = UiFactory.Button(content, "HostButton", "HOST MATCH",
                 new Vector2(0, -330), new Vector2(970, 144));
@@ -189,6 +198,7 @@ namespace Game.SceneTools
             SetRef(view, "passPlayButton", passPlay);
             SetRef(view, "soloButton", solo);
             SetRef(view, "joinCodeInput", codeInput);
+            SetRef(view, "nameInput", nameInput);
             SetRef(view, "statusLabel", status);
             SetRef(view, "joinCodeLabel", codeLabel);
 

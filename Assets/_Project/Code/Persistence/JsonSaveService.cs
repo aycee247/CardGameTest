@@ -45,7 +45,8 @@ namespace Game.Persistence
                 if (File.Exists(_path))
                 {
                     var json = File.ReadAllText(_path);
-                    Profile = JsonConvert.DeserializeObject<PlayerProfile>(json, _settings) ?? PlayerProfile.CreateDefault();
+                    Profile = PlayerProfile.Migrate(
+                        JsonConvert.DeserializeObject<PlayerProfile>(json, _settings));
                 }
                 else
                 {

@@ -8,8 +8,8 @@ namespace Game.App
     /// <summary>
     /// Presenter for the Lobby scene. Renders the join code and the live seat roster from the
     /// session, and on the host only, a Start button that loads the networked Game scene for
-    /// everyone via NGO. Display names wait on STORY-4.3 — anonymous auth carries none, so seats
-    /// read "PLAYER n" until then.
+    /// everyone via NGO. Seats are named from the display name each player published as a session
+    /// property (STORY-4.3), falling back to "PLAYER n" for anyone who never chose one.
     /// </summary>
     public sealed class LobbyController : MonoBehaviour
     {
@@ -66,7 +66,10 @@ namespace Game.App
             {
                 bool isHost = players[i].Id == session.Host;
                 bool isLocal = players[i].Id == localId;
-                string name = $"PLAYER {i + 1}" + (isLocal ? " — YOU" : string.Empty);
+                // Uppercased for the rail's voice, not by the sanitizer — what was typed is what
+                // is stored, and casing is a presentation decision.
+                string name = SessionManager.DisplayNameOf(players[i], i).ToUpperInvariant() +
+                              (isLocal ? " — YOU" : string.Empty);
                 _entries.Add(new SeatEntry(name, isHost ? "HOST" : "READY", isLocal));
             }
 

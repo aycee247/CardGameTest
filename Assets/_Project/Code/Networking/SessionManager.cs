@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using Game.Core;
 using Unity.Services.Authentication;
 using Unity.Services.Core;
 using Unity.Services.Multiplayer;
@@ -19,6 +20,15 @@ namespace Game.Networking
     /// </summary>
     public sealed class SessionManager
     {
+        /// <summary>
+        /// Session player property carrying the chosen display name (STORY-4.3), so the lobby can
+        /// name its seats before NGO exists. A custom property rather than the built-in
+        /// <c>WithPlayerName</c> module: that one routes through the Authentication player name,
+        /// which forbids spaces and appends a numeric discriminator — neither of which belongs on
+        /// a name the player typed for their friends to read.
+        /// </summary>
+        public const string DisplayNameProperty = "foundry_name";
+
         public ISession CurrentSession { get; private set; }
         public bool IsInitialized { get; private set; }
         public bool IsInSession => CurrentSession != null;
@@ -51,11 +61,12 @@ namespace Game.Networking
         }
 
         /// <summary>Hosts a new match. Returns the join code others use to connect.</summary>
-        public async Task<string> CreateSessionAsync(int maxPlayers = 2)
+        public async Task<string> CreateSessionAsync(int maxPlayers = 2, string displayName = null)
         {
             await InitializeAsync();
 
             var options = new SessionOptions { MaxPlayers = maxPlayers }.WithRelayNetwork();
+            ApplyDisplayName(options, displayName);
             CurrentSession = await MultiplayerService.Instance.CreateSessionAsync(options);
 
             Debug.Log($"[Session] Created. Code={CurrentSession.Code}");
@@ -65,15 +76,46 @@ namespace Game.Networking
         }
 
         /// <summary>Joins an existing match by its share code.</summary>
-        public async Task JoinSessionByCodeAsync(string code)
+        public async Task JoinSessionByCodeAsync(string code, string displayName = null)
         {
             await InitializeAsync();
 
-            CurrentSession = await MultiplayerService.Instance.JoinSessionByCodeAsync(code);
+            var options = new JoinSessionOptions();
+            ApplyDisplayName(options, displayName);
+
+            CurrentSession = await MultiplayerService.Instance.JoinSessionByCodeAsync(code, options);
 
             Debug.Log($"[Session] Joined. Code={CurrentSession.Code}");
             HookRoster(CurrentSession);
             SessionStarted?.Invoke(CurrentSession);
+        }
+
+        /// <summary>
+        /// Publishes the name to the other members of the session, if there is one. Visible to
+        /// members rather than the world: it is a name for the people already in your match.
+        /// </summary>
+        private static void ApplyDisplayName(BaseSessionOptions options, string displayName)
+        {
+            var cleaned = PlayerName.Sanitize(displayName, string.Empty);
+            if (string.IsNullOrEmpty(cleaned)) return;
+
+            options.PlayerProperties[DisplayNameProperty] =
+                new PlayerProperty(cleaned, VisibilityPropertyOptions.Member);
+        }
+
+        /// <summary>
+        /// The display name a session member published, cleaned again on the way in — it crossed
+        /// the network from another player's device, so it is no more trusted here than a name
+        /// arriving over an RPC (STORY-4.3 AC4).
+        /// </summary>
+        public static string DisplayNameOf(IReadOnlyPlayer player, int seatIndex)
+        {
+            string raw = null;
+            if (player?.Properties != null &&
+                player.Properties.TryGetValue(DisplayNameProperty, out var property))
+                raw = property?.Value;
+
+            return PlayerName.Sanitize(raw, seatIndex);
         }
 
         private void HookRoster(ISession session)

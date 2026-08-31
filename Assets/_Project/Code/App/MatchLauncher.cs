@@ -89,8 +89,9 @@ namespace Game.App
                 return;
             }
 
-            var names = new string[seatCount];
-            for (int i = 0; i < names.Length; i++) names[i] = $"Player {i + 1}";
+            // The same players under the same names (STORY-4.3): a rematch that renamed everyone
+            // back to "Player n" would read as a different table.
+            var names = gameController.ServerSeatNames();
 
             int seed = MatchFactory.NewSeed();
             var state = MatchFactory.Build(config, cardDatabase, names, seed);
@@ -117,10 +118,10 @@ namespace Game.App
 
             _started = true;
 
-            gameController.ServerBuildRoster(out var clientIds, out var seatKeys);
-
-            var names = new string[clientIds.Length];
-            for (int i = 0; i < names.Length; i++) names[i] = $"Player {i + 1}";
+            // Names come from the roster, where each client announced its own and the server
+            // sanitized it (STORY-4.3 AC4). A seat whose player never chose one gets the seat
+            // default, so the rail is never blank.
+            gameController.ServerBuildRoster(out var clientIds, out var seatKeys, out var names);
 
             int seed = MatchFactory.NewSeed();
             var state = MatchFactory.Build(config, cardDatabase, names, seed);
