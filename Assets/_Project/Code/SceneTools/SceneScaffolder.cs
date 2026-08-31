@@ -1059,10 +1059,15 @@ namespace Game.SceneTools
                 new Vector2(0, -300), new Vector2(560, 140));
 
             var gameOver = FullScreenPanel(root, "GameOverPanel", _theme.surfaceOverlay);
-            UiFactory.Label(gameOver, "Title", "Final standings", new Vector2(0, 340), new Vector2(900, 120), 62f,
+            var gameOverTitle = UiFactory.Label(gameOver, "Title", "Final standings",
+                new Vector2(0, 340), new Vector2(900, 120), 62f,
                 TextAlignmentOptions.Center, FontRole.HeadingBold, _theme.textInverse);
             var gameOverBody = UiFactory.Label(gameOver, "Body", "", new Vector2(0, 40), new Vector2(900, 500), 38f,
                 TextAlignmentOptions.Center, FontRole.Body, _theme.textInverse);
+            // Every route to this panel is terminal, so it needs an exit; without one the only way
+            // off a dead match was force-quitting the app.
+            var gameOverButton = UiFactory.Button(gameOver, "BackToMenuButton", "BACK TO MENU",
+                new Vector2(0, -400), new Vector2(560, 140));
 
             SetRef(overlay, "handoffPanel", handoff.gameObject);
             SetRef(overlay, "summaryPanel", summary.gameObject);
@@ -1072,7 +1077,9 @@ namespace Game.SceneTools
             SetRef(overlay, "handoffButton", handoffButton);
             SetRef(overlay, "summaryBody", summaryBody);
             SetRef(overlay, "summaryButton", summaryButton);
+            SetRef(overlay, "gameOverTitle", gameOverTitle);
             SetRef(overlay, "gameOverBody", gameOverBody);
+            SetRef(overlay, "gameOverButton", gameOverButton);
 
             return overlay;
         }

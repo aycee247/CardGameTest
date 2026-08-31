@@ -27,7 +27,16 @@ namespace Game.App
         [SerializeField] private NetworkGameController networkController;
         [SerializeField] private MatchLauncher matchLauncher;
 
+        [Tooltip("Seconds a client waits for its first snapshot before deciding the match is not " +
+                 "coming. Generous — it covers the host's own scene load and the ready-up gate's " +
+                 "ten-second fallback — because the cost of being early is a false alarm on a slow " +
+                 "network, and the cost of being late is only a few more seconds of waiting.")]
+        [SerializeField] private float firstSnapshotTimeoutSeconds = 25f;
+
         private RoundPhase _lastOnlinePhase = (RoundPhase)(-1);
+
+        private bool _awaitingFirstSnapshot;
+        private float _firstSnapshotDeadline;
 
         /// <summary>True when this scene was loaded as part of a live network session.</summary>
         public static bool IsOnline
@@ -188,6 +197,18 @@ namespace Game.App
             presenter.SetContext(canAct: true, shapingAllowed: true);
             presenter.ShowMessage("Waiting for the match to start…");
 
+            networkController.MatchUnavailable += OnMatchUnavailable;
+            if (hotSeatOverlay != null) hotSeatOverlay.GameOverDismissed += OnMenuFromEndScreen;
+
+            // Clients only. The host is the one that starts the match, so it cannot be waiting on
+            // itself, and its own board fills in the moment it does.
+            var manager = NetworkManager.Singleton;
+            if (manager != null && !manager.IsServer)
+            {
+                _awaitingFirstSnapshot = true;
+                _firstSnapshotDeadline = Time.time + firstSnapshotTimeoutSeconds;
+            }
+
             if (matchLauncher != null)
             {
                 matchLauncher.gameObject.SetActive(true);
@@ -202,11 +223,77 @@ namespace Game.App
         {
             if (presenter != null) presenter.DoneRequested -= OnOnlineDone;
             if (endScreen != null) endScreen.RematchClicked -= OnOnlineRematch;
+            if (hotSeatOverlay != null) hotSeatOverlay.GameOverDismissed -= OnMenuFromEndScreen;
 
             if (networkController != null)
             {
                 networkController.HostLost -= OnHostLost;
                 networkController.Changed -= OnOnlineSnapshot;
+                networkController.MatchUnavailable -= OnMatchUnavailable;
+            }
+        }
+
+        private void Update()
+        {
+            if (!_awaitingFirstSnapshot || Time.time < _firstSnapshotDeadline) return;
+
+            // Nothing has arrived and nothing has said why. The server may be on another build, so
+            // its messages never resolve against this one's objects and it cannot tell us — which
+            // is precisely why this is decided locally rather than waited on.
+            _awaitingFirstSnapshot = false;
+            ShowMatchUnavailable(MatchUnavailableReason.NoResponse);
+        }
+
+        /// <summary>
+        /// The server has told this client it cannot take part. Named on screen, with a way out —
+        /// the alternative, and what shipped before this, is an empty board and a force-quit.
+        /// </summary>
+        private void OnMatchUnavailable(MatchUnavailableReason reason)
+        {
+            _awaitingFirstSnapshot = false;
+            ShowMatchUnavailable(reason);
+        }
+
+        private void ShowMatchUnavailable(MatchUnavailableReason reason)
+        {
+            if (presenter != null)
+            {
+                presenter.SetContext(canAct: false, shapingAllowed: false);
+                presenter.ShowMessage(string.Empty);
+            }
+
+            string title, body;
+            switch (reason)
+            {
+                case MatchUnavailableReason.VersionMismatch:
+                    title = "Different version";
+                    body = "The host is running a different build of Foundry.\n\n" +
+                           "Update from TestFlight — everyone at the table has to be on the same " +
+                           "build for a match to work.";
+                    break;
+
+                case MatchUnavailableReason.NoSeat:
+                    title = "Match already started";
+                    body = "This match was already under way, so there was no seat left to take.\n\n" +
+                           "Ask the host to start a new one.";
+                    break;
+
+                default:
+                    title = "Couldn't reach the match";
+                    body = "Nothing arrived from the host.\n\n" +
+                           "The most likely cause is that one of you is on an older build — check " +
+                           "TestFlight — or that the host left before the match began.";
+                    break;
+            }
+
+            if (hotSeatOverlay != null)
+            {
+                hotSeatOverlay.gameObject.SetActive(true);
+                hotSeatOverlay.ShowMatchUnavailable(title, body);
+            }
+            else
+            {
+                Debug.LogError($"[Foundry] Match unavailable ({reason}) and no overlay to say so.");
             }
         }
 
@@ -223,6 +310,9 @@ namespace Game.App
 
         private void OnOnlineSnapshot(MatchSnapshot snapshot)
         {
+            // The match is talking to us, so the watchdog has nothing left to watch for.
+            _awaitingFirstSnapshot = false;
+
             if (revealSpotlight != null)
             {
                 if (snapshot.Phase == RoundPhase.Reveal && _lastOnlinePhase != RoundPhase.Reveal)

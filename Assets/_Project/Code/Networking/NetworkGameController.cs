@@ -82,6 +82,13 @@ namespace Game.Networking
         public event Action<MoveFailure> MoveRejected;
 
         /// <summary>
+        /// Raised on a client the server has told it cannot take part — a mismatched build, or a
+        /// match already under way that holds no seat for it. Without this the client shows
+        /// "Waiting for the match to start…" for as long as the player is willing to stare at it.
+        /// </summary>
+        public event Action<MatchUnavailableReason> MatchUnavailable;
+
+        /// <summary>
         /// Server-side: install the freshly built match and the seeded roller, map connected clients
         /// to seats, then start round one. Call once, on the server, after all players have joined.
         /// </summary>
@@ -248,7 +255,7 @@ namespace Game.Networking
             // stable key; after a drop, the very same message reclaims the seat.
             if (IsClient)
             {
-                RegisterIdentityRpc(LocalSeatKey(), LocalDisplayName);
+                RegisterIdentityRpc(NetProtocol.Version, LocalSeatKey(), LocalDisplayName);
                 _announcedName = LocalDisplayName;
             }
         }
@@ -370,7 +377,7 @@ namespace Game.Networking
             if (!IsSpawned || !IsClient) return;
             if (_announcedName == LocalDisplayName) return;
 
-            RegisterIdentityRpc(LocalSeatKey(), LocalDisplayName);
+            RegisterIdentityRpc(NetProtocol.Version, LocalSeatKey(), LocalDisplayName);
             _announcedName = LocalDisplayName;
         }
 
@@ -380,10 +387,28 @@ namespace Game.Networking
         /// message is what reclaims the seat.
         /// </summary>
         [Rpc(SendTo.Server, RequireOwnership = false)]
-        private void RegisterIdentityRpc(string seatKey, string displayName, RpcParams rpc = default)
+        private void RegisterIdentityRpc(int protocolVersion, string seatKey, string displayName,
+            RpcParams rpc = default)
         {
             ulong clientId = rpc.Receive.SenderClientId;
+
+            // Counted as announced either way, including the mismatch below: the ready-up gate
+            // waits on every connected client, and holding the whole table for ten seconds over a
+            // peer that is already being told to leave helps nobody.
             _announcedClients.Add(clientId);
+
+            if (protocolVersion != NetProtocol.Version)
+            {
+                // Say so rather than letting them sit on an empty board. They are not disconnected
+                // here — the message has to flush first, and a client that knows why can leave
+                // cleanly and tell the player what happened.
+                Debug.LogWarning($"[Net] Client {clientId} speaks protocol {protocolVersion}, " +
+                                 $"this build speaks {NetProtocol.Version}. Refusing it a seat.");
+                MatchUnavailableRpc((int)MatchUnavailableReason.VersionMismatch,
+                    RpcTarget.Single(clientId, RpcTargetUse.Temp));
+                return;
+            }
+
             if (!string.IsNullOrEmpty(seatKey)) _clientToKey[clientId] = seatKey;
 
             // Untrusted: this string came off the wire and will be drawn on every other player's
@@ -398,7 +423,12 @@ namespace Game.Networking
 
             if (!_seats.TryResolve(seatKey, out var player))
             {
-                Debug.LogWarning("[Net] A client announced a key that owns no seat; ignoring.");
+                // A match is running and this key owns no seat in it — someone who joined by code
+                // after the table was built. Snapshots only go to seated clients, so silence here
+                // is a board that never fills in.
+                Debug.LogWarning("[Net] A client announced a key that owns no seat; refusing it.");
+                MatchUnavailableRpc((int)MatchUnavailableReason.NoSeat,
+                    RpcTarget.Single(clientId, RpcTargetUse.Temp));
                 return;
             }
 
@@ -616,6 +646,22 @@ namespace Game.Networking
         {
             if (!FromServer(rpc)) return;
             _localPlayer = new PlayerId(playerId);
+        }
+
+        /// <summary>
+        /// The last refusal this peer was sent, or null if none. Test seam, in the same spirit as
+        /// <see cref="LastStateBytes"/>: the event fires once, and a test that subscribes after
+        /// the client has spawned has already missed it.
+        /// </summary>
+        internal MatchUnavailableReason? LastUnavailable { get; private set; }
+
+        [Rpc(SendTo.SpecifiedInParams)]
+        private void MatchUnavailableRpc(int reason, RpcParams rpc = default)
+        {
+            if (!FromServer(rpc)) return;
+
+            LastUnavailable = (MatchUnavailableReason)reason;
+            MatchUnavailable?.Invoke(LastUnavailable.Value);
         }
 
         [Rpc(SendTo.SpecifiedInParams)]

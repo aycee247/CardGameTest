@@ -139,6 +139,32 @@ namespace Game.Networking
         private void OnRosterPlayerEvent(string _) => RosterChanged?.Invoke();
         private void OnRosterChanged() => RosterChanged?.Invoke();
 
+        /// <summary>
+        /// Closes the session to new arrivals. Called when the host starts the match: seats are
+        /// fixed at that moment, so anyone who joins by code afterwards connects to a table that
+        /// has no room for them and sits on a board that never fills in.
+        ///
+        /// Best effort — a lock that fails to save is logged and swallowed, because a host who
+        /// cannot reach the lobby service should still get to play the match they just started.
+        /// The client-side refusal covers the gap.
+        /// </summary>
+        public async Task LockAsync()
+        {
+            if (CurrentSession == null || !CurrentSession.IsHost) return;
+
+            try
+            {
+                var host = CurrentSession.AsHost();
+                host.IsLocked = true;
+                await host.SavePropertiesAsync();
+                Debug.Log("[Session] Locked — the match is under way.");
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[Session] Could not lock the session: {e.Message}");
+            }
+        }
+
         /// <summary>Leaves/ends the current session and tears down networking.</summary>
         public async Task LeaveSessionAsync()
         {

@@ -1,3 +1,4 @@
+using Game.Networking;
 using Unity.Netcode;
 using UnityEngine.SceneManagement;
 
@@ -57,6 +58,13 @@ namespace Game.App
         {
             var nm = NetworkManager.Singleton;
             if (nm == null || !nm.IsServer) return false;
+
+            // Close the door on the way through it. The seats are decided from who is connected
+            // when the match is built, so a code that still works after this point only leads
+            // someone to a table with no room for them.
+            if (GameServices.IsReady && GameServices.Locator.TryGet<SessionManager>(out var session))
+                _ = session.LockAsync();
+
             nm.SceneManager.LoadScene(SceneNames.Game, LoadSceneMode.Single);
             return true;
         }
