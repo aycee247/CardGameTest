@@ -219,6 +219,28 @@ namespace Game.Tests.PlayMode
                 "an unnamed seat falls back to its default rather than rendering blank");
         }
 
+        [UnityTest]
+        public IEnumerator AClientJoiningAStartedMatchIsToldItHasNoSeat()
+        {
+            yield return StartMatch();
+
+            // Someone the table has never seen arrives after the seats were handed out — joining
+            // by a code that still worked. Snapshots only ever go to seated clients, so before
+            // this they simply sat on an empty board for as long as they could stand it.
+            _nextClientKey = "seat-key-stranger";
+            yield return CreateAndStartNewClient();
+
+            var strangerManager = m_ClientNetworkManagers[m_ClientNetworkManagers.Length - 1];
+            NetworkGameController stranger = null;
+            yield return WaitForConditionOrTimeOut(() =>
+                (stranger = ControllerOn(strangerManager)) != null &&
+                stranger.LastUnavailable == MatchUnavailableReason.NoSeat);
+            AssertOnTimeout("a seatless client was never told why nothing was arriving");
+
+            Assert.IsNull(stranger.Current.Players,
+                "a client with no seat must not receive match state either");
+        }
+
         // ------------------------------------------------------------------ AC2
 
         [UnityTest]

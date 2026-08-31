@@ -32,17 +32,27 @@ namespace Game.UI
         [SerializeField] private Button summaryButton;
 
         [Header("Game over")]
+        [SerializeField] private TMP_Text gameOverTitle;
         [SerializeField] private TMP_Text gameOverBody;
+        [SerializeField] private Button gameOverButton;
 
         private readonly StringBuilder _sb = new StringBuilder();
 
         public event Action HandoffConfirmed;
         public event Action SummaryContinued;
 
+        /// <summary>
+        /// The player is done with the end-of-the-line panel and wants out. Every route to that
+        /// panel — host gone, build mismatch, no seat, nothing arriving — used to be a dead end
+        /// whose only exit was force-quitting the app.
+        /// </summary>
+        public event Action GameOverDismissed;
+
         private void Awake()
         {
             if (handoffButton != null) handoffButton.onClick.AddListener(() => HandoffConfirmed?.Invoke());
             if (summaryButton != null) summaryButton.onClick.AddListener(() => SummaryContinued?.Invoke());
+            if (gameOverButton != null) gameOverButton.onClick.AddListener(() => GameOverDismissed?.Invoke());
         }
 
         /// <summary>
@@ -87,9 +97,7 @@ namespace Game.UI
         /// </summary>
         public void ShowAbandonedMatch(MatchSnapshot lastKnown)
         {
-            Show(handoffPanel, false);
-            Show(summaryPanel, false);
-            Show(gameOverPanel, true);
+            OpenGameOver("Final standings");
 
             if (gameOverBody == null) return;
 
@@ -116,6 +124,27 @@ namespace Game.UI
             }
 
             gameOverBody.text = _sb.ToString().TrimEnd();
+        }
+
+        /// <summary>
+        /// The match cannot be joined or played at all — a mismatched build, no seat in a match
+        /// already running, or nothing ever arriving from the host. Says which, and offers the way
+        /// out, rather than leaving the player on a board that will never fill in.
+        /// </summary>
+        public void ShowMatchUnavailable(string title, string body)
+        {
+            OpenGameOver(title);
+            if (gameOverBody != null) gameOverBody.text = body ?? string.Empty;
+        }
+
+        private void OpenGameOver(string title)
+        {
+            Show(handoffPanel, false);
+            Show(summaryPanel, false);
+            Show(gameOverPanel, true);
+
+            if (gameOverTitle != null) gameOverTitle.text = title;
+            Show(gameOverButton != null ? gameOverButton.gameObject : null, true);
         }
 
         private static void Show(GameObject panel, bool visible)
