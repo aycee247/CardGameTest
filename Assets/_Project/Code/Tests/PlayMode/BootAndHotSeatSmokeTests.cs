@@ -1,5 +1,7 @@
 using System.Collections;
 using Game.App;
+using Game.Persistence;
+using Game.UI;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -33,6 +35,65 @@ namespace Game.Tests.PlayMode
             }
 
             Assert.IsTrue(GameServices.IsReady, "Service graph was not built during boot.");
+        }
+
+        /// <summary>
+        /// STORY-3.5: the explainer opens once for a new player, and not again once they have
+        /// been through it. Driven through the profile rather than the file on disk — the
+        /// editor's persistentDataPath survives between runs, so a test that relied on a genuine
+        /// first launch would pass once and then never again.
+        /// </summary>
+        [UnityTest]
+        [Timeout(120000)]
+        public IEnumerator MainMenu_ShowsTheExplainerToANewPlayerOnlyOnce()
+        {
+            LogAssert.ignoreFailingMessages = true;
+
+            // Boot only if nothing has booted yet. GameBootstrap destroys itself on re-entry
+            // once the singleton graph exists, so a second trip through Boot never reaches the
+            // menu — which made this test pass alone and hang when it ran after another.
+            if (!GameServices.IsReady)
+            {
+                SceneManager.LoadScene(SceneNames.Boot);
+
+                float deadline = Time.realtimeSinceStartup + 90f;
+                while (SceneManager.GetActiveScene().name != SceneNames.MainMenu)
+                {
+                    Assert.Less(Time.realtimeSinceStartup, deadline, "Boot never reached the MainMenu.");
+                    yield return null;
+                }
+            }
+
+            Assert.IsTrue(GameServices.Locator.TryGet<ISaveService>(out var save),
+                "No save service — the profile is what records that onboarding was seen.");
+
+            // Whoever ran the suite before us may already have a profile; make this a new player.
+            int original = save.Profile.OnboardingSeenVersion;
+            save.Profile.OnboardingSeenVersion = 0;
+
+            SceneManager.LoadScene(SceneNames.MainMenu);
+            yield return null;      // Start() runs
+
+            var explainer = Object.FindFirstObjectByType<HowToPlayView>(FindObjectsInactive.Include);
+            Assert.IsNotNull(explainer, "MainMenu has no HowToPlayView — regenerate the scenes.");
+            Assert.IsTrue(explainer.IsOpen, "A new player was never shown the explainer.");
+
+            // Page through it. The last page's PLAY SOLO also raises Finished, so walking to the
+            // end with Next is the path that leaves the player on the menu.
+            for (int i = 0; i < HowToPlayView.PageCount; i++) explainer.Next();
+
+            Assert.IsFalse(explainer.IsOpen, "The explainer never closed at the end.");
+            Assert.AreEqual(HowToPlayView.Version, save.Profile.OnboardingSeenVersion,
+                "Reaching the end must be recorded in the profile (AC3).");
+
+            // ...and a returning player is left alone.
+            SceneManager.LoadScene(SceneNames.MainMenu);
+            yield return null;
+
+            explainer = Object.FindFirstObjectByType<HowToPlayView>(FindObjectsInactive.Include);
+            Assert.IsFalse(explainer.IsOpen, "The explainer reopened for a player who had seen it.");
+
+            save.Profile.OnboardingSeenVersion = original;
         }
 
         [UnityTest]

@@ -5,6 +5,8 @@
         "Game.Core",
         "Game.Data",
         "Game.Networking",
+        "Game.Persistence",
+        "Game.UI",
         "Game.App",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
