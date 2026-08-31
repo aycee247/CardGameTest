@@ -37,10 +37,24 @@ namespace Game.App
             return new MatchState(config ?? MatchConfig.Default, players, deck);
         }
 
-        public static IReadOnlyList<string> DefaultNames(int count)
+        /// <summary>Seat defaults for a whole table — what a seat is called when nobody named it.</summary>
+        public static string[] DefaultNames(int count)
         {
             var names = new string[count];
-            for (int i = 0; i < count; i++) names[i] = "Player " + (i + 1);
+            for (int i = 0; i < count; i++) names[i] = PlayerName.SeatDefault(i);
+            return names;
+        }
+
+        /// <summary>
+        /// Seat defaults with one seat named by this device's player (STORY-4.3 AC2). Used by the
+        /// local modes: only one profile exists on the device, so the other seats keep their
+        /// defaults — pass-and-play has no way to know who is holding the phone next.
+        /// </summary>
+        public static string[] NamesWithLocalPlayer(int count, string rawLocalName, int localSeat = 0)
+        {
+            var names = DefaultNames(count);
+            if (localSeat >= 0 && localSeat < names.Length)
+                names[localSeat] = PlayerName.Sanitize(rawLocalName, localSeat);
             return names;
         }
 

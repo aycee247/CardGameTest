@@ -45,6 +45,14 @@ namespace Game.Networking
         private readonly Dictionary<ulong, string> _clientToKey = new Dictionary<ulong, string>();
 
         /// <summary>
+        /// Transport id to chosen display name, learned the same way (STORY-4.3). Already
+        /// sanitized: a name is untrusted input from a peer, and it is cleaned the moment it
+        /// arrives rather than at each of the places that later read it. Empty means "no name
+        /// chosen", which the seat default fills in at roster time.
+        /// </summary>
+        private readonly Dictionary<ulong, string> _clientToName = new Dictionary<ulong, string>();
+
+        /// <summary>
         /// Every transport id that has sent <see cref="RegisterIdentityRpc"/>. An announcement is
         /// also proof the client's Game-scene controller has spawned — i.e. its NGO scene load
         /// finished — which is what the ready-up gate waits for (STORY-2.2).
@@ -148,7 +156,8 @@ namespace Game.Networking
         /// arrived. This is what the launcher passes to <see cref="ServerStartMatch"/>, so seat
         /// assignment no longer depends on when each announcement happened to land.
         /// </summary>
-        public void ServerBuildRoster(out ulong[] orderedClientIds, out string[] orderedSeatKeys)
+        public void ServerBuildRoster(out ulong[] orderedClientIds, out string[] orderedSeatKeys,
+            out string[] orderedNames)
         {
             var nm = NetworkManager;
 
@@ -158,8 +167,31 @@ namespace Game.Networking
 
             orderedClientIds = ids.ToArray();
             orderedSeatKeys = new string[ids.Count];
+            orderedNames = new string[ids.Count];
             for (int i = 0; i < ids.Count; i++)
+            {
                 orderedSeatKeys[i] = _clientToKey.TryGetValue(ids[i], out var key) ? key : string.Empty;
+
+                // Already sanitized on arrival; all that is left is the seat's own fallback for a
+                // player who never chose a name, or never announced one (STORY-4.3 AC3).
+                orderedNames[i] = PlayerName.Sanitize(
+                    _clientToName.TryGetValue(ids[i], out var name) ? name : string.Empty, i);
+            }
+        }
+
+        /// <summary>
+        /// Server-only. The names the seats are playing under, in seat order — what a rematch
+        /// rebuilds the table with so nobody loses their name at the round-10 boundary.
+        /// </summary>
+        public string[] ServerSeatNames()
+        {
+            if (!IsServer || _server == null) return System.Array.Empty<string>();
+
+            var players = _server.State.Players;
+            var names = new string[players.Count];
+            for (int i = 0; i < players.Count; i++)
+                names[i] = PlayerName.Sanitize(players[i].DisplayName, i);
+            return names;
         }
 
         /// <summary>Seats in the running (or just-finished) match; zero when none has started.</summary>
@@ -214,7 +246,7 @@ namespace Game.Networking
 
             // Announce who we are. Before the match this is how the server learns each player's
             // stable key; after a drop, the very same message reclaims the seat.
-            if (IsClient) RegisterIdentityRpc(LocalSeatKey());
+            if (IsClient) RegisterIdentityRpc(LocalSeatKey(), LocalDisplayName);
         }
 
         public override void OnNetworkDespawn()
@@ -237,6 +269,7 @@ namespace Game.Networking
             // arrives with a brand new one and re-announces.
             _announcedClients.Remove(clientId);
             _clientToKey.Remove(clientId);
+            _clientToName.Remove(clientId);
 
             if (_server == null) return;
             if (!_clientToPlayer.TryGetValue(clientId, out var player)) return;
@@ -299,16 +332,42 @@ namespace Game.Networking
         }
 
         /// <summary>
+        /// The name this device's player chose, as it will be announced (STORY-4.3). Assigned by
+        /// the composition root, which owns the profile — this assembly cannot see Game.Persistence
+        /// and should not learn to.
+        /// </summary>
+        public string LocalDisplayName { get; private set; } = string.Empty;
+
+        /// <summary>
+        /// Sets the local display name and, if this peer is already spawned, re-announces it.
+        /// Safe to call before or after <see cref="OnNetworkSpawn"/>, which is the point: the
+        /// scene bootstrap and NGO's spawn race each other, and a second announcement costs one
+        /// small RPC where a missed one costs the player their name for the whole match.
+        /// </summary>
+        public void AnnounceIdentity(string displayName)
+        {
+            LocalDisplayName = PlayerName.Sanitize(displayName, string.Empty);
+
+            if (IsSpawned && IsClient) RegisterIdentityRpc(LocalSeatKey(), LocalDisplayName);
+        }
+
+        /// <summary>
         /// Announces who this client is. Sent on spawn, so the server knows every player's stable
-        /// key before the match starts, and sent again on rejoin, where the same message is what
-        /// reclaims the seat.
+        /// key and chosen name before the match starts, and sent again on rejoin, where the same
+        /// message is what reclaims the seat.
         /// </summary>
         [Rpc(SendTo.Server, RequireOwnership = false)]
-        private void RegisterIdentityRpc(string seatKey, RpcParams rpc = default)
+        private void RegisterIdentityRpc(string seatKey, string displayName, RpcParams rpc = default)
         {
             ulong clientId = rpc.Receive.SenderClientId;
             _announcedClients.Add(clientId);
             if (!string.IsNullOrEmpty(seatKey)) _clientToKey[clientId] = seatKey;
+
+            // Untrusted: this string came off the wire and will be drawn on every other player's
+            // device, so it is capped and stripped here, on the server, before it is stored
+            // (AC4). A client that sanitizes on its own end has simply chosen to; it proves
+            // nothing about the next one.
+            _clientToName[clientId] = PlayerName.Sanitize(displayName, string.Empty);
 
             // Before the match starts there is no seat to take yet; the key is simply remembered
             // so ServerStartMatch can bind it.

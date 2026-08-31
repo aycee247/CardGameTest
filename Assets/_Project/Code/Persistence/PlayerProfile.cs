@@ -22,13 +22,25 @@ namespace Game.Persistence
     /// <summary>
     /// The persisted player record: identity, owned collection, and settings.
     /// Plain serializable POCO written as JSON — no Unity or netcode types so it round-trips
-    /// safely under IL2CPP. Bump <see cref="Version"/> when the shape changes and migrate on load.
+    /// safely under IL2CPP. Bump <see cref="CurrentVersion"/> when the shape changes and add the
+    /// step to <see cref="Migrate"/>, which runs on every load.
     /// </summary>
     [Serializable]
     public class PlayerProfile
     {
-        public int Version = 2;   // v2: first-time hint flags (absent members default false on load)
-        public string DisplayName = "Player";
+        /// <summary>Bumped when the shape changes; <see cref="Migrate"/> brings older saves forward.</summary>
+        public const int CurrentVersion = 3;
+
+        // v2: first-time hint flags (absent members default false on load)
+        // v3: DisplayName became player-chosen, and empty means "use the seat default"
+        public int Version = CurrentVersion;
+
+        /// <summary>
+        /// The name this player chose (STORY-4.3). Empty is the normal state for someone who has
+        /// never set one — the seat default is then used, so it is deliberately not pre-filled
+        /// with a placeholder that would be mistaken for a choice.
+        /// </summary>
+        public string DisplayName = string.Empty;
 
         /// <summary>First-time onboarding hints already dismissed (handoff 6i).</summary>
         public bool ShapeHintSeen;
@@ -45,5 +57,23 @@ namespace Game.Persistence
         public GameSettings Settings = new GameSettings();
 
         public static PlayerProfile CreateDefault() => new PlayerProfile();
+
+        /// <summary>
+        /// Brings a loaded profile forward to <see cref="CurrentVersion"/>. Kept here rather than
+        /// in the save service so the rules for each version live next to the fields they concern.
+        /// </summary>
+        public static PlayerProfile Migrate(PlayerProfile profile)
+        {
+            if (profile == null) return CreateDefault();
+
+            // v2 wrote a literal "Player" for everyone, since the name could not be edited. Read
+            // as a real choice it would put "Player" on every seat, which is worse than the seat
+            // defaults it would replace — so it is cleared rather than carried forward.
+            if (profile.Version < 3 && profile.DisplayName == "Player")
+                profile.DisplayName = string.Empty;
+
+            profile.Version = CurrentVersion;
+            return profile;
+        }
     }
 }

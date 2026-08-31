@@ -151,6 +151,13 @@ namespace Game.App
             presenter.Bind(networkController, networkController);
             networkController.HostLost += OnHostLost;
 
+            // Tell the server what this player is called (STORY-4.3). Sent here rather than left
+            // to the controller because only the composition root can see Game.Persistence, and
+            // sent unconditionally because the scene load and NGO's spawn race: if the controller
+            // already announced itself with an empty name, this corrects it before the match is
+            // built, and if it has not spawned yet the name is waiting when it does.
+            networkController.AnnounceIdentity(LocalIdentity.RawDisplayName);
+
             // Online, DONE is a real engine intent (#44): the server marks the seat done and closes
             // Shape early once everyone is. Hot-seat routes the same event to the director instead.
             presenter.DoneRequested += OnOnlineDone;

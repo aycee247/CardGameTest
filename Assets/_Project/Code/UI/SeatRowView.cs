@@ -21,6 +21,19 @@ namespace Game.UI
         [SerializeField] private TMP_Text chipText;
         [SerializeField] private ThemeAsset theme;
 
+        /// <summary>
+        /// The avatar's single character. Takes a whole surrogate pair when the name opens with
+        /// an emoji (STORY-4.3 made names player-chosen): half of one renders as tofu.
+        /// </summary>
+        private static string InitialOf(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return "?";
+
+            return char.IsHighSurrogate(name[0]) && name.Length > 1 && char.IsLowSurrogate(name[1])
+                ? name.Substring(0, 2)
+                : name.Substring(0, 1);
+        }
+
         public void SetFilled(string name, string chip, bool isLocal)
         {
             if (nameText != null)
@@ -36,8 +49,7 @@ namespace Game.UI
             }
 
             if (avatarTile != null) avatarTile.gameObject.SetActive(true);
-            if (avatarInitial != null)
-                avatarInitial.text = string.IsNullOrEmpty(name) ? "?" : name.Substring(0, 1);
+            if (avatarInitial != null) avatarInitial.text = InitialOf(name);
 
             if (theme == null) return;
 

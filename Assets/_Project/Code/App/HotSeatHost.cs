@@ -58,7 +58,10 @@ namespace Game.App
 
             int seed = fixedSeed != 0 ? fixedSeed : MatchFactory.NewSeed();
 
-            var state = MatchFactory.Build(config, cardDatabase, MatchFactory.DefaultNames(playerCount), seed);
+            // Seat 1 is whoever owns the device; the rest keep their seat defaults (STORY-4.3).
+            var names = MatchFactory.NamesWithLocalPlayer(playerCount, LocalIdentity.RawDisplayName);
+
+            var state = MatchFactory.Build(config, cardDatabase, names, seed);
             _session = new LocalMatchSession(state, new SeededDiceRoller(unchecked((ulong)seed)));
             _director = new HotSeatDirector(_session);
 

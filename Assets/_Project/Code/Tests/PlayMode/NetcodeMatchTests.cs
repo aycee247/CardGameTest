@@ -65,7 +65,12 @@ namespace Game.Tests.PlayMode
         // ------------------------------------------------------------------ match bootstrap
 
         /// <summary>Spawns the controller everywhere, waits out the ready-up gate, starts a match.</summary>
-        private IEnumerator StartMatch()
+        /// <param name="announcedNames">
+        /// Optional display name for each peer, in <see cref="AllPeers"/> order, announced before
+        /// the roster is built (STORY-4.3). Every entry must sanitize to something, so the wait
+        /// below can tell "announced" apart from "still defaulted".
+        /// </param>
+        private IEnumerator StartMatch(IReadOnlyList<string> announcedNames = null)
         {
             var serverGo = SpawnObject(_controllerPrefab, m_ServerNetworkManager);
             _server = serverGo.GetComponent<NetworkGameController>();
@@ -77,8 +82,23 @@ namespace Game.Tests.PlayMode
             yield return WaitForConditionOrTimeOut(() => _server.ServerRosterReady());
             AssertOnTimeout("the ready-up gate never cleared (identity announcements missing)");
 
-            _server.ServerBuildRoster(out var clientIds, out var seatKeys);
-            _server.ServerStartMatch(BuildState(clientIds.Length), new SeededDiceRoller(4242), clientIds, seatKeys);
+            if (announcedNames != null)
+            {
+                var peers = AllPeers();
+                for (int i = 0; i < peers.Count && i < announcedNames.Count; i++)
+                    peers[i].AnnounceIdentity(announcedNames[i]);
+
+                yield return WaitForConditionOrTimeOut(() =>
+                {
+                    _server.ServerBuildRoster(out _, out _, out var announced);
+                    return announced.All(n => !n.StartsWith("Player "));
+                });
+                AssertOnTimeout("the server never received every announced display name");
+            }
+
+            _server.ServerBuildRoster(out var clientIds, out var seatKeys, out var names);
+            _server.ServerStartMatch(BuildState(clientIds.Length, names), new SeededDiceRoller(4242),
+                clientIds, seatKeys);
 
             yield return WaitForConditionOrTimeOut(() =>
                 AllPeers().All(c => c.Current.Players != null && c.Current.Phase == RoundPhase.Shape));
@@ -89,7 +109,7 @@ namespace Game.Tests.PlayMode
         /// Fixed, testable rules: any two dice pay for any card, and the phase clock is frozen so
         /// only the test (or AllDecided) advances the round.
         /// </summary>
-        private static MatchState BuildState(int seats)
+        private static MatchState BuildState(int seats, IReadOnlyList<string> names = null)
         {
             var config = new MatchConfig
             {
@@ -103,7 +123,8 @@ namespace Game.Tests.PlayMode
 
             var players = new List<PlayerState>();
             for (int i = 0; i < seats; i++)
-                players.Add(new PlayerState(new PlayerId(i), "P" + i, i));
+                players.Add(new PlayerState(new PlayerId(i),
+                    names != null && i < names.Count ? names[i] : "P" + i, i));
 
             var deck = new List<Card>();
             for (int id = 1; id <= 6; id++)
@@ -148,6 +169,40 @@ namespace Game.Tests.PlayMode
             Assert.AreEqual(3, seats.Count);
             CollectionAssert.AllItemsAreUnique(seats, "every peer must be assigned its own seat");
             CollectionAssert.AreEquivalent(new[] { 0, 1, 2 }, seats);
+        }
+
+        // ------------------------------------------------------------------ STORY-4.3
+
+        [UnityTest]
+        public IEnumerator AnnouncedNamesReachEverySeatSanitized()
+        {
+            // What three clients might send: something ordinary, something padded and carrying a
+            // bidi override, and something far too long for the rail.
+            yield return StartMatch(new[] { "Ada", "  Gr\u202Eace  ", "Bartholomew Fitzgerald III" });
+
+            var expected = new[] { "Ada", "Grace", "Bartholomew Fitz" };
+
+            var seatNames = _server.ServerSeatNames();
+            CollectionAssert.AreEquivalent(expected, seatNames,
+                "the server's seats must carry the announced names, cleaned");
+
+            // And they must survive the wire, or only the host would ever see them.
+            foreach (var peer in AllPeers())
+            {
+                var received = peer.Current.Players.Select(p => p.DisplayName).ToArray();
+                CollectionAssert.AreEquivalent(expected, received,
+                    "every peer's snapshot must carry the same names");
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator AClientThatAnnouncesNoNameGetsItsSeatDefault()
+        {
+            yield return StartMatch();
+
+            var seatNames = _server.ServerSeatNames();
+            CollectionAssert.AreEquivalent(new[] { "Player 1", "Player 2", "Player 3" }, seatNames,
+                "an unnamed seat falls back to its default rather than rendering blank");
         }
 
         // ------------------------------------------------------------------ AC2

@@ -44,6 +44,10 @@ namespace Game.App
             view.JoinClicked += OnJoin;
             view.PassPlayClicked += OnPassPlay;
             view.SoloClicked += OnSolo;
+            view.NameChanged += OnNameChanged;
+
+            // The menu is where identity is set, until the settings screen exists (STORY-4.1).
+            view.SetName(LocalIdentity.RawDisplayName);
 
             string status = "Ready";
             if (GameServices.Locator.TryGet<BootStatus>(out var boot))
@@ -65,6 +69,18 @@ namespace Game.App
             view.JoinClicked -= OnJoin;
             view.PassPlayClicked -= OnPassPlay;
             view.SoloClicked -= OnSolo;
+            view.NameChanged -= OnNameChanged;
+        }
+
+        /// <summary>
+        /// Persists the chosen name and echoes back what was actually stored (STORY-4.3), so a
+        /// player who pads it with spaces or overruns the cap sees the name their opponents will
+        /// see rather than the one they typed.
+        /// </summary>
+        private void OnNameChanged(string raw)
+        {
+            LocalIdentity.SetDisplayName(raw);
+            view.SetName(LocalIdentity.RawDisplayName);
         }
 
         private void OnPassPlay()
@@ -91,7 +107,7 @@ namespace Game.App
             {
                 view.SetInteractable(false);
                 view.SetStatus("Creating match…");
-                var code = await _session.CreateSessionAsync(maxPlayers);
+                var code = await _session.CreateSessionAsync(maxPlayers, LocalIdentity.RawDisplayName);
                 view.SetJoinCode(code);
                 view.SetStatus("Match created. Waiting for players…");
                 _sceneFlow.LoadLobby();
@@ -115,7 +131,7 @@ namespace Game.App
             {
                 view.SetInteractable(false);
                 view.SetStatus("Joining…");
-                await _session.JoinSessionByCodeAsync(code);
+                await _session.JoinSessionByCodeAsync(code, LocalIdentity.RawDisplayName);
                 view.SetStatus("Joined. Entering lobby…");
                 _sceneFlow.LoadLobby();
             }
