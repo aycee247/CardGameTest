@@ -72,7 +72,10 @@ namespace Game.Persistence
             if (profile.Version < 3 && profile.DisplayName == "Player")
                 profile.DisplayName = string.Empty;
 
-            profile.Version = CurrentVersion;
+            // Only ever forward. A profile written by a newer build is left exactly as it is:
+            // stamping it back down to this version would tell that build the data still needs a
+            // migration it has already applied, on the next flush that writes the file.
+            if (profile.Version < CurrentVersion) profile.Version = CurrentVersion;
             return profile;
         }
     }

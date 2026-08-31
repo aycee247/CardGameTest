@@ -92,7 +92,6 @@ namespace Game.App
             // The same players under the same names (STORY-4.3): a rematch that renamed everyone
             // back to "Player n" would read as a different table.
             var names = gameController.ServerSeatNames();
-            if (names.Length != seatCount) names = MatchFactory.DefaultNames(seatCount);
 
             int seed = MatchFactory.NewSeed();
             var state = MatchFactory.Build(config, cardDatabase, names, seed);

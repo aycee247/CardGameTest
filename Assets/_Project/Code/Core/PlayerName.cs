@@ -19,6 +19,10 @@ namespace Game.Core
     ///    at best and are a font-dependent crash surface at worst.
     ///  - <b>Runs of whitespace</b>, collapsed to a single space, so a name padded out with
     ///    spaces cannot push its way across the rail.
+    ///  - <b>Stacked combining marks</b>, capped at <see cref="MaxMarksPerCharacter"/> per base
+    ///    character. Marks are drawn on top of what precedes them and do not count against a
+    ///    width budget, so fifteen of them on one letter smear vertically across the rows above
+    ///    and below. Accented names are unaffected: "José" needs one mark, not fifteen.
     ///
     /// Length is capped at <see cref="MaxLength"/>. The cap is applied last, and never inside a
     /// surrogate pair — splitting one would emit exactly the lone surrogate this is here to
@@ -31,6 +35,13 @@ namespace Game.Core
         /// narrowest supported device, where the row also carries score, cards and a state chip.
         /// </summary>
         public const int MaxLength = 16;
+
+        /// <summary>
+        /// Combining marks allowed per base character. Two covers real orthography — a vowel with
+        /// both an accent and a diaeresis is as deep as living scripts stack for a name — while
+        /// stopping the decorative pile-up that renders outside its own row.
+        /// </summary>
+        public const int MaxMarksPerCharacter = 2;
 
         /// <summary>The name a seat carries when its player has not chosen one (AC3).</summary>
         public static string SeatDefault(int seatIndex) => "Player " + (seatIndex + 1);
@@ -46,6 +57,8 @@ namespace Game.Core
 
             var sb = new StringBuilder(MaxLength);
             bool spacePending = false;
+            bool hasBase = false;       // is there a character for a mark to attach to?
+            int marks = 0;              // marks already stacked on that character
 
             for (int i = 0; i < raw.Length && sb.Length < MaxLength; i++)
             {
@@ -61,10 +74,27 @@ namespace Game.Core
 
                 // A surrogate pair is one character to the reader, so it is taken or left whole.
                 bool isPair = char.IsHighSurrogate(c) && i + 1 < raw.Length && char.IsLowSurrogate(raw[i + 1]);
-                if (!Allowed(isPair ? char.GetUnicodeCategory(raw, i) : CharUnicodeInfo.GetUnicodeCategory(c)))
+                var category = isPair
+                    ? char.GetUnicodeCategory(raw, i)
+                    : CharUnicodeInfo.GetUnicodeCategory(c);
+
+                if (!Allowed(category))
                 {
                     if (isPair) i++;
                     continue;
+                }
+
+                if (IsMark(category))
+                {
+                    // A mark with nothing under it — one opening the name, or following a space —
+                    // has no base to combine with, and past the cap they only stack higher.
+                    if (spacePending || !hasBase || marks >= MaxMarksPerCharacter)
+                    {
+                        if (isPair) i++;
+                        continue;
+                    }
+
+                    marks++;
                 }
 
                 int width = isPair ? 2 : 1;
@@ -79,6 +109,12 @@ namespace Game.Core
 
                 sb.Append(c);
                 if (isPair) sb.Append(raw[++i]);
+
+                if (!IsMark(category))
+                {
+                    hasBase = true;
+                    marks = 0;
+                }
             }
 
             return sb.Length == 0 ? fallback : sb.ToString();
@@ -86,6 +122,11 @@ namespace Game.Core
 
         /// <summary>Cleans a name, falling back to that seat's default (AC3).</summary>
         public static string Sanitize(string raw, int seatIndex) => Sanitize(raw, SeatDefault(seatIndex));
+
+        private static bool IsMark(UnicodeCategory category) =>
+            category == UnicodeCategory.NonSpacingMark ||
+            category == UnicodeCategory.SpacingCombiningMark ||
+            category == UnicodeCategory.EnclosingMark;
 
         private static bool Allowed(UnicodeCategory category)
         {

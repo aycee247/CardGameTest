@@ -39,6 +39,21 @@ namespace Game.App
             }
         }
 
+        /// <summary>
+        /// Seeds the local display name before NGO can spawn anything (STORY-4.3).
+        ///
+        /// This runs during scene load, ahead of the controller's own OnNetworkSpawn, so the very
+        /// first identity announcement already carries the name. That ordering matters: the same
+        /// announcement is what clears the host's ready-up gate, and the host builds the match the
+        /// moment it clears — a name that arrives one message later arrives after the seats have
+        /// been named, and PlayerState.DisplayName is immutable by then.
+        /// </summary>
+        private void Awake()
+        {
+            if (IsOnline && networkController != null)
+                networkController.AnnounceIdentity(LocalIdentity.RawDisplayName);
+        }
+
         private void Start()
         {
             ConfigureHints();
@@ -151,11 +166,10 @@ namespace Game.App
             presenter.Bind(networkController, networkController);
             networkController.HostLost += OnHostLost;
 
-            // Tell the server what this player is called (STORY-4.3). Sent here rather than left
-            // to the controller because only the composition root can see Game.Persistence, and
-            // sent unconditionally because the scene load and NGO's spawn race: if the controller
-            // already announced itself with an empty name, this corrects it before the match is
-            // built, and if it has not spawned yet the name is waiting when it does.
+            // The correction path for the other ordering. Awake normally gets the name in before
+            // the spawn announcement goes out; if the spawn somehow won, this fixes it, and if it
+            // changed nothing AnnounceIdentity sends nothing. Set here rather than left to the
+            // controller because only the composition root can see Game.Persistence.
             networkController.AnnounceIdentity(LocalIdentity.RawDisplayName);
 
             // Online, DONE is a real engine intent (#44): the server marks the seat done and closes

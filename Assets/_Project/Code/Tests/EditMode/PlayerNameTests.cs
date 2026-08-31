@@ -111,11 +111,51 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void AccentedNamesSurviveIntact()
+        {
+            // Precomposed, and the same name decomposed into base + combining mark: both are
+            // ordinary names and neither may be touched by the stacking cap.
+            Assert.AreEqual("Jos\u00E9", PlayerName.Sanitize("Jos\u00E9", 0));
+            Assert.AreEqual("Jose\u0301", PlayerName.Sanitize("Jose\u0301", 0));
+            Assert.AreEqual("Zo\u00EB", PlayerName.Sanitize("Zo\u00EB", 0));
+
+            // Two marks on one base is still real orthography and sits exactly on the cap.
+            Assert.AreEqual("A\u0301\u0308", PlayerName.Sanitize("A\u0301\u0308", 0));
+        }
+
+        [Test]
+        public void StackedCombiningMarksAreCapped()
+        {
+            // The Zalgo case: one letter buried under fifteen marks, which cost no width and so
+            // would otherwise render straight through the rows above and below.
+            var zalgo = "A" + new string('\u0350', 15);
+
+            Assert.AreEqual("A\u0350\u0350", PlayerName.Sanitize(zalgo, 0));
+        }
+
+        [Test]
+        public void MarksWithNothingToAttachToAreDropped()
+        {
+            // Opening the name, and following a space: in both cases there is no base character.
+            Assert.AreEqual("Ada", PlayerName.Sanitize("\u0350Ada", 0));
+            Assert.AreEqual("Ada L", PlayerName.Sanitize("Ada \u0350L", 0));
+            Assert.AreEqual("Player 1", PlayerName.Sanitize("\u0350\u0350\u0350", 0));
+        }
+
+        [Test]
+        public void TheMarkCapResetsAtEachNewCharacter()
+        {
+            // Per base character, not per name — an accent on every letter is fine.
+            Assert.AreEqual("a\u0301b\u0301c\u0301", PlayerName.Sanitize("a\u0301b\u0301c\u0301", 0));
+        }
+
+        [Test]
         public void SanitizingIsIdempotent()
         {
             string[] inputs =
             {
                 "  Ada \t Lovelace  ", "Bartholomew Fitzgerald III", "\u200BA\u202Eda",
+                "A" + new string('\u0350', 15), "Jos\u00E9", "\u0350\u0350Ada",
                 "", "   ", "\U0001F600\U0001F600\U0001F600\U0001F600\U0001F600\U0001F600\U0001F600\U0001F600\U0001F600"
             };
 

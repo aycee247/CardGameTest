@@ -66,9 +66,11 @@ namespace Game.Tests.PlayMode
 
         /// <summary>Spawns the controller everywhere, waits out the ready-up gate, starts a match.</summary>
         /// <param name="announcedNames">
-        /// Optional display name for each peer, in <see cref="AllPeers"/> order, announced before
-        /// the roster is built (STORY-4.3). Every entry must sanitize to something, so the wait
-        /// below can tell "announced" apart from "still defaulted".
+        /// Optional display name for each peer, in <see cref="AllPeers"/> order (STORY-4.3).
+        /// Announced before the ready-up gate is polled, which is the ordering production has:
+        /// GameSceneBootstrap seeds the name in Awake, so a client's spawn announcement already
+        /// carries it. The wait below then holds until the roster matches these names sanitized,
+        /// so no entry may sanitize away to nothing.
         /// </param>
         private IEnumerator StartMatch(IReadOnlyList<string> announcedNames = null)
         {
@@ -79,19 +81,31 @@ namespace Game.Tests.PlayMode
                 m_ClientNetworkManagers.All(nm => ControllerOn(nm) != null));
             AssertOnTimeout("the controller never spawned on every client");
 
-            yield return WaitForConditionOrTimeOut(() => _server.ServerRosterReady());
-            AssertOnTimeout("the ready-up gate never cleared (identity announcements missing)");
-
+            // Names go out before the gate is polled. Announcing after it clears would exercise
+            // the one ordering that is always safe, and miss the race the production code has to
+            // win: the gate is satisfied by the same message that carries the name, and the host
+            // builds the match the moment it clears.
             if (announcedNames != null)
             {
                 var peers = AllPeers();
                 for (int i = 0; i < peers.Count && i < announcedNames.Count; i++)
                     peers[i].AnnounceIdentity(announcedNames[i]);
+            }
+
+            yield return WaitForConditionOrTimeOut(() => _server.ServerRosterReady());
+            AssertOnTimeout("the ready-up gate never cleared (identity announcements missing)");
+
+            if (announcedNames != null)
+            {
+                // Wait for exactly the names that were announced, rather than inferring arrival
+                // from what a default looks like — a player may legitimately be called "Player X".
+                var expected = announcedNames
+                    .Select(n => PlayerName.Sanitize(n, string.Empty)).OrderBy(n => n).ToArray();
 
                 yield return WaitForConditionOrTimeOut(() =>
                 {
                     _server.ServerBuildRoster(out _, out _, out var announced);
-                    return announced.All(n => !n.StartsWith("Player "));
+                    return announced.OrderBy(n => n).SequenceEqual(expected);
                 });
                 AssertOnTimeout("the server never received every announced display name");
             }

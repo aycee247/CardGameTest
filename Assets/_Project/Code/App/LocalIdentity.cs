@@ -15,9 +15,13 @@ namespace Game.App
     public static class LocalIdentity
     {
         /// <summary>
-        /// The raw name as typed, or empty when there is no profile or none was chosen. Raw
-        /// because the seat that will receive it decides the fallback — see
-        /// <see cref="PlayerName.Sanitize(string, int)"/>.
+        /// The stored name, or empty when there is no profile or none was chosen.
+        ///
+        /// "Raw" in two senses. It carries <b>no seat fallback</b> — the seat that receives it
+        /// decides that, via <see cref="PlayerName.Sanitize(string, int)"/>. And while anything
+        /// written through <see cref="SetDisplayName"/> was sanitized on the way in, this reads
+        /// back from a file on disk that may predate the sanitizer or have been edited by hand,
+        /// so it is <b>not</b> to be trusted as clean. Every consumer sanitizes again.
         /// </summary>
         public static string RawDisplayName =>
             GameServices.IsReady &&

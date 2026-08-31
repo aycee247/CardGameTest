@@ -246,7 +246,11 @@ namespace Game.Networking
 
             // Announce who we are. Before the match this is how the server learns each player's
             // stable key; after a drop, the very same message reclaims the seat.
-            if (IsClient) RegisterIdentityRpc(LocalSeatKey(), LocalDisplayName);
+            if (IsClient)
+            {
+                RegisterIdentityRpc(LocalSeatKey(), LocalDisplayName);
+                _announcedName = LocalDisplayName;
+            }
         }
 
         public override void OnNetworkDespawn()
@@ -256,6 +260,10 @@ namespace Game.Networking
 
             nm.OnClientDisconnectCallback -= OnServerSawClientLeave;
             nm.OnClientDisconnectCallback -= OnClientLostConnection;
+
+            // A reconnect is a new transport id and a server that has forgotten this client, so
+            // the next spawn must announce again even if the name has not changed.
+            _announcedName = null;
         }
 
         /// <summary>
@@ -339,16 +347,31 @@ namespace Game.Networking
         public string LocalDisplayName { get; private set; } = string.Empty;
 
         /// <summary>
-        /// Sets the local display name and, if this peer is already spawned, re-announces it.
-        /// Safe to call before or after <see cref="OnNetworkSpawn"/>, which is the point: the
-        /// scene bootstrap and NGO's spawn race each other, and a second announcement costs one
-        /// small RPC where a missed one costs the player their name for the whole match.
+        /// What the last announcement actually carried, or null if none has been sent. Null rather
+        /// than empty so that "announced an empty name" is distinguishable from "never announced".
+        /// </summary>
+        private string _announcedName;
+
+        /// <summary>
+        /// Sets the local display name and announces it if that changes what the server was last
+        /// told. Safe to call before or after <see cref="OnNetworkSpawn"/>, which is the point:
+        /// the scene bootstrap and NGO's spawn race each other. The bootstrap sets the name in
+        /// Awake, so the spawn's own announcement already carries it; this call is what covers
+        /// the other ordering, and a missed name cannot be corrected once the match is built.
+        ///
+        /// The change check matters on reconnect: the spawn announcement is what reclaims the
+        /// seat, and a second identical one would run that whole branch again — rebinding the
+        /// seat and costing a full snapshot encode per recipient for nothing.
         /// </summary>
         public void AnnounceIdentity(string displayName)
         {
             LocalDisplayName = PlayerName.Sanitize(displayName, string.Empty);
 
-            if (IsSpawned && IsClient) RegisterIdentityRpc(LocalSeatKey(), LocalDisplayName);
+            if (!IsSpawned || !IsClient) return;
+            if (_announcedName == LocalDisplayName) return;
+
+            RegisterIdentityRpc(LocalSeatKey(), LocalDisplayName);
+            _announcedName = LocalDisplayName;
         }
 
         /// <summary>
