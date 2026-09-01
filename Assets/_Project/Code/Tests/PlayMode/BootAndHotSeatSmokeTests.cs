@@ -2,6 +2,7 @@ using System.Collections;
 using Game.App;
 using Game.Persistence;
 using Game.UI;
+using TMPro;
 using UnityEngine.UI;
 using NUnit.Framework;
 using UnityEngine;
@@ -119,6 +120,75 @@ namespace Game.Tests.PlayMode
             {
                 save.Profile.OnboardingSeenVersion = original;
             }
+        }
+
+        /// <summary>
+        /// Every page of the explainer has to fit the screen it is drawn on. The scene generator
+        /// cannot check this — the copy is set at runtime, so at generation time the label is
+        /// empty — and the first build of it shipped with the text rendering as one long line off
+        /// both edges of the phone, because nothing set a wrapping mode.
+        /// </summary>
+        [UnityTest]
+        [Timeout(120000)]
+        public IEnumerator HowToPlay_EveryPageFitsItsPanel()
+        {
+            LogAssert.ignoreFailingMessages = true;
+
+            if (!GameServices.IsReady)
+            {
+                SceneManager.LoadScene(SceneNames.Boot);
+
+                float deadline = Time.realtimeSinceStartup + 90f;
+                while (SceneManager.GetActiveScene().name != SceneNames.MainMenu)
+                {
+                    Assert.Less(Time.realtimeSinceStartup, deadline, "Boot never reached the MainMenu.");
+                    yield return null;
+                }
+            }
+
+            SceneManager.LoadScene(SceneNames.MainMenu);
+            yield return null;
+
+            var explainer = Object.FindFirstObjectByType<HowToPlayView>(FindObjectsInactive.Include);
+            Assert.IsNotNull(explainer, "MainMenu has no HowToPlayView — regenerate the scenes.");
+
+            explainer.Open();
+            yield return null;
+
+            var body = explainer.transform.Find("Body")?.GetComponent<TMP_Text>();
+            var title = explainer.transform.Find("Title")?.GetComponent<TMP_Text>();
+            Assert.IsNotNull(body, "The explainer has no Body label.");
+            Assert.IsNotNull(title, "The explainer has no Title label.");
+
+            for (int page = 1; page <= HowToPlayView.PageCount; page++)
+            {
+                yield return null;   // let the layout settle on the page just shown
+
+                AssertFits(title, $"page {page} title");
+                AssertFits(body, $"page {page} body");
+
+                if (page < HowToPlayView.PageCount) explainer.Next();
+            }
+
+            explainer.Close();
+        }
+
+        /// <summary>
+        /// Asserts a label's laid-out text stays inside the box it was given. Rendered bounds, not
+        /// preferred size: preferred width ignores wrapping and would fail on text that wraps
+        /// perfectly well.
+        /// </summary>
+        private static void AssertFits(TMP_Text label, string what)
+        {
+            label.ForceMeshUpdate();
+
+            var rect = ((RectTransform)label.transform).rect;
+            var bounds = label.textBounds.size;
+
+            Assert.LessOrEqual(bounds.x, rect.width + 1f,
+                $"{what}: text is {bounds.x:0} wide in a {rect.width:0} box — it will run off the screen.");
+            Assert.LessOrEqual(bounds.y, rect.height + 1f,
+                $"{what}: text is {bounds.y:0} tall in a {rect.height:0} box — it will be clipped.");
         }
 
         /// <summary>
