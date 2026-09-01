@@ -87,6 +87,11 @@ namespace Game.SceneTools
             rt.sizeDelta = size;
             rt.anchoredPosition = anchoredPos;
 
+            // The root's own image is the SHADOW, and the colour lives on a Fill child raised
+            // above it. A uGUI child always draws over its parent, so this is the only ordering
+            // that puts a hard shadow behind the control without giving up the root Image that
+            // callers reach for. PressableButton scales the whole transform, so the button sinks
+            // into its own shadow on press.
             var image = go.GetComponent<Image>();
             Color labelColor;
             switch (style)
@@ -105,7 +110,29 @@ namespace Game.SceneTools
                     break;
             }
 
-            var textRt = Label(rt, "Text", label, Vector2.zero, size, fontSize,
+            var fillColor = image.color;
+            float drop = Theme != null ? Theme.dropOffset : 0f;
+
+            // Ghost buttons are an invisible tap area by design, so they get neither shadow nor
+            // outline — a border would make them the loudest thing on the screen.
+            bool raised = style != ButtonStyle.Ghost && drop > 0f;
+
+            image.color = raised ? Theme.divider : fillColor;
+            if (raised) Rounded(image);
+
+            var fill = Panel(rt, "Fill", stretch: false);
+            fill.anchorMin = Vector2.zero;
+            fill.anchorMax = Vector2.one;
+            fill.offsetMin = new Vector2(0f, raised ? drop : 0f);
+            fill.offsetMax = new Vector2(0f, raised ? drop : 0f);
+            var fillImage = fill.gameObject.AddComponent<Image>();
+            fillImage.color = fillColor;
+            Rounded(fillImage);
+            go.GetComponent<Button>().targetGraphic = fillImage;
+
+            if (style != ButtonStyle.Ghost) Outline(fill);
+
+            var textRt = Label(fill, "Text", label, Vector2.zero, size, fontSize,
                 TextAlignmentOptions.Center, FontRole.BodySemibold, labelColor, 0.04f).rectTransform;
             textRt.anchorMin = Vector2.zero;
             textRt.anchorMax = Vector2.one;
@@ -242,7 +269,8 @@ namespace Game.SceneTools
                 label.color = on ? Theme.textInverse : Theme.textPrimary;
             }
 
-            var image = toggle.GetComponent<Image>();
+            // FillOf, not GetComponent: the root image is the shadow.
+            var image = FillOf(toggle);
             if (image != null) image.color = on ? Theme.accentPriority : Theme.surfaceRaised;
         }
 
@@ -290,6 +318,56 @@ namespace Game.SceneTools
 
             // Behind the visible fill, so it can never draw over the control it is enlarging.
             hit.SetAsFirstSibling();
+        }
+
+        /// <summary>
+        /// The fill of a control built by <see cref="Button"/> — the child that carries its
+        /// colour, since the root image is the shadow behind it.
+        /// </summary>
+        public static Image FillOf(Component control)
+        {
+            var fill = control == null ? null : control.transform.Find("Fill");
+            return fill != null ? fill.GetComponent<Image>() : control?.GetComponent<Image>();
+        }
+
+        /// <summary>
+        /// The label of a control built by <see cref="Button"/>. It lives under the Fill child,
+        /// not directly under the root, so callers must not reach for it by path.
+        /// </summary>
+        public static TMP_Text LabelOf(Component control) =>
+            control == null ? null : control.GetComponentInChildren<TMP_Text>(true);
+
+        /// <summary>Gives an image the generated rounded-rectangle sprite, nine-sliced.</summary>
+        public static void Rounded(Image image, bool outlineShape = false)
+        {
+            var path = outlineShape ? ShapeGenerator.OutlinePath : ShapeGenerator.FillPath;
+            var sprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (sprite == null) return;   // shapes not generated yet: square corners, not a crash
+
+            image.sprite = sprite;
+            image.type = Image.Type.Sliced;
+
+            // The sprite is authored with a 28px corner. pixelsPerUnitMultiplier scales the whole
+            // nine-slice, so this is what turns the authored radius into the theme's.
+            float radius = Theme != null ? Theme.cornerRadius : 34f;
+            image.pixelsPerUnitMultiplier = Mathf.Max(0.05f, 28f / Mathf.Max(1f, radius));
+        }
+
+        /// <summary>Draws the theme's solid outline around a rect, as a child that covers it.</summary>
+        public static Image Outline(RectTransform host)
+        {
+            if (Theme == null || Theme.outlineWidth <= 0f) return null;
+
+            var go = new GameObject("Outline", typeof(RectTransform), typeof(Image));
+            var rt = (RectTransform)go.transform;
+            rt.SetParent(host, false);
+            Stretch(rt);
+
+            var image = go.GetComponent<Image>();
+            image.color = Theme.divider;
+            image.raycastTarget = false;
+            Rounded(image, outlineShape: true);
+            return image;
         }
 
         public static void Stretch(RectTransform rt)

@@ -135,7 +135,9 @@ namespace Game.UI
             if (theme == null) return;
             if (label != null) label.color = on ? theme.textInverse : theme.textPrimary;
 
-            var image = toggle.GetComponent<Image>();
+            // The colour lives on the Fill child; the root image is the button's drop shadow.
+            var fill = toggle.transform.Find("Fill");
+            var image = fill != null ? fill.GetComponent<Image>() : toggle.GetComponent<Image>();
             if (image != null) image.color = on ? theme.accentPriority : theme.surfaceRaised;
         }
 

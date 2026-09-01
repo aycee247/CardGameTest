@@ -54,34 +54,44 @@ namespace Game.SceneTools
                 Debug.Log($"[Foundry] Theme written to {path}; every token assigned.");
         }
 
+        /// <summary>
+        /// The chunky arcade direction: a warm ground, flat saturated colour, and a solid ink
+        /// edge where the blueprint drew a hairline. Same token names throughout — the palette is
+        /// a content change, which is the whole reason the theme exists.
+        /// </summary>
         private static void FillLight(ThemeAsset theme)
         {
-            theme.surfaceBase = Hex("#f2f2f3");
-            theme.surfaceRaised = Hex("#e9e9ea");
+            theme.surfaceBase = Hex("#fdf3e3");        // warm ground, not cold grey
+            theme.surfaceRaised = Hex("#ffffff");
             // The one token the handoff table leaves unassigned; the reveal spotlight's full-bleed
             // accent-900 field is its only full-surface use, so that is the value.
             theme.surfaceOverlay = Hex("#1d2d3d");
 
-            theme.textPrimary = Hex("#1d1f20");
-            theme.textMuted = Hex("#8d8e8f");
-            theme.textInverse = Hex("#f2f2f3");
+            theme.textPrimary = Hex("#16212e");
+            theme.textMuted = Hex("#6f6a5e");           // warm grey, to sit on the cream
+            theme.textInverse = Hex("#fdf3e3");
 
             theme.stateAffordable = Hex("#94bce3");            // accent-400 border on payable cards
             theme.stateUnaffordable = Fade(Hex("#1d1f20"));    // neutral hairline when dice can't pay
             theme.stateSpent = Hex("#b7b7ba");                 // neutral-400, dashed-border dice
-            theme.stateReady = Hex("#416180");                 // accent-700 "✓ READY"
-            theme.stateThinking = Hex("#8d8e8f");              // text.muted "○ THINKING"
-            theme.stateTrouble = Hex("#e58c59");               // carried from the old PlayerRowView
+            theme.stateReady = Hex("#34b27b");                 // green reads as done at a glance
+            theme.stateThinking = Hex("#6f6a5e");
+            theme.stateTrouble = Hex("#f0803c");               // the old ember, saturated
 
-            theme.accentPriority = Hex("#5980a6");
+            theme.accentPriority = Hex("#2f6fd0");
             theme.accentRamp = Ramp();
-            theme.divider = Fade(Hex("#1d1f20"));
+
+            // A solid ink edge, not a 16% hairline: the outline is the direction.
+            theme.divider = Hex("#16212e");
+            theme.outlineWidth = 8f;
+            theme.cornerRadius = 34f;
+            theme.dropOffset = 14f;
         }
 
         private static void FillDark(ThemeAsset theme)
         {
             theme.surfaceBase = Hex("#16222e");                // the night-shift floor
-            theme.surfaceRaised = Hex("#1d2d3d");              // light theme's overlay, now a surface
+            theme.surfaceRaised = Hex("#22364a");              // raised further, to read under an outline
             theme.surfaceOverlay = Hex("#0d151d");             // the spotlight goes deeper still
 
             theme.textPrimary = Hex("#eef6ff");
@@ -91,24 +101,29 @@ namespace Game.SceneTools
             theme.stateAffordable = Hex("#94bce3");
             theme.stateUnaffordable = Fade(Hex("#eef6ff"));
             theme.stateSpent = Hex("#5a6b7c");
-            theme.stateReady = Hex("#b5d9fd");                 // brighter reads as lit on dark
+            theme.stateReady = Hex("#46c98d");                 // the same green, lifted for dark
             theme.stateThinking = Hex("#8fa1b3");
-            theme.stateTrouble = Hex("#e58c59");               // the ember carries both shifts
+            theme.stateTrouble = Hex("#f0803c");               // the ember carries both shifts
 
-            theme.accentPriority = Hex("#749dc4");
+            theme.accentPriority = Hex("#4f92e8");
             // The same ramp reversed: consumers use low steps as quiet surfaces and high steps
             // as emphasis, and reversal preserves that contract on a dark ground.
             var ramp = Ramp();
             System.Array.Reverse(ramp);
             theme.accentRamp = ramp;
-            theme.divider = Fade(Hex("#eef6ff"));
+            // On dark, the outline is the ink of the ground rather than of the text: a near-black
+            // edge is what makes a lit panel sit on top of the floor instead of merging with it.
+            theme.divider = Hex("#0b1119");
+            theme.outlineWidth = 8f;
+            theme.cornerRadius = 34f;
+            theme.dropOffset = 14f;
         }
 
         private static Color[] Ramp() => new[]
         {
-            Hex("#eef6ff"), Hex("#d6ebff"), Hex("#b5d9fd"),
-            Hex("#94bce3"), Hex("#749dc4"), Hex("#597ea3"),
-            Hex("#416180"), Hex("#2c455d"), Hex("#1d2d3d"),
+            Hex("#eef6ff"), Hex("#cfe2ff"), Hex("#9dc2f5"),
+            Hex("#6a9be8"), Hex("#2f6fd0"), Hex("#245aac"),
+            Hex("#1b4685"), Hex("#12325f"), Hex("#16212e"),
         };
 
         /// <summary>Hairline borders: the ink at 16% (the prototype's color-mix divider).</summary>

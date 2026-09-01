@@ -473,8 +473,8 @@ namespace Game.SceneTools
             var start = Bottom(UiFactory.Button(content, "StartButton", "START MATCH",
                 Vector2.zero, new Vector2(970, 144)), 140);
             UiFactory.BlueprintFrame((RectTransform)start.transform, FrameEmphasis.AccentStrong);
-            var startFill = start.GetComponent<Image>();
-            var startLabel = start.transform.Find("Text").GetComponent<TMP_Text>();
+            var startFill = UiFactory.FillOf(start);
+            var startLabel = UiFactory.LabelOf(start);
 
             // Seat row template, deactivated in-scene (the prefab-reference pattern).
             var templates = UiFactory.Panel(canvas.transform, "Templates");
@@ -771,7 +771,7 @@ namespace Game.SceneTools
                 new Vector2(0, -270), new Vector2(920, 130));
             UiFactory.BlueprintFrame((RectTransform)commit.transform, FrameEmphasis.AccentStrong);
             var commitFill = commit.GetComponent<Image>();
-            var commitLabel = commit.transform.Find("Text").GetComponent<TMP_Text>();
+            var commitLabel = UiFactory.LabelOf(commit);
 
             UiFactory.Label(sheet, "SmallPrint",
                 "Commits are secret until Reveal.\nContested cards go to the lowest score.",
