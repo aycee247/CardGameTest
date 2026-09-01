@@ -61,6 +61,13 @@ namespace Game.SceneTools
             // TMP's characterSpacing is in font units ≈ em/100.
             if (letterSpacingEm != 0f) tmp.characterSpacing = letterSpacingEm * 100f;
 
+            // Text never takes input. A TMP graphic defaults to raycastTarget = true, and this
+            // factory builds every label in the game, so that default meant any label lying over
+            // a button quietly ate the taps: on device the menu's full-width status line sat
+            // across the offline row and only the button edges responded. A label inside a button
+            // is unaffected — the event bubbles to the Button either way.
+            tmp.raycastTarget = false;
+
             return tmp;
         }
 
@@ -113,7 +120,11 @@ namespace Game.SceneTools
             rt.SetParent(parent, false);
             rt.sizeDelta = size;
             rt.anchoredPosition = anchoredPos;
-            go.GetComponent<Image>().color = Theme.surfaceBase;
+            // surfaceBase is a hair off the page colour, which left the field invisible on device
+            // — "Your name" read as a caption rather than something to tap. Raised fill plus the
+            // project's own border makes it look like the control it is.
+            go.GetComponent<Image>().color = Theme.surfaceRaised;
+            BlueprintFrame(rt, marks: false);
 
             var input = go.AddComponent<TMP_InputField>();
 
@@ -227,6 +238,52 @@ namespace Game.SceneTools
 
             var image = toggle.GetComponent<Image>();
             if (image != null) image.color = on ? Theme.accentPriority : Theme.surfaceRaised;
+        }
+
+        /// <summary>
+        /// Apple's minimum touch target is 44pt. Layouts here are authored against a 1080-unit
+        /// reference width that maps to the device's width in points, so on a ~400pt phone one
+        /// unit is ~0.37pt and 44pt is ~120 units.
+        /// </summary>
+        public const float MinTouchUnits = 120f;
+
+        /// <summary>
+        /// Grows a control's *touchable* area to <see cref="MinTouchUnits"/> without changing how
+        /// big it looks, by parenting an invisible graphic that catches the taps its neighbour
+        /// misses. Taps on the child bubble to the Selectable, so a small icon button stays small
+        /// and still takes a thumb.
+        ///
+        /// Preferred over simply drawing the control bigger: the top bar and the shape row have
+        /// no room to spare, and a 44pt icon would crowd them.
+        /// </summary>
+        public static void ExpandHitArea(Component control, float minUnits = MinTouchUnits)
+        {
+            if (control == null) return;
+
+            var rt = (RectTransform)control.transform;
+
+            // sizeDelta, not rect: rect is only correct after a layout pass, and at generation
+            // time there has not been one — reading it here handed out hit areas to controls that
+            // were already big enough. For a point-anchored control (which every control this
+            // generator makes is) sizeDelta is the exact size.
+            bool pointAnchored = rt.anchorMin == rt.anchorMax;
+            var size = pointAnchored ? rt.sizeDelta : rt.rect.size;
+            if (size.x >= minUnits && size.y >= minUnits) return;
+
+            var go = new GameObject("HitArea", typeof(RectTransform), typeof(Image));
+            var hit = (RectTransform)go.transform;
+            hit.SetParent(rt, false);
+            hit.anchorMin = new Vector2(0.5f, 0.5f);
+            hit.anchorMax = new Vector2(0.5f, 0.5f);
+            hit.sizeDelta = new Vector2(Mathf.Max(size.x, minUnits), Mathf.Max(size.y, minUnits));
+            hit.anchoredPosition = Vector2.zero;
+
+            var image = go.GetComponent<Image>();
+            image.color = new Color(0f, 0f, 0f, 0f);
+            image.raycastTarget = true;
+
+            // Behind the visible fill, so it can never draw over the control it is enlarging.
+            hit.SetAsFirstSibling();
         }
 
         public static void Stretch(RectTransform rt)

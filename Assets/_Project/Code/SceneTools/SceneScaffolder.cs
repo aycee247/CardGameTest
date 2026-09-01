@@ -138,9 +138,13 @@ namespace Game.SceneTools
             var canvas = CreateCanvas(out var content);
 
             // ---- Hero: the blueprint-framed identity block (handoff §1) ----
+            // Top-anchored, now that everything under it hangs off the bottom edge. Two fixed
+            // edges beat one floating centre: the vertical gap between hero and actions absorbs
+            // the difference between a 16:9 phone and a tall one, instead of the action stack
+            // drifting into the status line.
             var hero = UiFactory.Panel(content, "Hero", stretch: false);
             hero.sizeDelta = new Vector2(970, 780);
-            hero.anchoredPosition = new Vector2(0, 300);
+            Top(hero, -440);
             UiFactory.BlueprintFrame(hero, FrameEmphasis.Accent);
 
             UiFactory.Label(hero, "Eyebrow", "SIMULTANEOUS DICE ENGINE BUILDER",
@@ -158,50 +162,65 @@ namespace Game.SceneTools
                 new Vector2(0, -270), new Vector2(880, 100), 36f,
                 TextAlignmentOptions.Center, FontRole.Body, Muted(0.7f));
 
+            // ---- Everything below the hero anchors to the bottom edge ----
+            // It used to be a mix: the action stack sat at fixed offsets from the centre while
+            // the status line and footer hung off the bottom, so the gap between them was a
+            // function of screen height. On a tall phone it closed to nothing and the status line
+            // landed across the offline row (with raycastTarget on, it ate that row's taps).
+            // Anchoring the whole stack to one edge makes the spacing below a constant.
+            const float FooterY = 60f;
+            const float CodeLabelY = 135f;
+            const float StatusY = 210f;
+            const float OfflineRowY = 350f;
+            const float JoinY = 520f;
+            const float CodeInputY = 680f;
+            const float HostY = 850f;
+            const float IdentityY = 1010f;
+
             // ---- Identity: who the other seats will see (STORY-4.3) ----
-            // Sits between the hero and the actions, in the gap the hero already leaves, so it
-            // reads as something you fill in on the way to hosting rather than a settings chore.
-            var nameInput = UiFactory.InputField(content, "NameInput", "Your name (optional)",
-                new Vector2(-85, -180), new Vector2(800, 120));
+            var nameInput = Bottom(UiFactory.InputField(content, "NameInput", "Your name (optional)",
+                Vector2.zero, new Vector2(800, 120)), IdentityY);
+            ((RectTransform)nameInput.transform).anchoredPosition += new Vector2(-85f, 0f);
 
             // Settings shares the identity row: both are things you set up before playing, and
             // the offline row below is already three buttons wide (STORY-4.1 AC2).
-            var settingsButton = UiFactory.Button(content, "SettingsButton", "\u2699",
-                new Vector2(400, -180), new Vector2(140, 120), ButtonStyle.Secondary, fontSize: 52f);
+            var settingsButton = Bottom(UiFactory.Button(content, "SettingsButton", "\u2699",
+                Vector2.zero, new Vector2(140, 120), ButtonStyle.Secondary, fontSize: 52f), IdentityY);
+            ((RectTransform)settingsButton.transform).anchoredPosition += new Vector2(400f, 0f);
             UiFactory.BlueprintFrame((RectTransform)settingsButton.transform, marks: false);
             nameInput.characterLimit = PlayerName.MaxLength;
             nameInput.lineType = TMP_InputField.LineType.SingleLine;
 
             // ---- Actions: one solid-accent primary, everything else recedes ----
-            var host = UiFactory.Button(content, "HostButton", "HOST MATCH",
-                new Vector2(0, -330), new Vector2(970, 144));
+            var host = Bottom(UiFactory.Button(content, "HostButton", "HOST MATCH",
+                Vector2.zero, new Vector2(970, 144)), HostY);
             UiFactory.BlueprintFrame((RectTransform)host.transform, FrameEmphasis.AccentStrong);
 
-            var codeInput = UiFactory.InputField(content, "JoinCodeInput", "Enter join code",
-                new Vector2(0, -500), new Vector2(970, 120));
-            var join = UiFactory.Button(content, "JoinButton", "JOIN WITH CODE",
-                new Vector2(0, -660), new Vector2(970, 144), ButtonStyle.Secondary);
+            var codeInput = Bottom(UiFactory.InputField(content, "JoinCodeInput", "Enter join code",
+                Vector2.zero, new Vector2(970, 120)), CodeInputY);
+            var join = Bottom(UiFactory.Button(content, "JoinButton", "JOIN WITH CODE",
+                Vector2.zero, new Vector2(970, 144), ButtonStyle.Secondary), JoinY);
 
             // Kept beyond the handoff: the offline paths — pass-the-device, and solo vs bots
             // (STORY-7.1) — sharing one row so the online actions keep their prominence. HOW TO
             // PLAY (STORY-3.5) joins them: it belongs with the things you do without a friend
             // waiting, and a new player looking for it looks here.
-            var passPlay = UiFactory.Button(content, "PassPlayButton", "PASS &\nPLAY",
-                new Vector2(-322, -830), new Vector2(310, 144), ButtonStyle.Ghost, fontSize: 30f);
+            var passPlay = OffsetX(Bottom(UiFactory.Button(content, "PassPlayButton", "PASS &\nPLAY",
+                Vector2.zero, new Vector2(310, 144), ButtonStyle.Ghost, fontSize: 30f), OfflineRowY), -322f);
             UiFactory.BlueprintFrame((RectTransform)passPlay.transform, marks: false);
-            var solo = UiFactory.Button(content, "SoloButton", "SOLO VS\nBOTS",
-                new Vector2(0, -830), new Vector2(310, 144), ButtonStyle.Ghost, fontSize: 30f);
+            var solo = Bottom(UiFactory.Button(content, "SoloButton", "SOLO VS\nBOTS",
+                Vector2.zero, new Vector2(310, 144), ButtonStyle.Ghost, fontSize: 30f), OfflineRowY);
             UiFactory.BlueprintFrame((RectTransform)solo.transform, marks: false);
-            var howTo = UiFactory.Button(content, "HowToPlayButton", "HOW TO\nPLAY",
-                new Vector2(322, -830), new Vector2(310, 144), ButtonStyle.Ghost, fontSize: 30f);
+            var howTo = OffsetX(Bottom(UiFactory.Button(content, "HowToPlayButton", "HOW TO\nPLAY",
+                Vector2.zero, new Vector2(310, 144), ButtonStyle.Ghost, fontSize: 30f), OfflineRowY), 322f);
             UiFactory.BlueprintFrame((RectTransform)howTo.transform, marks: false);
 
             var status = Bottom(UiFactory.Label(content, "Status", "", Vector2.zero,
-                new Vector2(970, 70), 32f, TextAlignmentOptions.Center, FontRole.Body, Muted(0.8f)), 200);
+                new Vector2(970, 70), 32f, TextAlignmentOptions.Center, FontRole.Body, Muted(0.8f)), StatusY);
             var codeLabel = Bottom(UiFactory.Label(content, "JoinCode", "", Vector2.zero,
-                new Vector2(970, 60), 32f, TextAlignmentOptions.Center, FontRole.BodySemibold), 130);
+                new Vector2(970, 60), 32f, TextAlignmentOptions.Center, FontRole.BodySemibold), CodeLabelY);
             Bottom(UiFactory.Label(content, "Footer", "REV 0.1 · FRESH FROM THE FOUNDRY", Vector2.zero,
-                new Vector2(900, 44), 26f, TextAlignmentOptions.Center, FontRole.BodyMedium, Muted(0.4f), 0.18f), 55);
+                new Vector2(900, 44), 26f, TextAlignmentOptions.Center, FontRole.BodyMedium, Muted(0.62f), 0.18f), FooterY);
 
             var view = content.gameObject.AddComponent<MainMenuView>();
             SetRef(view, "hostButton", host);
@@ -1028,19 +1047,21 @@ namespace Game.SceneTools
                 new Vector2(-55, 0), new Vector2(340, 110), ButtonStyle.Ghost), 190);
             var doneTimer = BuildDoneTimer(content, canvas);
 
-            // Shape row ⇄ face picker share one band (6f / 6f-alt).
+            // Shape row ⇄ face picker share one band (6f / 6f-alt). Sits 8 units higher than the
+            // authored band so the row's touch areas — grown to the 44pt minimum, which reaches
+            // below what is drawn — clear the top edge of the done square beneath it.
             var reroll = Bottom(UiFactory.Button(content, "RerollButton", "RE-ROLL",
-                new Vector2(-370, 0), new Vector2(310, 110), ButtonStyle.Secondary), 350);
+                new Vector2(-370, 0), new Vector2(310, 110), ButtonStyle.Secondary), 358);
             var nudgeDown = Bottom(UiFactory.Button(content, "NudgeDownButton", "−1",
-                new Vector2(-125, 0), new Vector2(140, 110), ButtonStyle.Secondary), 350);
+                new Vector2(-125, 0), new Vector2(140, 110), ButtonStyle.Secondary), 358);
             var nudgeUp = Bottom(UiFactory.Button(content, "NudgeUpButton", "+1",
-                new Vector2(30, 0), new Vector2(140, 110), ButtonStyle.Secondary), 350);
+                new Vector2(30, 0), new Vector2(140, 110), ButtonStyle.Secondary), 358);
             var setFace = Bottom(UiFactory.Button(content, "SetFaceButton", "SET FACE",
-                new Vector2(300, 0), new Vector2(380, 110), ButtonStyle.Secondary), 350);
+                new Vector2(300, 0), new Vector2(380, 110), ButtonStyle.Secondary), 358);
 
             var faceRoot = UiFactory.Panel(content, "FaceButtons", stretch: false);
             faceRoot.sizeDelta = new Vector2(880, 110);
-            Bottom(faceRoot, 350);
+            Bottom(faceRoot, 358);
             faceRoot.anchoredPosition = new Vector2(-70, faceRoot.anchoredPosition.y);
             Row(faceRoot, spacing: 10);
             for (int face = 1; face <= 6; face++)
@@ -1050,7 +1071,7 @@ namespace Game.SceneTools
                 FixedSize(faceButton.gameObject, 135, 100);
             }
             var faceCancel = Bottom(UiFactory.Button(content, "FaceCancelButton", "×",
-                new Vector2(460, 0), new Vector2(110, 100), ButtonStyle.Ghost), 350);
+                new Vector2(460, 0), new Vector2(110, 100), ButtonStyle.Ghost), 358);
 
             // Dice tray (6e): a bordered panel, hint pinned to its top, dice wrapping in a grid so
             // eight at the 62px size still fit the phone width in two rows.
@@ -1268,6 +1289,14 @@ namespace Game.SceneTools
         }
 
         /// <summary>Pins to the bottom edge, <paramref name="y"/> being a positive offset upward.</summary>
+        /// <summary>Nudges an already-anchored element sideways, keeping its edge anchoring.</summary>
+        private static T OffsetX<T>(T target, float x) where T : Component
+        {
+            var rt = (RectTransform)target.transform;
+            rt.anchoredPosition += new Vector2(x, 0f);
+            return target;
+        }
+
         private static T Bottom<T>(T target, float y) where T : Component
         {
             Anchor(target, new Vector2(0.5f, 0f), y);
@@ -1580,9 +1609,195 @@ namespace Game.SceneTools
 
         private static string Save(UnityEngine.SceneManagement.Scene scene, string name)
         {
+            ExpandTouchTargets();
+            ValidateInteraction(name);
+
             var path = $"{SceneDir}/{name}.unity";
             EditorSceneManager.SaveScene(scene, path);
             return path;
+        }
+
+        // ---------------- interaction validation ----------------
+
+        /// <summary>
+        /// Gives every control at least a fingertip to aim at, without redrawing the layout.
+        ///
+        /// Done as a sweep rather than at fifteen call sites because it is a property of the
+        /// screen, not of any one button: the shape row, the face picker and the icon buttons are
+        /// all a few units short of 44pt, and the rows they sit in have no vertical room to grow
+        /// into. <see cref="ValidateInteraction"/> then checks the result, including that the
+        /// enlarged areas do not start stealing from each other.
+        /// </summary>
+        private static void ExpandTouchTargets()
+        {
+            var canvas = Object.FindFirstObjectByType<Canvas>(FindObjectsInactive.Include);
+            if (canvas == null) return;
+
+            foreach (var selectable in canvas.GetComponentsInChildren<UnityEngine.UI.Selectable>(true))
+                UiFactory.ExpandHitArea(selectable);
+        }
+
+        /// <summary>
+        /// Catches the two ways a generated screen becomes untappable, at the moment it is
+        /// generated rather than on someone's phone:
+        ///
+        ///  1. <b>A label lying over a control.</b> Every graphic is a raycast target unless told
+        ///     otherwise, so decorative text silently swallows taps meant for what is underneath.
+        ///     On device this made the menu's offline row respond only around its edges, because
+        ///     the full-width status line crossed it.
+        ///  2. <b>A control smaller than a fingertip.</b> Apple's minimum is 44pt; see
+        ///     <see cref="UiFactory.MinTouchUnits"/> for what that is in layout units.
+        ///
+        /// Measured against <see cref="RefRes"/> — 1080×1920, the shortest supported screen — which
+        /// is where vertical crowding is worst. Rects are computed from the anchors directly
+        /// rather than by asking Unity to lay the canvas out, so the check does not depend on the
+        /// editor's current game-view size.
+        /// </summary>
+        private static void ValidateInteraction(string sceneName)
+        {
+            var canvas = Object.FindFirstObjectByType<Canvas>(FindObjectsInactive.Include);
+            if (canvas == null) return;
+
+            var selectables = canvas.GetComponentsInChildren<UnityEngine.UI.Selectable>(true);
+            var graphics = canvas.GetComponentsInChildren<UnityEngine.UI.Graphic>(true);
+            int problems = 0;
+
+            foreach (var selectable in selectables)
+            {
+                if (!selectable.gameObject.activeInHierarchy) continue;
+                if (!TryTouchRect(selectable, out var rect)) continue;
+
+                if (rect.width < UiFactory.MinTouchUnits || rect.height < UiFactory.MinTouchUnits)
+                {
+                    problems++;
+                    Debug.LogError($"[Scaffold] {sceneName}: '{Path(selectable.transform)}' is " +
+                                   $"{rect.width:0}×{rect.height:0} units, under the " +
+                                   $"{UiFactory.MinTouchUnits:0}-unit (44pt) touch minimum. " +
+                                   "Enlarge it or call UiFactory.ExpandHitArea.");
+                }
+            }
+
+            // Hit areas that grew into a neighbour. Deliberately narrow: only pairs whose *drawn*
+            // rects are clear of each other but whose *touch* rects are not, which is exactly the
+            // damage an enlargement can do.
+            //
+            // Controls that already overlap when drawn are left alone, because this check cannot
+            // tell the two innocent reasons apart from a real one: mutually exclusive states that
+            // are never on screen together (the face picker and the done button), and children of
+            // a layout group, whose positions are decided at runtime and so all read as identical
+            // here.
+            for (int i = 0; i < selectables.Length; i++)
+            {
+                if (!selectables[i].gameObject.activeInHierarchy) continue;
+                if (!TryReferenceRect((RectTransform)selectables[i].transform, out var drawnA)) continue;
+                if (!TryTouchRect(selectables[i], out var a)) continue;
+
+                for (int j = i + 1; j < selectables.Length; j++)
+                {
+                    if (!selectables[j].gameObject.activeInHierarchy) continue;
+                    if (!TryReferenceRect((RectTransform)selectables[j].transform, out var drawnB)) continue;
+                    if (!TryTouchRect(selectables[j], out var b)) continue;
+
+                    if (drawnA.Overlaps(drawnB) || !a.Overlaps(b)) continue;
+
+                    problems++;
+                    Debug.LogError($"[Scaffold] {sceneName}: the enlarged touch areas of " +
+                                   $"'{Path(selectables[i].transform)}' {Describe(a)} and " +
+                                   $"'{Path(selectables[j].transform)}' {Describe(b)} overlap, so " +
+                                   "taps in the overlap reach only one of them.");
+                }
+            }
+
+            foreach (var graphic in graphics)
+            {
+                if (!graphic.raycastTarget || !graphic.gameObject.activeInHierarchy) continue;
+
+                // A graphic inside a control is how the control gets drawn, and taps on it bubble
+                // to the control. Only outsiders can steal input.
+                if (graphic.GetComponentInParent<UnityEngine.UI.Selectable>(true) != null) continue;
+                if (!TryReferenceRect((RectTransform)graphic.transform, out var graphicRect)) continue;
+
+                foreach (var selectable in selectables)
+                {
+                    if (!selectable.gameObject.activeInHierarchy) continue;
+                    if (!TryReferenceRect((RectTransform)selectable.transform, out var target)) continue;
+                    if (!graphicRect.Overlaps(target)) continue;
+
+                    problems++;
+                    Debug.LogError($"[Scaffold] {sceneName}: '{Path(graphic.transform)}' takes " +
+                                   $"raycasts and covers '{Path(selectable.transform)}'. Taps in " +
+                                   "the overlap go to the graphic. Set raycastTarget = false, or " +
+                                   "move it clear.");
+                    break;
+                }
+            }
+
+            if (problems == 0)
+                Debug.Log($"[Scaffold] {sceneName}: interaction check passed at {RefRes.x:0}×{RefRes.y:0}.");
+        }
+
+        /// <summary>
+        /// What a control actually accepts taps in: its own rect, or its HitArea child's if that
+        /// is larger. The HitArea is the sanctioned way to keep a control visually small and
+        /// still take a thumb.
+        /// </summary>
+        private static bool TryTouchRect(Component selectable, out Rect rect)
+        {
+            if (!TryReferenceRect((RectTransform)selectable.transform, out rect)) return false;
+
+            var hit = selectable.transform.Find("HitArea") as RectTransform;
+            if (hit != null && TryReferenceRect(hit, out var hitRect))
+                rect = new Rect(
+                    Mathf.Min(rect.xMin, hitRect.xMin), Mathf.Min(rect.yMin, hitRect.yMin),
+                    Mathf.Max(rect.width, hitRect.width), Mathf.Max(rect.height, hitRect.height));
+
+            return true;
+        }
+
+        /// <summary>
+        /// An element's rect in reference space, resolved from its anchor chain. Walks up to the
+        /// canvas, which is treated as exactly <see cref="RefRes"/>.
+        /// </summary>
+        private static bool TryReferenceRect(RectTransform rt, out Rect rect)
+        {
+            rect = default;
+            if (rt == null) return false;
+
+            Rect parent;
+            if (rt.parent is RectTransform parentRt)
+            {
+                if (!TryReferenceRect(parentRt, out parent)) return false;
+            }
+            else
+            {
+                parent = new Rect(0f, 0f, RefRes.x, RefRes.y);
+                rect = parent;
+                return true;
+            }
+
+            float ax0 = parent.xMin + rt.anchorMin.x * parent.width;
+            float ax1 = parent.xMin + rt.anchorMax.x * parent.width;
+            float ay0 = parent.yMin + rt.anchorMin.y * parent.height;
+            float ay1 = parent.yMin + rt.anchorMax.y * parent.height;
+
+            float width = (ax1 - ax0) + rt.sizeDelta.x;
+            float height = (ay1 - ay0) + rt.sizeDelta.y;
+
+            float pivotX = Mathf.Lerp(ax0, ax1, rt.pivot.x) + rt.anchoredPosition.x;
+            float pivotY = Mathf.Lerp(ay0, ay1, rt.pivot.y) + rt.anchoredPosition.y;
+
+            rect = new Rect(pivotX - width * rt.pivot.x, pivotY - height * rt.pivot.y, width, height);
+            return true;
+        }
+
+        private static string Describe(Rect r) =>
+            $"(x {r.xMin:0}..{r.xMax:0}, y {r.yMin:0}..{r.yMax:0})";
+
+        private static string Path(Transform t)
+        {
+            var name = t.name;
+            for (var p = t.parent; p != null; p = p.parent) name = p.name + "/" + name;
+            return name;
         }
 
         private static void SetRef(Object target, string field, Object value)
