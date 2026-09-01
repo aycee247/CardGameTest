@@ -39,6 +39,18 @@ namespace Game.Data
         [Tooltip("Hairline borders — the text colour at low opacity.")]
         public Color divider;
 
+        [Header("Shape")]
+        [Tooltip("Outline weight in layout units. The chunky direction draws a solid ink edge " +
+                 "where the blueprint direction drew a hairline and corner marks.")]
+        public float outlineWidth = 8f;
+
+        [Tooltip("Corner radius in layout units, applied through the generated rounded sprite.")]
+        public float cornerRadius = 34f;
+
+        [Tooltip("How far the hard drop shadow sits below a raised control, in layout units. " +
+                 "Zero draws no shadow, which is what the flat blueprint direction wants.")]
+        public float dropOffset = 14f;
+
         [Header("Type")]
         public TMP_FontAsset bodyRegular;      // Barlow 400
         public TMP_FontAsset bodyMedium;       // Barlow 500
