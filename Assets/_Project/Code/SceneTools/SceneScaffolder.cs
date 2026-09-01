@@ -374,6 +374,18 @@ namespace Game.SceneTools
             y = SettingsSection(panel, "ACCESSIBILITY", y);
             var reducedMotion = SettingsToggle(panel, "ReducedMotion", "Reduced motion", ref y);
 
+            UiFactory.Label(panel, "UiScaleLabel", "Bigger interface", new Vector2(-330, y),
+                new Vector2(420, 60), 38f, TextAlignmentOptions.Left, FontRole.Body, _theme.textInverse);
+            var uiScaleValue = UiFactory.Label(panel, "UiScaleValue", "100%", new Vector2(330, y),
+                new Vector2(140, 60), 38f, TextAlignmentOptions.Right, FontRole.BodySemibold,
+                _theme.Accent(700));
+            y -= 80f;
+            var uiScale = UiFactory.Slider(panel, "UiScaleSlider", new Vector2(0, y),
+                new Vector2(880, 80), value: UiScaleApplier.MinScale);
+            uiScale.minValue = UiScaleApplier.MinScale;
+            uiScale.maxValue = UiScaleApplier.MaxScale;
+            y -= 110f;
+
             var close = UiFactory.Button(panel, "CloseButton", "DONE",
                 new Vector2(0, -700), new Vector2(460, 140));
 
@@ -387,6 +399,8 @@ namespace Game.SceneTools
             SetRef(view, "nameInput", nameInput);
             SetRef(view, "hapticsToggle", haptics);
             SetRef(view, "reducedMotionToggle", reducedMotion);
+            SetRef(view, "uiScaleSlider", uiScale);
+            SetRef(view, "uiScaleValue", uiScaleValue);
             SetRef(view, "theme", _theme);
 
             // The controller sits on the parent, not the panel: the panel starts inactive, and a
@@ -1427,6 +1441,10 @@ namespace Game.SceneTools
             // plus the applier that feeds it the profile's reduced-motion and speed settings.
             go.AddComponent<UiAnimationService>();
             go.AddComponent<UiMotionSettingsApplier>();
+
+            // Scales the whole canvas from the profile (STORY-4.5 AC1) — on the scaler it drives,
+            // so every scene gets it by construction rather than by remembering.
+            go.AddComponent<UiScaleApplier>();
 
             // Safe-area panel that all content lives under.
             content = UiFactory.Panel(go.transform, "SafeArea");
