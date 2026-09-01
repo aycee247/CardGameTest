@@ -61,6 +61,12 @@ namespace Game.SceneTools
             // TMP's characterSpacing is in font units ≈ em/100.
             if (letterSpacingEm != 0f) tmp.characterSpacing = letterSpacingEm * 100f;
 
+            // Wrap by default. Left unset, long prose rendered as one line and ran off both edges
+            // of the phone — the explainer was the first screen with a sentence that had no
+            // hand-placed newline in it, so nothing had caught it. The handful of labels that
+            // genuinely must not wrap (rail names, chips) set NoWrap after this returns.
+            tmp.textWrappingMode = TextWrappingModes.Normal;
+
             // Text never takes input. A TMP graphic defaults to raycastTarget = true, and this
             // factory builds every label in the game, so that default meant any label lying over
             // a button quietly ate the taps: on device the menu's full-width status line sat
