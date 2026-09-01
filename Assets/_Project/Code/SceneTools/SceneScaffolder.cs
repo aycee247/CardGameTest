@@ -274,15 +274,18 @@ namespace Game.SceneTools
 
             var next = UiFactory.Button(panel, "NextButton", "NEXT",
                 new Vector2(160, -560), new Vector2(360, 140));
+            var nextLabel = next.GetComponentInChildren<TextMeshProUGUI>();
             var back = UiFactory.Button(panel, "BackButton", "BACK",
                 new Vector2(-160, -560), new Vector2(360, 140), ButtonStyle.Ghost);
             var skip = UiFactory.Button(panel, "SkipButton", "SKIP",
                 new Vector2(0, -720), new Vector2(360, 110), ButtonStyle.Ghost);
 
-            // Shares NEXT's position: the last page swaps one for the other, so the thing you
-            // press to move on never moves under your thumb.
+            // Deliberately NOT under NEXT. It used to share that rect, which meant a player
+            // tapping quickly through the pages had their next tap — same thumb, a fraction of a
+            // second later — land on PLAY SOLO and start a match they never asked for, from the
+            // one screen aimed at people who do not yet know what the buttons do.
             var playSolo = UiFactory.Button(panel, "PlaySoloButton", "PLAY SOLO",
-                new Vector2(160, -560), new Vector2(360, 140));
+                new Vector2(0, -720), new Vector2(460, 130));
             UiFactory.BlueprintFrame((RectTransform)playSolo.transform, FrameEmphasis.AccentStrong);
 
             var view = panel.gameObject.AddComponent<HowToPlayView>();
@@ -291,6 +294,7 @@ namespace Game.SceneTools
             SetRef(view, "bodyText", body);
             SetRef(view, "progressText", progress);
             SetRef(view, "nextButton", next);
+            SetRef(view, "nextLabel", nextLabel);
             SetRef(view, "backButton", back);
             SetRef(view, "skipButton", skip);
             SetRef(view, "playSoloButton", playSolo);

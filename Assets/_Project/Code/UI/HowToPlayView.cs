@@ -81,6 +81,7 @@ namespace Game.UI
 
         [Header("Controls")]
         [SerializeField] private Button nextButton;
+        [SerializeField] private TMP_Text nextLabel;
         [SerializeField] private Button backButton;
         [SerializeField] private Button skipButton;
         [SerializeField] private Button playSoloButton;
@@ -172,11 +173,20 @@ namespace Game.UI
             // and then explains nothing about why it did not work.
             if (backButton != null) backButton.gameObject.SetActive(_page > 0);
 
-            // The last page swaps NEXT for the thing worth doing next. Reading about a dice game
-            // is not the point; the solo table is where the rest of it lands.
             bool last = _page == Pages.Length - 1;
-            if (nextButton != null) nextButton.gameObject.SetActive(!last);
+
+            // The primary button stays put and becomes DONE on the last page. It must never
+            // disappear: someone who has read everything and does not want a match right now
+            // needs a way off this screen that is not "start playing", and SKIP has stopped
+            // making sense by then.
+            if (nextButton != null) nextButton.gameObject.SetActive(true);
+            if (nextLabel != null) nextLabel.text = last ? "DONE" : "NEXT";
+
+            // PLAY SOLO is offered below it, never under it — see the note in SceneScaffolder
+            // about why it does not share the primary button's position.
             if (playSoloButton != null) playSoloButton.gameObject.SetActive(last);
+
+            // Nothing left to skip on the last page; DONE is the exit there.
             if (skipButton != null) skipButton.gameObject.SetActive(!last);
         }
     }

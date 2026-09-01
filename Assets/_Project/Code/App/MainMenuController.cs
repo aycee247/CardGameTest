@@ -78,13 +78,18 @@ namespace Game.App
 
         private void OnDestroy()
         {
-            if (view == null) return;
-            view.HostClicked -= OnHost;
-            view.JoinClicked -= OnJoin;
-            view.PassPlayClicked -= OnPassPlay;
-            view.SoloClicked -= OnSolo;
-            view.NameChanged -= OnNameChanged;
-            view.HowToPlayClicked -= OnHowToPlay;
+            // Guards only the view's own handlers. It used to wrap the whole method, which after
+            // the explainer landed meant a missing view silently skipped unsubscribing from it
+            // too — harmless while both die in the same unload, but not what the guard says.
+            if (view != null)
+            {
+                view.HostClicked -= OnHost;
+                view.JoinClicked -= OnJoin;
+                view.PassPlayClicked -= OnPassPlay;
+                view.SoloClicked -= OnSolo;
+                view.NameChanged -= OnNameChanged;
+                view.HowToPlayClicked -= OnHowToPlay;
+            }
 
             if (howToPlay != null)
             {

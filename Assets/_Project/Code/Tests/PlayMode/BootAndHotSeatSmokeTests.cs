@@ -68,32 +68,56 @@ namespace Game.Tests.PlayMode
                 "No save service — the profile is what records that onboarding was seen.");
 
             // Whoever ran the suite before us may already have a profile; make this a new player.
+            // Restored in the finally below rather than at the end of the happy path: production
+            // marks the profile dirty when onboarding completes and the bootstrap flushes it on
+            // quit, so a failed assertion here would otherwise write "already seen" to the
+            // developer's real save — suppressing the very first run the next manual pass needs.
             int original = save.Profile.OnboardingSeenVersion;
-            save.Profile.OnboardingSeenVersion = 0;
 
-            SceneManager.LoadScene(SceneNames.MainMenu);
-            yield return null;      // Start() runs
+            try
+            {
+                save.Profile.OnboardingSeenVersion = 0;
 
-            var explainer = Object.FindFirstObjectByType<HowToPlayView>(FindObjectsInactive.Include);
-            Assert.IsNotNull(explainer, "MainMenu has no HowToPlayView — regenerate the scenes.");
-            Assert.IsTrue(explainer.IsOpen, "A new player was never shown the explainer.");
+                SceneManager.LoadScene(SceneNames.MainMenu);
+                yield return null;      // Start() runs
 
-            // Page through it. The last page's PLAY SOLO also raises Finished, so walking to the
-            // end with Next is the path that leaves the player on the menu.
-            for (int i = 0; i < HowToPlayView.PageCount; i++) explainer.Next();
+                var explainer = Object.FindFirstObjectByType<HowToPlayView>(FindObjectsInactive.Include);
+                Assert.IsNotNull(explainer, "MainMenu has no HowToPlayView — regenerate the scenes.");
+                Assert.IsTrue(explainer.IsOpen, "A new player was never shown the explainer.");
 
-            Assert.IsFalse(explainer.IsOpen, "The explainer never closed at the end.");
-            Assert.AreEqual(HowToPlayView.Version, save.Profile.OnboardingSeenVersion,
-                "Reaching the end must be recorded in the profile (AC3).");
+                // Skipping is a real exit and must count as seen — the button is on every page but
+                // the last, and someone who taps it should not be asked again next launch.
+                explainer.Skip();
+                Assert.IsFalse(explainer.IsOpen, "SKIP left the explainer open.");
+                Assert.AreEqual(HowToPlayView.Version, save.Profile.OnboardingSeenVersion,
+                    "Skipping must be recorded in the profile (AC2/AC3).");
 
-            // ...and a returning player is left alone.
-            SceneManager.LoadScene(SceneNames.MainMenu);
-            yield return null;
+                // ...and a returning player is left alone.
+                SceneManager.LoadScene(SceneNames.MainMenu);
+                yield return null;
 
-            explainer = Object.FindFirstObjectByType<HowToPlayView>(FindObjectsInactive.Include);
-            Assert.IsFalse(explainer.IsOpen, "The explainer reopened for a player who had seen it.");
+                explainer = Object.FindFirstObjectByType<HowToPlayView>(FindObjectsInactive.Include);
+                Assert.IsFalse(explainer.IsOpen,
+                    "The explainer reopened for a player who had seen it.");
 
-            save.Profile.OnboardingSeenVersion = original;
+                // Replay, then read to the end. DONE on the last page is the exit that keeps the
+                // player on the menu; PLAY SOLO is the other one, and it loads a scene, so this
+                // is the completion path a test can drive without leaving the menu behind.
+                save.Profile.OnboardingSeenVersion = 0;
+                explainer.Open();
+                Assert.IsTrue(explainer.IsOpen, "The explainer would not reopen on request.");
+
+                for (int i = 0; i < HowToPlayView.PageCount - 1; i++) explainer.Next();
+                explainer.Next();   // the last page's DONE
+
+                Assert.IsFalse(explainer.IsOpen, "DONE left the explainer open on the last page.");
+                Assert.AreEqual(HowToPlayView.Version, save.Profile.OnboardingSeenVersion,
+                    "Reaching the end must be recorded in the profile (AC3).");
+            }
+            finally
+            {
+                save.Profile.OnboardingSeenVersion = original;
+            }
         }
 
         [UnityTest]
