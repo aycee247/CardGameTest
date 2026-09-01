@@ -61,6 +61,13 @@ namespace Game.SceneTools
             // TMP's characterSpacing is in font units ≈ em/100.
             if (letterSpacingEm != 0f) tmp.characterSpacing = letterSpacingEm * 100f;
 
+            // Text never takes input. A TMP graphic defaults to raycastTarget = true, and this
+            // factory builds every label in the game, so that default meant any label lying over
+            // a button quietly ate the taps: on device the menu's full-width status line sat
+            // across the offline row and only the button edges responded. A label inside a button
+            // is unaffected — the event bubbles to the Button either way.
+            tmp.raycastTarget = false;
+
             return tmp;
         }
 
@@ -113,7 +120,11 @@ namespace Game.SceneTools
             rt.SetParent(parent, false);
             rt.sizeDelta = size;
             rt.anchoredPosition = anchoredPos;
-            go.GetComponent<Image>().color = Theme.surfaceBase;
+            // surfaceBase is a hair off the page colour, which left the field invisible on device
+            // — "Your name" read as a caption rather than something to tap. Raised fill plus the
+            // project's own border makes it look like the control it is.
+            go.GetComponent<Image>().color = Theme.surfaceRaised;
+            BlueprintFrame(rt, marks: false);
 
             var input = go.AddComponent<TMP_InputField>();
 
@@ -134,6 +145,145 @@ namespace Game.SceneTools
             input.placeholder = placeholderTmp;
             input.text = "";
             return input;
+        }
+
+        /// <summary>
+        /// A themed slider: track, fill and handle. The first continuous control in the project —
+        /// volume is a real range, and stepping it with buttons would be worse for the one thing
+        /// a player adjusts by ear.
+        /// </summary>
+        public static Slider Slider(Transform parent, string name, Vector2 anchoredPos, Vector2 size,
+            float value = 1f)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            var rt = (RectTransform)go.transform;
+            rt.SetParent(parent, false);
+            rt.sizeDelta = size;
+            rt.anchoredPosition = anchoredPos;
+
+            // The track is thinner than the control: the whole rect stays tappable, so a thumb
+            // that misses the line by a few pixels still moves the slider.
+            var track = Panel(rt, "Track", stretch: false);
+            track.anchorMin = new Vector2(0f, 0.5f);
+            track.anchorMax = new Vector2(1f, 0.5f);
+            track.sizeDelta = new Vector2(0f, 12f);
+            track.anchoredPosition = Vector2.zero;
+            var trackImage = track.gameObject.AddComponent<Image>();
+            trackImage.color = Theme.divider;
+
+            var fillArea = Panel(rt, "FillArea", stretch: false);
+            fillArea.anchorMin = new Vector2(0f, 0.5f);
+            fillArea.anchorMax = new Vector2(1f, 0.5f);
+            fillArea.sizeDelta = new Vector2(0f, 12f);
+            fillArea.anchoredPosition = Vector2.zero;
+
+            var fill = Panel(fillArea, "Fill", stretch: false);
+            fill.anchorMin = Vector2.zero;
+            fill.anchorMax = new Vector2(0f, 1f);
+            fill.offsetMin = Vector2.zero;
+            fill.offsetMax = Vector2.zero;
+            var fillImage = fill.gameObject.AddComponent<Image>();
+            fillImage.color = Theme.accentPriority;
+
+            var handleArea = Panel(rt, "HandleArea", stretch: false);
+            handleArea.anchorMin = Vector2.zero;
+            handleArea.anchorMax = Vector2.one;
+            handleArea.offsetMin = new Vector2(22f, 0f);
+            handleArea.offsetMax = new Vector2(-22f, 0f);
+
+            var handle = Panel(handleArea, "Handle", stretch: false);
+            handle.sizeDelta = new Vector2(44f, 44f);
+            var handleImage = handle.gameObject.AddComponent<Image>();
+            handleImage.color = Theme.accentPriority;
+
+            var slider = go.AddComponent<Slider>();
+            slider.fillRect = fill;
+            slider.handleRect = handle;
+            slider.targetGraphic = handleImage;
+            slider.direction = UnityEngine.UI.Slider.Direction.LeftToRight;
+            slider.minValue = 0f;
+            slider.maxValue = 1f;
+            slider.SetValueWithoutNotify(value);
+            return slider;
+        }
+
+        /// <summary>
+        /// An on/off control built from the ordinary <see cref="Button"/> rather than Unity's
+        /// Toggle. A toggle would be a second interaction model for the sake of one boolean;
+        /// this way the press sinks and springs like every other button in the game, and the
+        /// label carries the state.
+        ///
+        /// The caller owns the value — call <see cref="SetToggleLabel"/> when it changes.
+        /// </summary>
+        public static Button ToggleButton(Transform parent, string name, Vector2 anchoredPos,
+            Vector2 size, bool on)
+        {
+            var button = Button(parent, name, on ? "ON" : "OFF", anchoredPos, size,
+                on ? ButtonStyle.Primary : ButtonStyle.Secondary, fontSize: 32f);
+            BlueprintFrame((RectTransform)button.transform, marks: false);
+            return button;
+        }
+
+        /// <summary>Repaints a <see cref="ToggleButton"/> for its new state.</summary>
+        public static void SetToggleLabel(Button toggle, bool on)
+        {
+            if (toggle == null) return;
+
+            var label = toggle.GetComponentInChildren<TextMeshProUGUI>();
+            if (label != null)
+            {
+                label.text = on ? "ON" : "OFF";
+                label.color = on ? Theme.textInverse : Theme.textPrimary;
+            }
+
+            var image = toggle.GetComponent<Image>();
+            if (image != null) image.color = on ? Theme.accentPriority : Theme.surfaceRaised;
+        }
+
+        /// <summary>
+        /// Apple's minimum touch target is 44pt. Layouts here are authored against a 1080-unit
+        /// reference width that maps to the device's width in points, so on a ~400pt phone one
+        /// unit is ~0.37pt and 44pt is ~120 units.
+        /// </summary>
+        public const float MinTouchUnits = 120f;
+
+        /// <summary>
+        /// Grows a control's *touchable* area to <see cref="MinTouchUnits"/> without changing how
+        /// big it looks, by parenting an invisible graphic that catches the taps its neighbour
+        /// misses. Taps on the child bubble to the Selectable, so a small icon button stays small
+        /// and still takes a thumb.
+        ///
+        /// Preferred over simply drawing the control bigger: the top bar and the shape row have
+        /// no room to spare, and a 44pt icon would crowd them.
+        /// </summary>
+        public static void ExpandHitArea(Component control, float minUnits = MinTouchUnits)
+        {
+            if (control == null) return;
+
+            var rt = (RectTransform)control.transform;
+
+            // sizeDelta, not rect: rect is only correct after a layout pass, and at generation
+            // time there has not been one — reading it here handed out hit areas to controls that
+            // were already big enough. For a point-anchored control (which every control this
+            // generator makes is) sizeDelta is the exact size.
+            bool pointAnchored = rt.anchorMin == rt.anchorMax;
+            var size = pointAnchored ? rt.sizeDelta : rt.rect.size;
+            if (size.x >= minUnits && size.y >= minUnits) return;
+
+            var go = new GameObject("HitArea", typeof(RectTransform), typeof(Image));
+            var hit = (RectTransform)go.transform;
+            hit.SetParent(rt, false);
+            hit.anchorMin = new Vector2(0.5f, 0.5f);
+            hit.anchorMax = new Vector2(0.5f, 0.5f);
+            hit.sizeDelta = new Vector2(Mathf.Max(size.x, minUnits), Mathf.Max(size.y, minUnits));
+            hit.anchoredPosition = Vector2.zero;
+
+            var image = go.GetComponent<Image>();
+            image.color = new Color(0f, 0f, 0f, 0f);
+            image.raycastTarget = true;
+
+            // Behind the visible fill, so it can never draw over the control it is enlarging.
+            hit.SetAsFirstSibling();
         }
 
         public static void Stretch(RectTransform rt)

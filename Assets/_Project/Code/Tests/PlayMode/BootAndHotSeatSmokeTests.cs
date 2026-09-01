@@ -2,6 +2,7 @@ using System.Collections;
 using Game.App;
 using Game.Persistence;
 using Game.UI;
+using UnityEngine.UI;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -117,6 +118,80 @@ namespace Game.Tests.PlayMode
             finally
             {
                 save.Profile.OnboardingSeenVersion = original;
+            }
+        }
+
+        /// <summary>
+        /// STORY-4.1/4.2: the settings panel writes to the profile and reads back from it. Every
+        /// value in GameSettings has worked since the plumbing commit and none of it was
+        /// reachable, so this covers the wiring rather than the settings themselves.
+        /// </summary>
+        [UnityTest]
+        [Timeout(120000)]
+        public IEnumerator Settings_WriteToTheProfileAndRenderBackFromIt()
+        {
+            LogAssert.ignoreFailingMessages = true;
+
+            if (!GameServices.IsReady)
+            {
+                SceneManager.LoadScene(SceneNames.Boot);
+
+                float deadline = Time.realtimeSinceStartup + 90f;
+                while (SceneManager.GetActiveScene().name != SceneNames.MainMenu)
+                {
+                    Assert.Less(Time.realtimeSinceStartup, deadline, "Boot never reached the MainMenu.");
+                    yield return null;
+                }
+            }
+
+            Assert.IsTrue(GameServices.Locator.TryGet<ISaveService>(out var save),
+                "No save service — settings have nowhere to persist to.");
+
+            var settings = save.Profile.Settings;
+            float originalMaster = settings.MasterVolume;
+            bool originalHaptics = settings.Haptics;
+
+            try
+            {
+                SceneManager.LoadScene(SceneNames.MainMenu);
+                yield return null;
+
+                var controller = Object.FindFirstObjectByType<SettingsController>(FindObjectsInactive.Include);
+                var view = Object.FindFirstObjectByType<SettingsView>(FindObjectsInactive.Include);
+                Assert.IsNotNull(controller, "MainMenu has no SettingsController — regenerate the scenes.");
+                Assert.IsNotNull(view, "MainMenu has no SettingsView — regenerate the scenes.");
+
+                controller.Open();
+                Assert.IsTrue(view.IsOpen, "Settings would not open from the menu (AC2).");
+
+                // Drive the controls the way a player does, through the view's own events.
+                var master = view.transform.Find("MasterSlider")?.GetComponent<Slider>();
+                Assert.IsNotNull(master, "The master volume slider is missing from the panel.");
+
+                master.value = 0.25f;
+                Assert.AreEqual(0.25f, save.Profile.Settings.MasterVolume, 0.001f,
+                    "Moving a slider must write GameSettings (#22 AC1).");
+
+                var haptics = view.transform.Find("HapticsToggle")?.GetComponent<Button>();
+                Assert.IsNotNull(haptics, "The haptics toggle is missing from the panel.");
+
+                bool before = save.Profile.Settings.Haptics;
+                haptics.onClick.Invoke();
+                Assert.AreNotEqual(before, save.Profile.Settings.Haptics,
+                    "The haptics toggle did not reach the profile.");
+
+                // Reopening renders what was stored rather than the authored defaults.
+                view.Close();
+                controller.Open();
+                Assert.AreEqual(0.25f, master.value, 0.001f,
+                    "Settings reopened on the authored default instead of the stored value.");
+            }
+            finally
+            {
+                // Production marks the profile dirty and the bootstrap flushes on quit, so a
+                // failed assertion above must not leave test values in the developer's real save.
+                save.Profile.Settings.MasterVolume = originalMaster;
+                save.Profile.Settings.Haptics = originalHaptics;
             }
         }
 
