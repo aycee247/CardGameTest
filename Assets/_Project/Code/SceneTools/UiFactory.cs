@@ -138,11 +138,11 @@ namespace Game.SceneTools
             textArea.offsetMin = new Vector2(12, 6);
             textArea.offsetMax = new Vector2(-12, -6);
 
-            var placeholderTmp = Label(textArea, "Placeholder", placeholder, Vector2.zero, size, 34f,
+            var placeholderTmp = Label(textArea, "Placeholder", placeholder, Vector2.zero, size, 40f,
                 TextAlignmentOptions.Left, FontRole.Body, Theme.textMuted);
             Stretch(placeholderTmp.rectTransform);
 
-            var textTmp = Label(textArea, "Text", "", Vector2.zero, size, 34f,
+            var textTmp = Label(textArea, "Text", "", Vector2.zero, size, 40f,
                 TextAlignmentOptions.Left, FontRole.Body, Theme.textPrimary);
             Stretch(textTmp.rectTransform);
 
@@ -225,7 +225,7 @@ namespace Game.SceneTools
             Vector2 size, bool on)
         {
             var button = Button(parent, name, on ? "ON" : "OFF", anchoredPos, size,
-                on ? ButtonStyle.Primary : ButtonStyle.Secondary, fontSize: 32f);
+                on ? ButtonStyle.Primary : ButtonStyle.Secondary, fontSize: 38f);
             BlueprintFrame((RectTransform)button.transform, marks: false);
             return button;
         }

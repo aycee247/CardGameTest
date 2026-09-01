@@ -115,3 +115,6 @@ InitTestScene*.unity*
 # ...but tools/CoreTests.csproj is hand-written, not Unity-generated, and must be tracked.
 # The blanket *.csproj rule above exists to drop the ones Unity regenerates under the repo root.
 !/tools/**/*.csproj
+
+# Design canvas working files — the artboards are source, the seeded payload is a 2MB build artifact.
+/design/

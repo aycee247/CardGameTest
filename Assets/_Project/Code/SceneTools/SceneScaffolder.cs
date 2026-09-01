@@ -120,11 +120,11 @@ namespace Game.SceneTools
             // continuous surface rather than three products.
             CreateCanvas(out var content);
             UiFactory.Label(content, "Eyebrow", "SIMULTANEOUS DICE ENGINE BUILDER",
-                new Vector2(0, 330), new Vector2(900, 44), 28f,
+                new Vector2(0, 330), new Vector2(950, 48), 38f,
                 TextAlignmentOptions.Center, FontRole.BodySemibold, _theme.Accent(700), 0.22f);
             UiFactory.Label(content, "Wordmark", "FOUNDRY", new Vector2(0, 160), new Vector2(940, 230), 190f,
                 TextAlignmentOptions.Center, FontRole.HeadingBold);
-            UiFactory.Label(content, "Loading", "STOKING THE FURNACE…", new Vector2(0, -120), new Vector2(900, 60), 32f,
+            UiFactory.Label(content, "Loading", "STOKING THE FURNACE…", new Vector2(0, -120), new Vector2(900, 60), 38f,
                 TextAlignmentOptions.Center, FontRole.BodyMedium, Muted(0.55f), 0.08f);
 
             return Save(scene, SceneNames.Boot);
@@ -148,18 +148,18 @@ namespace Game.SceneTools
             UiFactory.BlueprintFrame(hero, FrameEmphasis.Accent);
 
             UiFactory.Label(hero, "Eyebrow", "SIMULTANEOUS DICE ENGINE BUILDER",
-                new Vector2(0, 300), new Vector2(900, 44), 28f,
+                new Vector2(0, 300), new Vector2(950, 48), 38f,
                 TextAlignmentOptions.Center, FontRole.BodySemibold, _theme.Accent(700), 0.22f);
             UiFactory.Label(hero, "Wordmark", "FOUNDRY", new Vector2(0, 130), new Vector2(940, 230), 190f,
                 TextAlignmentOptions.Center, FontRole.HeadingBold);
             MiniDieGlyph(hero, "GlyphFive", 5, new Vector2(-390, -70));
             MiniDieGlyph(hero, "GlyphSix", 6, new Vector2(-300, -70));
             UiFactory.Label(hero, "Meta", "2–6 PLAYERS · 10 ROUNDS\n≈ 12 MINUTES",
-                new Vector2(230, -80), new Vector2(460, 90), 30f,
+                new Vector2(250, -80), new Vector2(520, 100), 38f,
                 TextAlignmentOptions.Right, FontRole.BodyMedium, Muted(0.55f), 0.08f);
             UiFactory.Label(hero, "BodyCopy",
                 "Roll together, shape your dice, commit in secret,\nthen claim the market's machines.",
-                new Vector2(0, -270), new Vector2(880, 100), 36f,
+                new Vector2(0, -270), new Vector2(880, 100), 38f,
                 TextAlignmentOptions.Center, FontRole.Body, Muted(0.7f));
 
             // ---- Everything below the hero anchors to the bottom edge ----
@@ -184,8 +184,11 @@ namespace Game.SceneTools
 
             // Settings shares the identity row: both are things you set up before playing, and
             // the offline row below is already three buttons wide (STORY-4.1 AC2).
-            var settingsButton = Bottom(UiFactory.Button(content, "SettingsButton", "\u2699",
-                Vector2.zero, new Vector2(140, 120), ButtonStyle.Secondary, fontSize: 52f), IdentityY);
+            // "SET", not a gear glyph: U+2699 is in none of the Barlow faces and not in the
+            // LiberationSans fallback either, so TMP substituted a box — the button read as tofu
+            // on device. An icon here needs a glyph added to the atlases first.
+            var settingsButton = Bottom(UiFactory.Button(content, "SettingsButton", "SET",
+                Vector2.zero, new Vector2(140, 120), ButtonStyle.Secondary, fontSize: 38f), IdentityY);
             ((RectTransform)settingsButton.transform).anchoredPosition += new Vector2(400f, 0f);
             UiFactory.BlueprintFrame((RectTransform)settingsButton.transform, marks: false);
             nameInput.characterLimit = PlayerName.MaxLength;
@@ -206,21 +209,21 @@ namespace Game.SceneTools
             // PLAY (STORY-3.5) joins them: it belongs with the things you do without a friend
             // waiting, and a new player looking for it looks here.
             var passPlay = OffsetX(Bottom(UiFactory.Button(content, "PassPlayButton", "PASS &\nPLAY",
-                Vector2.zero, new Vector2(310, 144), ButtonStyle.Ghost, fontSize: 30f), OfflineRowY), -322f);
+                Vector2.zero, new Vector2(310, 144), ButtonStyle.Ghost, fontSize: 38f), OfflineRowY), -322f);
             UiFactory.BlueprintFrame((RectTransform)passPlay.transform, marks: false);
             var solo = Bottom(UiFactory.Button(content, "SoloButton", "SOLO VS\nBOTS",
-                Vector2.zero, new Vector2(310, 144), ButtonStyle.Ghost, fontSize: 30f), OfflineRowY);
+                Vector2.zero, new Vector2(310, 144), ButtonStyle.Ghost, fontSize: 38f), OfflineRowY);
             UiFactory.BlueprintFrame((RectTransform)solo.transform, marks: false);
             var howTo = OffsetX(Bottom(UiFactory.Button(content, "HowToPlayButton", "HOW TO\nPLAY",
-                Vector2.zero, new Vector2(310, 144), ButtonStyle.Ghost, fontSize: 30f), OfflineRowY), 322f);
+                Vector2.zero, new Vector2(310, 144), ButtonStyle.Ghost, fontSize: 38f), OfflineRowY), 322f);
             UiFactory.BlueprintFrame((RectTransform)howTo.transform, marks: false);
 
             var status = Bottom(UiFactory.Label(content, "Status", "", Vector2.zero,
-                new Vector2(970, 70), 32f, TextAlignmentOptions.Center, FontRole.Body, Muted(0.8f)), StatusY);
+                new Vector2(970, 70), 38f, TextAlignmentOptions.Center, FontRole.Body, Muted(0.8f)), StatusY);
             var codeLabel = Bottom(UiFactory.Label(content, "JoinCode", "", Vector2.zero,
-                new Vector2(970, 60), 32f, TextAlignmentOptions.Center, FontRole.BodySemibold), CodeLabelY);
+                new Vector2(970, 60), 38f, TextAlignmentOptions.Center, FontRole.BodySemibold), CodeLabelY);
             Bottom(UiFactory.Label(content, "Footer", "REV 0.1 · FRESH FROM THE FOUNDRY", Vector2.zero,
-                new Vector2(900, 44), 26f, TextAlignmentOptions.Center, FontRole.BodyMedium, Muted(0.62f), 0.18f), FooterY);
+                new Vector2(900, 48), 38f, TextAlignmentOptions.Center, FontRole.BodyMedium, Muted(0.62f), 0.18f), FooterY);
 
             var view = content.gameObject.AddComponent<MainMenuView>();
             SetRef(view, "hostButton", host);
@@ -292,11 +295,11 @@ namespace Game.SceneTools
         {
             var panel = FullScreenPanel(parent, "HowToPlayPanel", _theme.surfaceOverlay);
 
-            var title = UiFactory.Label(panel, "Title", "", new Vector2(0, 540), new Vector2(900, 200), 66f,
+            var title = UiFactory.Label(panel, "Title", "", new Vector2(0, 540), new Vector2(900, 200), 74f,
                 TextAlignmentOptions.Center, FontRole.HeadingBold, _theme.textInverse);
-            var body = UiFactory.Label(panel, "Body", "", new Vector2(0, 40), new Vector2(880, 780), 38f,
+            var body = UiFactory.Label(panel, "Body", "", new Vector2(0, 40), new Vector2(880, 780), 48f,
                 TextAlignmentOptions.Center, FontRole.Body, _theme.textInverse);
-            var progress = UiFactory.Label(panel, "Progress", "", new Vector2(0, -430), new Vector2(400, 60), 30f,
+            var progress = UiFactory.Label(panel, "Progress", "", new Vector2(0, -430), new Vector2(400, 60), 38f,
                 TextAlignmentOptions.Center, FontRole.BodyMedium,
                 UiFactory.WithAlpha(_theme.textInverse, 0.55f), 0.18f);
 
@@ -338,14 +341,14 @@ namespace Game.SceneTools
         {
             var panel = FullScreenPanel(parent, "SettingsPanel", _theme.surfaceOverlay);
 
-            UiFactory.Label(panel, "Title", "SETTINGS", new Vector2(0, 640), new Vector2(900, 110), 62f,
+            UiFactory.Label(panel, "Title", "SETTINGS", new Vector2(0, 640), new Vector2(900, 110), 69f,
                 TextAlignmentOptions.Center, FontRole.HeadingBold, _theme.textInverse, 0.1f);
 
             // Shown only over a live online match — the presenter decides, the layout always has
             // room for it so nothing shifts when it appears.
             var warning = UiFactory.Label(panel, "LiveMatchWarning",
-                "The round clock keeps running — there is no pause in a live match.",
-                new Vector2(0, 545), new Vector2(900, 60), 26f,
+                "The round clock keeps running —\nthere is no pause in a live match.",
+                new Vector2(0, 545), new Vector2(900, 104), 38f,
                 TextAlignmentOptions.Center, FontRole.BodyMedium, _theme.Accent(700));
 
             float y = 400f;
@@ -357,7 +360,7 @@ namespace Game.SceneTools
             y -= 40f;
             y = SettingsSection(panel, "GAMEPLAY", y);
 
-            UiFactory.Label(panel, "NameLabel", "Your name", new Vector2(-330, y), new Vector2(360, 60), 32f,
+            UiFactory.Label(panel, "NameLabel", "Your name", new Vector2(-330, y), new Vector2(360, 60), 38f,
                 TextAlignmentOptions.Left, FontRole.Body, _theme.textInverse);
             var nameInput = UiFactory.InputField(panel, "NameInput", "Your name (optional)",
                 new Vector2(150, y), new Vector2(560, 100));
@@ -397,7 +400,7 @@ namespace Game.SceneTools
 
         private static float SettingsSection(Transform panel, string title, float y)
         {
-            UiFactory.Label(panel, title + "Header", title, new Vector2(-330, y), new Vector2(400, 50), 28f,
+            UiFactory.Label(panel, title + "Header", title, new Vector2(-330, y), new Vector2(400, 50), 38f,
                 TextAlignmentOptions.Left, FontRole.BodySemibold, _theme.Accent(700), 0.18f);
             return y - 90f;
         }
@@ -405,7 +408,7 @@ namespace Game.SceneTools
         private static UnityEngine.UI.Slider SettingsSlider(Transform panel, string name, string label,
             ref float y)
         {
-            UiFactory.Label(panel, name + "Label", label, new Vector2(-330, y), new Vector2(360, 60), 32f,
+            UiFactory.Label(panel, name + "Label", label, new Vector2(-330, y), new Vector2(360, 60), 38f,
                 TextAlignmentOptions.Left, FontRole.Body, _theme.textInverse);
             var slider = UiFactory.Slider(panel, name + "Slider", new Vector2(160, y), new Vector2(540, 80));
             y -= 110f;
@@ -414,7 +417,7 @@ namespace Game.SceneTools
 
         private static Button SettingsToggle(Transform panel, string name, string label, ref float y)
         {
-            UiFactory.Label(panel, name + "Label", label, new Vector2(-330, y), new Vector2(420, 60), 32f,
+            UiFactory.Label(panel, name + "Label", label, new Vector2(-330, y), new Vector2(420, 60), 38f,
                 TextAlignmentOptions.Left, FontRole.Body, _theme.textInverse);
             var toggle = UiFactory.ToggleButton(panel, name + "Toggle", new Vector2(280, y),
                 new Vector2(220, 92), on: true);
@@ -438,7 +441,7 @@ namespace Game.SceneTools
             Top(tag, -110);
             tag.anchoredPosition = new Vector2(300, tag.anchoredPosition.y);
             UiFactory.BlueprintFrame(tag, marks: false);
-            UiFactory.Label(tag, "Text", "FRIENDS BY CODE", Vector2.zero, new Vector2(380, 60), 26f,
+            UiFactory.Label(tag, "Text", "FRIENDS BY CODE", Vector2.zero, new Vector2(380, 60), 38f,
                 TextAlignmentOptions.Center, FontRole.BodySemibold, _theme.Accent(700), 0.14f);
 
             // ---- Code panel: the thing you read out loud ----
@@ -446,19 +449,19 @@ namespace Game.SceneTools
             codePanel.sizeDelta = new Vector2(970, 440);
             Top(codePanel, -450);
             UiFactory.BlueprintFrame(codePanel, FrameEmphasis.Accent);
-            UiFactory.Label(codePanel, "Eyebrow", "JOIN CODE", new Vector2(0, 150), new Vector2(900, 44), 28f,
+            UiFactory.Label(codePanel, "Eyebrow", "JOIN CODE", new Vector2(0, 150), new Vector2(900, 48), 38f,
                 TextAlignmentOptions.Center, FontRole.BodySemibold, _theme.Accent(700), 0.22f);
             var codeLabel = UiFactory.Label(codePanel, "Code", "—", new Vector2(0, 10), new Vector2(920, 180), 150f,
                 TextAlignmentOptions.Center, FontRole.HeadingBold, null, 0.12f);
-            var status = UiFactory.Label(codePanel, "Caption", "", new Vector2(0, -150), new Vector2(900, 60), 33f,
+            var status = UiFactory.Label(codePanel, "Caption", "", new Vector2(0, -150), new Vector2(900, 60), 38f,
                 TextAlignmentOptions.Center, FontRole.Body, Muted(0.55f));
 
             // ---- Seats ----
             Top(UiFactory.Label(content, "SeatsLabel", "SEATS",
-                new Vector2(-430, 0), new Vector2(200, 44), 30f,
+                new Vector2(-430, 0), new Vector2(200, 48), 38f,
                 TextAlignmentOptions.Left, FontRole.BodySemibold, Muted(0.55f), 0.14f), -730);
             var seatsCount = Top(UiFactory.Label(content, "SeatsCount", "0 / 6",
-                new Vector2(430, 0), new Vector2(200, 44), 30f,
+                new Vector2(430, 0), new Vector2(200, 48), 38f,
                 TextAlignmentOptions.Right, FontRole.BodySemibold, Muted(0.55f), 0.14f), -730);
 
             var seatsRoot = UiFactory.Panel(content, "Seats", stretch: false);
@@ -508,9 +511,9 @@ namespace Game.SceneTools
             var tap = rootGo.GetComponent<Button>();
             tap.transition = Selectable.Transition.None;
 
-            var headerLeft = Top(UiFactory.Label(root, "HeaderLeft", "", new Vector2(-250, 0), new Vector2(500, 60), 40f,
+            var headerLeft = Top(UiFactory.Label(root, "HeaderLeft", "", new Vector2(-250, 0), new Vector2(500, 64), 50f,
                 TextAlignmentOptions.Left, FontRole.HeadingBold, _theme.textInverse), -120);
-            var headerRight = Top(UiFactory.Label(root, "HeaderRight", "", new Vector2(330, 0), new Vector2(360, 50), 28f,
+            var headerRight = Top(UiFactory.Label(root, "HeaderRight", "", new Vector2(330, 0), new Vector2(360, 50), 38f,
                 TextAlignmentOptions.Right, FontRole.BodySemibold, UiFactory.WithAlpha(_theme.textInverse, 0.7f), 0.14f), -125);
 
             var cardGo = new GameObject("Card", typeof(RectTransform), typeof(Image));
@@ -521,13 +524,13 @@ namespace Game.SceneTools
             cardGo.GetComponent<Image>().color = _theme.surfaceBase;
             UiFactory.BlueprintFrame(card, FrameEmphasis.Accent);
 
-            var cardTier = UiFactory.Label(card, "Tier", "", new Vector2(-180, 370), new Vector2(240, 44), 28f,
+            var cardTier = UiFactory.Label(card, "Tier", "", new Vector2(-180, 370), new Vector2(240, 48), 38f,
                 TextAlignmentOptions.Left, FontRole.BodySemibold, _theme.Accent(700), 0.18f);
-            var cardPoints = UiFactory.Label(card, "Points", "", new Vector2(200, 370), new Vector2(200, 50), 40f,
+            var cardPoints = UiFactory.Label(card, "Points", "", new Vector2(200, 370), new Vector2(200, 62), 50f,
                 TextAlignmentOptions.Right, FontRole.HeadingBold);
-            var cardName = UiFactory.Label(card, "Name", "", new Vector2(0, 160), new Vector2(560, 240), 76f,
+            var cardName = UiFactory.Label(card, "Name", "", new Vector2(0, 160), new Vector2(560, 240), 85f,
                 TextAlignmentOptions.Center, FontRole.HeadingBold);
-            var cardPower = UiFactory.Label(card, "Power", "", new Vector2(0, -160), new Vector2(540, 320), 34f,
+            var cardPower = UiFactory.Label(card, "Power", "", new Vector2(0, -160), new Vector2(540, 320), 38f,
                 TextAlignmentOptions.Center, FontRole.Body, Muted(0.8f));
 
             var claimants = UiFactory.Panel(root, "Claimants", stretch: false);
@@ -538,18 +541,24 @@ namespace Game.SceneTools
             var chipGo = new GameObject("ClaimantChip", typeof(RectTransform), typeof(Image));
             var chip = (RectTransform)chipGo.transform;
             chip.SetParent(root, false);
-            chip.sizeDelta = new Vector2(300, 100);
-            FixedSize(chipGo, 300, 100);
+            // 380 wide: the label carries "{NAME} · {score}" and PlayerName allows 16 characters,
+            // which is 440 units at 38f — 300 fit only the short names.
+            chip.sizeDelta = new Vector2(380, 100);
+            FixedSize(chipGo, 380, 100);
             chipGo.GetComponent<Image>().color = _theme.Accent(800);
-            UiFactory.Label(chip, "Text", "", Vector2.zero, new Vector2(280, 80), 30f,
+            var chipText = UiFactory.Label(chip, "Text", "", Vector2.zero, new Vector2(360, 80), 38f,
                 TextAlignmentOptions.Center, FontRole.BodySemibold, _theme.textInverse);
+            // A 16-character name still overruns 360; ellipsis beats wrapping into two lines that
+            // the 100-unit chip cannot hold.
+            chipText.textWrappingMode = TextWrappingModes.NoWrap;
+            chipText.overflowMode = TextOverflowModes.Ellipsis;
             chipGo.SetActive(false);
 
-            var resultStamp = UiFactory.Label(root, "ResultStamp", "", new Vector2(0, -240), new Vector2(960, 110), 66f,
+            var resultStamp = UiFactory.Label(root, "ResultStamp", "", new Vector2(0, -240), new Vector2(960, 110), 74f,
                 TextAlignmentOptions.Center, FontRole.HeadingBold, _theme.textInverse);
-            var reasonLine = UiFactory.Label(root, "ReasonLine", "", new Vector2(0, -330), new Vector2(900, 44), 28f,
+            var reasonLine = UiFactory.Label(root, "ReasonLine", "", new Vector2(0, -330), new Vector2(900, 48), 38f,
                 TextAlignmentOptions.Center, FontRole.BodySemibold, UiFactory.WithAlpha(_theme.textInverse, 0.8f), 0.14f);
-            var prompt = Bottom(UiFactory.Label(root, "ContinuePrompt", "TAP TO CONTINUE", Vector2.zero, new Vector2(600, 44), 28f,
+            var prompt = Bottom(UiFactory.Label(root, "ContinuePrompt", "TAP TO CONTINUE", Vector2.zero, new Vector2(600, 48), 38f,
                 TextAlignmentOptions.Center, FontRole.BodySemibold, UiFactory.WithAlpha(_theme.textInverse, 0.6f), 0.18f), 90);
 
             rootGo.SetActive(false);
@@ -584,11 +593,11 @@ namespace Game.SceneTools
             UiFactory.Stretch(root);
             rootGo.GetComponent<Image>().color = _theme.surfaceBase;
 
-            var eyebrow = Top(UiFactory.Label(root, "Eyebrow", "", Vector2.zero, new Vector2(900, 44), 28f,
+            var eyebrow = Top(UiFactory.Label(root, "Eyebrow", "", Vector2.zero, new Vector2(900, 48), 38f,
                 TextAlignmentOptions.Center, FontRole.BodySemibold, _theme.Accent(700), 0.22f), -150);
             var headline = Top(UiFactory.Label(root, "Headline", "", Vector2.zero, new Vector2(1000, 150), 122f,
                 TextAlignmentOptions.Center, FontRole.HeadingBold), -260);
-            var note = Top(UiFactory.Label(root, "Note", "", Vector2.zero, new Vector2(900, 48), 32f,
+            var note = Top(UiFactory.Label(root, "Note", "", Vector2.zero, new Vector2(900, 48), 38f,
                 TextAlignmentOptions.Center, FontRole.Body, Muted(0.7f)), -370);
 
             var rowsRoot = UiFactory.Panel(root, "Rows", stretch: false);
@@ -604,15 +613,17 @@ namespace Game.SceneTools
             FixedSize(rowGo, 960, 130);
             rowGo.GetComponent<Image>().color = _theme.surfaceRaised;
             UiFactory.BlueprintFrame(row, marks: false);
-            UiFactory.Label(row, "Rank", "1", new Vector2(-420, 0), new Vector2(80, 60), 40f,
+            UiFactory.Label(row, "Rank", "1", new Vector2(-420, 0), new Vector2(80, 64), 50f,
                 TextAlignmentOptions.Center, FontRole.HeadingBold, Muted(0.55f));
-            var rowName = UiFactory.Label(row, "Name", "", new Vector2(-160, 0), new Vector2(400, 52), 36f,
+            var rowName = UiFactory.Label(row, "Name", "", new Vector2(-160, 0), new Vector2(400, 52), 38f,
                 TextAlignmentOptions.Left, FontRole.BodySemibold);
             rowName.textWrappingMode = TextWrappingModes.NoWrap;
             rowName.overflowMode = TextOverflowModes.Ellipsis;
-            UiFactory.Label(row, "Detail", "", new Vector2(160, 0), new Vector2(340, 48), 24f,
+            // "3 cards · 12 sparks · +5 end-game VP" is ~583 units at 38f, so it needs two lines
+            // in this 340-unit column rather than running through the score beside it.
+            UiFactory.Label(row, "Detail", "", new Vector2(160, 0), new Vector2(340, 100), 38f,
                 TextAlignmentOptions.Left, FontRole.Body, Muted(0.55f));
-            UiFactory.Label(row, "Score", "", new Vector2(390, 0), new Vector2(180, 60), 48f,
+            UiFactory.Label(row, "Score", "", new Vector2(390, 0), new Vector2(180, 72), 60f,
                 TextAlignmentOptions.Right, FontRole.HeadingBold);
             rowGo.SetActive(false);
 
@@ -650,12 +661,12 @@ namespace Game.SceneTools
             go.GetComponent<Image>().color = _theme.surfaceBase;
             UiFactory.BlueprintFrame(rt, FrameEmphasis.Accent);
 
-            UiFactory.Label(rt, "Eyebrow", "RE-PICK", new Vector2(-360, 260), new Vector2(240, 44), 30f,
+            UiFactory.Label(rt, "Eyebrow", "RE-PICK", new Vector2(-360, 260), new Vector2(240, 48), 38f,
                 TextAlignmentOptions.Left, FontRole.BodySemibold, _theme.Accent(700), 0.22f);
             UiFactory.Label(rt, "Copy", "You lost the contest — your dice are back.",
-                new Vector2(-60, 205), new Vector2(760, 44), 28f,
+                new Vector2(-60, 205), new Vector2(760, 48), 38f,
                 TextAlignmentOptions.Left, FontRole.Body, Muted(0.7f));
-            var countdown = UiFactory.Label(rt, "Countdown", "", new Vector2(420, 240), new Vector2(150, 70), 44f,
+            var countdown = UiFactory.Label(rt, "Countdown", "", new Vector2(420, 240), new Vector2(150, 70), 55f,
                 TextAlignmentOptions.Right, FontRole.HeadingBold);
             countdown.gameObject.SetActive(false);
 
@@ -690,9 +701,9 @@ namespace Game.SceneTools
             go.GetComponent<Image>().color = _theme.surfaceBase;
             UiFactory.BlueprintFrame(rt, FrameEmphasis.Accent);
 
-            UiFactory.Label(rt, "Eyebrow", "UPKEEP", new Vector2(0, 165), new Vector2(700, 44), 28f,
+            UiFactory.Label(rt, "Eyebrow", "UPKEEP", new Vector2(0, 165), new Vector2(700, 48), 38f,
                 TextAlignmentOptions.Center, FontRole.BodySemibold, _theme.Accent(700), 0.22f);
-            var body = UiFactory.Label(rt, "Body", "", new Vector2(0, -30), new Vector2(680, 320), 32f,
+            var body = UiFactory.Label(rt, "Body", "", new Vector2(0, -30), new Vector2(680, 320), 38f,
                 TextAlignmentOptions.Center, FontRole.Body);
 
             go.SetActive(false);
@@ -727,33 +738,33 @@ namespace Game.SceneTools
             sheetGo.GetComponent<Image>().color = _theme.surfaceBase;
             UiFactory.BlueprintFrame(sheet, FrameEmphasis.Accent);
 
-            var tier = UiFactory.Label(sheet, "TierTag", "TIER 1", new Vector2(-360, 380), new Vector2(240, 44), 28f,
+            var tier = UiFactory.Label(sheet, "TierTag", "TIER 1", new Vector2(-360, 380), new Vector2(240, 48), 38f,
                 TextAlignmentOptions.Left, FontRole.BodySemibold, _theme.Accent(700), 0.18f);
-            var family = UiFactory.Label(sheet, "FamilyTag", "", new Vector2(-90, 380), new Vector2(280, 44), 28f,
+            var family = UiFactory.Label(sheet, "FamilyTag", "", new Vector2(-90, 380), new Vector2(280, 48), 38f,
                 TextAlignmentOptions.Left, FontRole.BodySemibold, Muted(0.55f), 0.18f);
             var close = UiFactory.Button(sheet, "CloseButton", "×", new Vector2(430, 380), new Vector2(90, 90),
                 ButtonStyle.Ghost);
 
-            var name = UiFactory.Label(sheet, "Name", "", new Vector2(-90, 280), new Vector2(760, 100), 64f,
+            var name = UiFactory.Label(sheet, "Name", "", new Vector2(-90, 280), new Vector2(760, 100), 72f,
                 TextAlignmentOptions.Left, FontRole.HeadingBold);
 
             var vpBox = UiFactory.Panel(sheet, "VpBox", stretch: false);
             vpBox.sizeDelta = new Vector2(190, 110);
             vpBox.anchoredPosition = new Vector2(370, 280);
             UiFactory.BlueprintFrame(vpBox, marks: false);
-            var points = UiFactory.Label(vpBox, "Value", "0 VP", Vector2.zero, new Vector2(180, 90), 40f,
+            var points = UiFactory.Label(vpBox, "Value", "0 VP", Vector2.zero, new Vector2(180, 90), 50f,
                 TextAlignmentOptions.Center, FontRole.HeadingBold);
 
-            UiFactory.Label(sheet, "CostHead", "COST", new Vector2(-300, 160), new Vector2(320, 40), 24f,
+            UiFactory.Label(sheet, "CostHead", "COST", new Vector2(-300, 160), new Vector2(320, 48), 38f,
                 TextAlignmentOptions.Left, FontRole.BodySemibold, Muted(0.55f), 0.2f);
-            var cost = UiFactory.Label(sheet, "Cost", "", new Vector2(-300, 40), new Vector2(320, 190), 32f,
+            var cost = UiFactory.Label(sheet, "Cost", "", new Vector2(-300, 40), new Vector2(320, 190), 38f,
                 TextAlignmentOptions.TopLeft, FontRole.Body);
-            UiFactory.Label(sheet, "PowerHead", "PERMANENT POWER", new Vector2(150, 160), new Vector2(560, 40), 24f,
+            UiFactory.Label(sheet, "PowerHead", "PERMANENT POWER", new Vector2(150, 160), new Vector2(560, 48), 38f,
                 TextAlignmentOptions.Left, FontRole.BodySemibold, Muted(0.55f), 0.2f);
-            var power = UiFactory.Label(sheet, "Power", "", new Vector2(150, 40), new Vector2(560, 190), 32f,
+            var power = UiFactory.Label(sheet, "Power", "", new Vector2(150, 40), new Vector2(560, 190), 38f,
                 TextAlignmentOptions.TopLeft, FontRole.Body);
 
-            var payStatus = UiFactory.Label(sheet, "PayStatus", "", new Vector2(0, -160), new Vector2(900, 44), 30f,
+            var payStatus = UiFactory.Label(sheet, "PayStatus", "", new Vector2(0, -160), new Vector2(900, 48), 38f,
                 TextAlignmentOptions.Center, FontRole.BodyMedium);
 
             var commit = UiFactory.Button(sheet, "CommitButton", "COMMIT · SECRET",
@@ -763,8 +774,8 @@ namespace Game.SceneTools
             var commitLabel = commit.transform.Find("Text").GetComponent<TMP_Text>();
 
             UiFactory.Label(sheet, "SmallPrint",
-                "Commits are secret until Reveal. Contested cards go to the lowest score.",
-                new Vector2(0, -390), new Vector2(900, 44), 24f,
+                "Commits are secret until Reveal.\nContested cards go to the lowest score.",
+                new Vector2(0, -404), new Vector2(900, 104), 38f,
                 TextAlignmentOptions.Center, FontRole.Body, Muted(0.55f));
 
             root.gameObject.SetActive(false);
@@ -798,7 +809,7 @@ namespace Game.SceneTools
             Bottom(rt, 480);
             go.GetComponent<Image>().color = _theme.surfaceOverlay;
 
-            var body = UiFactory.Label(rt, "Body", "", new Vector2(-100, 0), new Vector2(700, 160), 30f,
+            var body = UiFactory.Label(rt, "Body", "", new Vector2(-100, 0), new Vector2(700, 160), 38f,
                 TextAlignmentOptions.Left, FontRole.Body, _theme.textInverse);
 
             var gotIt = UiFactory.Button(rt, "GotItButton", "GOT IT", new Vector2(390, 0), new Vector2(170, 84),
@@ -835,9 +846,9 @@ namespace Game.SceneTools
             var track = TimerRing(rt, "Track", UiFactory.WithAlpha(_theme.Accent(200), 0.9f));
             var progress = TimerRing(rt, "Progress", _theme.accentPriority);
 
-            var label = UiFactory.Label(rt, "Label", "—", new Vector2(0, 22), new Vector2(size - 20, 56), 38f,
+            var label = UiFactory.Label(rt, "Label", "—", new Vector2(0, 22), new Vector2(size - 20, 60), 48f,
                 TextAlignmentOptions.Center, FontRole.BodySemibold);
-            var seconds = UiFactory.Label(rt, "Seconds", "", new Vector2(0, -44), new Vector2(size - 20, 56), 47f,
+            var seconds = UiFactory.Label(rt, "Seconds", "", new Vector2(0, -44), new Vector2(size - 20, 73), 59f,
                 TextAlignmentOptions.Center, FontRole.HeadingBold);
 
             var view = go.AddComponent<DoneTimerButtonView>();
@@ -911,11 +922,15 @@ namespace Game.SceneTools
             var go = new GameObject("PowerChip", typeof(RectTransform), typeof(Image));
             var rt = (RectTransform)go.transform;
             rt.SetParent(parent, false);
+            // 250, not 330: four chips is routine mid-match (re-roll, nudge, set-face, a wild
+            // face) and the row is 1020 wide, so 330 pushed the outer two off the screen. The
+            // type is sized to the chip instead — the longest the HUD writes is "SET FACE FREE
+            // ×2", which fits 240 units at 26f and ellipsized entirely at 38f.
             rt.sizeDelta = new Vector2(250, 56);
             FixedSize(go, 250, 56);
             go.GetComponent<Image>().color = _theme.Accent(100);
 
-            var label = UiFactory.Label(rt, "Text", "POWER", Vector2.zero, new Vector2(240, 48), 24f,
+            var label = UiFactory.Label(rt, "Text", "POWER", Vector2.zero, new Vector2(250, 48), 26f,
                 TextAlignmentOptions.Center, FontRole.BodySemibold, _theme.Accent(800), 0.08f);
             label.textWrappingMode = TextWrappingModes.NoWrap;
             label.overflowMode = TextOverflowModes.Ellipsis;
@@ -946,12 +961,12 @@ namespace Game.SceneTools
             var avatarTile = avatarGo.GetComponent<Image>();
             avatarTile.color = _theme.surfaceBase;
             var avatarFrame = UiFactory.BlueprintFrame(avatarRt, marks: false);
-            var avatarInitial = UiFactory.Label(avatarRt, "Initial", "P", Vector2.zero, new Vector2(70, 70), 36f,
+            var avatarInitial = UiFactory.Label(avatarRt, "Initial", "P", Vector2.zero, new Vector2(70, 70), 38f,
                 TextAlignmentOptions.Center, FontRole.Heading);
 
-            var nameLabel = UiFactory.Label(rt, "Name", "", new Vector2(-40, 0), new Vector2(620, 60), 38f,
+            var nameLabel = UiFactory.Label(rt, "Name", "", new Vector2(-40, 0), new Vector2(620, 60), 48f,
                 TextAlignmentOptions.Left, FontRole.BodySemibold);
-            var chipLabel = UiFactory.Label(rt, "Chip", "", new Vector2(380, 0), new Vector2(180, 44), 28f,
+            var chipLabel = UiFactory.Label(rt, "Chip", "", new Vector2(380, 0), new Vector2(180, 48), 38f,
                 TextAlignmentOptions.Right, FontRole.BodySemibold, _theme.Accent(700), 0.14f);
 
             var view = go.AddComponent<SeatRowView>();
@@ -983,16 +998,17 @@ namespace Game.SceneTools
             // the outermost rows simply fall off the screen.
 
             // --- header row (handoff 6a): round + phase left, the Sparks tag right ---
-            var round = Top(UiFactory.Label(content, "Round", "", new Vector2(-280, 0), new Vector2(480, 70), 61f,
+            var round = Top(UiFactory.Label(content, "Round", "", new Vector2(-280, 0), new Vector2(480, 86), 68f,
                 TextAlignmentOptions.Left, FontRole.HeadingBold), -60);
-            var phase = Top(UiFactory.Label(content, "Phase", "", new Vector2(-280, 0), new Vector2(480, 40), 28f,
+            var phase = Top(UiFactory.Label(content, "Phase", "", new Vector2(-280, 0), new Vector2(480, 48), 38f,
                 TextAlignmentOptions.Left, FontRole.BodySemibold, _theme.Accent(700), 0.16f), -130);
 
             // The Game scene had no way out and no way in to anything (STORY-4.1 AC2): no back
             // button, nothing in the top bar. This gear takes the gap between the round label and
             // the Sparks chip, which is the only free space up there.
-            var settingsButton = Top(UiFactory.Button(content, "SettingsButton", "\u2699",
-                new Vector2(70, 0), new Vector2(92, 76), ButtonStyle.Ghost, fontSize: 40f), -78);
+            // Same substituted-box problem as the menu's; see there.
+            var settingsButton = Top(UiFactory.Button(content, "SettingsButton", "SET",
+                new Vector2(70, 0), new Vector2(92, 76), ButtonStyle.Ghost, fontSize: 38f), -78);
             UiFactory.BlueprintFrame((RectTransform)settingsButton.transform, marks: false);
 
             var sparksChipGo = new GameObject("SparksChip", typeof(RectTransform), typeof(Image));
@@ -1014,7 +1030,7 @@ namespace Game.SceneTools
             sparksGauge.Thickness = 5f;
             sparksGauge.Fill01 = 0f;
 
-            var sparks = UiFactory.Label(sparksChip, "Value", "", new Vector2(24, 0), new Vector2(270, 66), 30f,
+            var sparks = UiFactory.Label(sparksChip, "Value", "", new Vector2(24, 0), new Vector2(270, 66), 38f,
                 TextAlignmentOptions.Center, FontRole.BodySemibold, _theme.Accent(800), 0.06f);
 
             // Opponent rail (UI-1, handoff 6b): a horizontal strip, one cell per player, seat order.
@@ -1026,9 +1042,9 @@ namespace Game.SceneTools
             // Market label row + 5-card band (handoff 6c). Anchored proportionally, not to the
             // top edge: on a tall phone the extra height then breathes above AND below the
             // market instead of pooling in one dead gap between market and tray.
-            AtHeight(UiFactory.Label(content, "MarketLabel", "MARKET", new Vector2(-430, 0), new Vector2(220, 40), 28f,
+            AtHeight(UiFactory.Label(content, "MarketLabel", "MARKET", new Vector2(-430, 0), new Vector2(220, 48), 38f,
                 TextAlignmentOptions.Left, FontRole.BodySemibold, Muted(0.8f), 0.2f), 0.60f, 232);
-            var marketMeta = AtHeight(UiFactory.Label(content, "MarketMeta", "", new Vector2(150, 0), new Vector2(720, 40), 26f,
+            var marketMeta = AtHeight(UiFactory.Label(content, "MarketMeta", "", new Vector2(150, 0), new Vector2(720, 48), 38f,
                 TextAlignmentOptions.Right, FontRole.BodyMedium, Muted(0.55f), 0.06f), 0.60f, 232);
 
             var marketRoot = UiFactory.Panel(content, "Market", stretch: false);
@@ -1037,7 +1053,7 @@ namespace Game.SceneTools
             Row(marketRoot, spacing: 12);
 
             // --- controls, from the bottom up (handoff 6d-6g) ---
-            var message = Bottom(UiFactory.Label(content, "Message", "", new Vector2(0, 0), new Vector2(1000, 76), 30f,
+            var message = Bottom(UiFactory.Label(content, "Message", "", new Vector2(0, 0), new Vector2(1000, 76), 38f,
                 TextAlignmentOptions.Center, FontRole.Body, Muted(0.8f)), 45);
 
             // Bottom action bar: conditional ghosts left, the Done/timer square right (6g).
@@ -1052,7 +1068,7 @@ namespace Game.SceneTools
             // below what is drawn — clear the top edge of the done square beneath it.
             var reroll = Bottom(UiFactory.Button(content, "RerollButton", "RE-ROLL",
                 new Vector2(-370, 0), new Vector2(310, 110), ButtonStyle.Secondary), 358);
-            var nudgeDown = Bottom(UiFactory.Button(content, "NudgeDownButton", "−1",
+            var nudgeDown = Bottom(UiFactory.Button(content, "NudgeDownButton", "-1",
                 new Vector2(-125, 0), new Vector2(140, 110), ButtonStyle.Secondary), 358);
             var nudgeUp = Bottom(UiFactory.Button(content, "NudgeUpButton", "+1",
                 new Vector2(30, 0), new Vector2(140, 110), ButtonStyle.Secondary), 358);
@@ -1084,7 +1100,7 @@ namespace Game.SceneTools
             trayGo.GetComponent<Image>().color = _theme.surfaceRaised;
             UiFactory.BlueprintFrame(tray, marks: false);
 
-            var trayHint = UiFactory.Label(tray, "Hint", "YOUR DICE", Vector2.zero, new Vector2(960, 34), 24f,
+            var trayHint = UiFactory.Label(tray, "Hint", "YOUR DICE", Vector2.zero, new Vector2(960, 46), 38f,
                 TextAlignmentOptions.Left, FontRole.BodySemibold, Muted(0.55f), 0.2f);
             trayHint.rectTransform.anchorMin = trayHint.rectTransform.anchorMax = new Vector2(0.5f, 1f);
             trayHint.rectTransform.anchoredPosition = new Vector2(0, -34);
@@ -1233,24 +1249,24 @@ namespace Game.SceneTools
             var overlay = root.gameObject.AddComponent<HotSeatOverlayView>();
 
             var handoff = FullScreenPanel(root, "HandoffPanel", _theme.surfaceOverlay);
-            var handoffTitle = UiFactory.Label(handoff, "Title", "", new Vector2(0, 220), new Vector2(950, 130), 68f,
+            var handoffTitle = UiFactory.Label(handoff, "Title", "", new Vector2(0, 220), new Vector2(950, 130), 76f,
                 TextAlignmentOptions.Center, FontRole.HeadingBold, _theme.textInverse);
-            var handoffBody = UiFactory.Label(handoff, "Body", "", new Vector2(0, 20), new Vector2(900, 280), 36f,
+            var handoffBody = UiFactory.Label(handoff, "Body", "", new Vector2(0, 20), new Vector2(900, 280), 38f,
                 TextAlignmentOptions.Center, FontRole.Body, _theme.textInverse);
             var handoffButton = UiFactory.Button(handoff, "ReadyButton", "I have the device",
                 new Vector2(0, -260), new Vector2(680, 150));
 
             var summary = FullScreenPanel(root, "SummaryPanel", UiFactory.WithAlpha(_theme.surfaceOverlay, 0.97f));
-            var summaryBody = UiFactory.Label(summary, "Body", "", new Vector2(0, 60), new Vector2(900, 480), 34f,
+            var summaryBody = UiFactory.Label(summary, "Body", "", new Vector2(0, 60), new Vector2(900, 480), 38f,
                 TextAlignmentOptions.Center, FontRole.Body, _theme.textInverse);
             var summaryButton = UiFactory.Button(summary, "NextRoundButton", "Next round",
                 new Vector2(0, -300), new Vector2(560, 140));
 
             var gameOver = FullScreenPanel(root, "GameOverPanel", _theme.surfaceOverlay);
             var gameOverTitle = UiFactory.Label(gameOver, "Title", "Final standings",
-                new Vector2(0, 340), new Vector2(900, 120), 62f,
+                new Vector2(0, 340), new Vector2(900, 120), 69f,
                 TextAlignmentOptions.Center, FontRole.HeadingBold, _theme.textInverse);
-            var gameOverBody = UiFactory.Label(gameOver, "Body", "", new Vector2(0, 40), new Vector2(900, 500), 38f,
+            var gameOverBody = UiFactory.Label(gameOver, "Body", "", new Vector2(0, 40), new Vector2(900, 500), 48f,
                 TextAlignmentOptions.Center, FontRole.Body, _theme.textInverse);
             // Every route to this panel is terminal, so it needs an exit; without one the only way
             // off a dead match was force-quitting the app.
@@ -1423,7 +1439,12 @@ namespace Game.SceneTools
             // 5 cards must fit a 1080-wide canvas: 5 x 190 plus four 12pt gaps leaves a little room.
             // Height grew 320 -> 360 when the market band went proportional (UI-character P1):
             // the room exists now, and the extra padding keeps five text runs from feeling packed.
-            const float CardWidth = 190f;
+            // Five cards share a 1020-unit band with 12 between them, so a card cannot exceed
+            // 194 wide or the outer two hang off the screen — 214 did exactly that. The band is
+            // 380 tall. The type below is therefore the largest that fits, not the largest that
+            // is readable: at five across, this card cannot reach the 13pt floor, and the way out
+            // is a market layout that shows fewer or reshapes the card. See IsTypeWaived.
+            const float CardWidth = 192f;
             const float CardHeight = 360f;
 
             var go = new GameObject("CardButton", typeof(RectTransform), typeof(Image), typeof(Button));
@@ -1434,11 +1455,11 @@ namespace Game.SceneTools
             go.AddComponent<PressableButton>();   // cards press like machine buttons too (P1)
 
             // A card has to show all three of cost, power and value — a player cannot choose without them.
-            var tierLabel = UiFactory.Label(rt, "Tier", "T1", new Vector2(-64, 138), new Vector2(56, 40), 22f);
-            var nameLabel = UiFactory.Label(rt, "Name", "Card", new Vector2(0, 106), new Vector2(174, 56), 24f);
-            var costLabel = UiFactory.Label(rt, "Cost", "", new Vector2(0, 46), new Vector2(174, 56), 21f);
-            var powerLabel = UiFactory.Label(rt, "Power", "", new Vector2(0, -28), new Vector2(174, 112), 19f);
-            var pointsLabel = UiFactory.Label(rt, "Points", "0", new Vector2(0, -126), new Vector2(174, 56), 34f);
+            var tierLabel = UiFactory.Label(rt, "Tier", "T1", new Vector2(-58, 140), new Vector2(64, 34), 26f);
+            var nameLabel = UiFactory.Label(rt, "Name", "Card", new Vector2(0, 104), new Vector2(176, 62), 28f);
+            var costLabel = UiFactory.Label(rt, "Cost", "", new Vector2(0, 44), new Vector2(176, 44), 26f);
+            var powerLabel = UiFactory.Label(rt, "Power", "", new Vector2(0, -40), new Vector2(176, 132), 24f);
+            var pointsLabel = UiFactory.Label(rt, "Points", "0", new Vector2(0, -138), new Vector2(176, 50), 40f);
 
             FixedSize(go, CardWidth, CardHeight);
 
@@ -1454,7 +1475,7 @@ namespace Game.SceneTools
             var stampImage = stampGo.GetComponent<Image>();
             stampImage.color = UiFactory.WithAlpha(_theme.Accent(200), 0.88f);
             stampImage.raycastTarget = false;
-            var stampLabel = UiFactory.Label(stampRt, "Text", "COMMITTED", Vector2.zero, new Vector2(220, 50), 28f,
+            var stampLabel = UiFactory.Label(stampRt, "Text", "COMMITTED", Vector2.zero, new Vector2(250, 50), 38f,
                 TextAlignmentOptions.Center, FontRole.BodySemibold, _theme.Accent(800), 0.1f);
             stampLabel.rectTransform.localRotation = Quaternion.Euler(0f, 0f, -6f);
             stampLabel.raycastTarget = false;
@@ -1507,17 +1528,27 @@ namespace Game.SceneTools
             marker.color = _theme.accentPriority;
             marker.raycastTarget = false;
 
-            var nameLabel = UiFactory.Label(rt, "Name", "PLAYER", new Vector2(0, 62), new Vector2(150, 32), 23f,
+            // Four stacked runs in a 150-unit cell, six of these across the phone. At 38f the name
+            // truncated to five characters, "THINKING" broke mid-word, and "12d · 10sp" wrapped
+            // into its neighbours — so these are the largest that fit the cell, and the cell is
+            // what a wider rail would have to change. Waived from the floor for that reason.
+            var nameLabel = UiFactory.Label(rt, "Name", "PLAYER", new Vector2(0, 62), new Vector2(150, 34), 26f,
                 TextAlignmentOptions.Center, FontRole.BodySemibold);
             nameLabel.textWrappingMode = TextWrappingModes.NoWrap;
             nameLabel.overflowMode = TextOverflowModes.Ellipsis;
 
-            var scoreLabel = UiFactory.Label(rt, "Score", "0", new Vector2(0, 16), new Vector2(150, 60), 53f,
+            var scoreLabel = UiFactory.Label(rt, "Score", "0", new Vector2(0, 16), new Vector2(150, 65), 52f,
                 TextAlignmentOptions.Center, FontRole.HeadingBold);
-            var detailLabel = UiFactory.Label(rt, "Detail", "", new Vector2(0, -36), new Vector2(150, 30), 23f,
+            var detailLabel = UiFactory.Label(rt, "Detail", "", new Vector2(0, -36), new Vector2(150, 30), 24f,
                 TextAlignmentOptions.Center, FontRole.Body, Muted(0.55f));
-            var stateLabel = UiFactory.Label(rt, "State", "", new Vector2(0, -68), new Vector2(150, 30), 23f,
+            var stateLabel = UiFactory.Label(rt, "State", "", new Vector2(0, -68), new Vector2(150, 30), 24f,
                 TextAlignmentOptions.Center, FontRole.BodySemibold);
+            // NoWrap needs Ellipsis with it. Without it the overflow just moves sideways into the
+            // neighbouring seat — "reconnecting 12s" is 180 units in a 150-unit cell.
+            stateLabel.textWrappingMode = TextWrappingModes.NoWrap;
+            stateLabel.overflowMode = TextOverflowModes.Ellipsis;
+            detailLabel.textWrappingMode = TextWrappingModes.NoWrap;
+            detailLabel.overflowMode = TextOverflowModes.Ellipsis;
 
             var view = go.AddComponent<PlayerRowView>();
             SetRef(view, "nameText", nameLabel);
@@ -1579,14 +1610,16 @@ namespace Game.SceneTools
             pips.Bind(pipImages);
             pips.SetFace(1);
 
-            var spent = UiFactory.Label(body, "Spent", "SPENT", Vector2.zero, new Vector2(size, 44), 26f,
+            var spent = UiFactory.Label(body, "Spent", "SPENT", Vector2.zero, new Vector2(size, 48), 38f,
                 TextAlignmentOptions.Center, FontRole.BodySemibold, _theme.stateSpent, 0.2f);
             spent.rectTransform.localRotation = Quaternion.Euler(0f, 0f, -30f);
             spent.gameObject.SetActive(false);
 
             // Wild faces announce themselves on the die (STORY-3.6 AC3) — a marker, not a
             // colour, so the state survives any palette.
-            var wild = UiFactory.Label(body, "WildTag", "WILD", Vector2.zero, new Vector2(size, 24), 16f,
+            // A die is 172 units across and its pips own most of that, so this tag cannot carry
+            // 13pt without landing on the bottom pip row. Waived with the card and the rail.
+            var wild = UiFactory.Label(body, "WildTag", "WILD", Vector2.zero, new Vector2(size, 34), 26f,
                 TextAlignmentOptions.Center, FontRole.BodySemibold, _theme.Accent(700), 0.18f);
             wild.rectTransform.anchorMin = wild.rectTransform.anchorMax = new Vector2(0.5f, 0f);
             wild.rectTransform.anchoredPosition = new Vector2(0f, 18f);
@@ -1708,6 +1741,94 @@ namespace Game.SceneTools
                 }
             }
 
+            // Type that is too small to read, or a box too short for one line of it. The scale
+            // came over from a 390px web handoff and landed at 8.6-12pt on device, which is under
+            // every iOS system style — so the floor is checked here rather than trusted.
+            // Every label, active or not. An earlier version skipped inactive labels outside a
+            // control, which quietly excluded the end screen, the card zoom sheet, the reveal
+            // theater, the hot-seat overlay and the whole Templates node — including the player
+            // row cloned into the live rail. It reported "passed" while seven labels broke the
+            // rule it exists to enforce.
+            foreach (var label in canvas.GetComponentsInChildren<TMP_Text>(true))
+            {
+                // The waiver covers the size floor only. A waived label still has to fit its box:
+                // exempting it from both is how the last version of this check went quiet.
+                if (label.fontSize < DesignTokens.MinReadable)
+                {
+                    if (IsTypeWaived(label))
+                    {
+                        Debug.LogWarning($"[Scaffold] {sceneName}: '{Path(label.transform)}' is " +
+                                         $"{label.fontSize / DesignTokens.UnitsPerPoint:0.0}pt — under the " +
+                                         "readable floor by waiver, because its cell cannot hold 13pt " +
+                                         "until the market and rail layouts change.");
+                    }
+                    else
+                    {
+                        problems++;
+                        Debug.LogError($"[Scaffold] {sceneName}: '{Path(label.transform)}' is set at " +
+                                       $"{label.fontSize:0} units ({label.fontSize / DesignTokens.UnitsPerPoint:0.0}pt " +
+                                       $"on the narrowest phone), under the {DesignTokens.MinReadable:0}-unit " +
+                                       "(13pt) readable minimum.");
+                    }
+                }
+
+                if (!TryReferenceRect((RectTransform)label.transform, out var labelRect)) continue;
+
+                // 1.2, not 1.15: all four Barlow faces are ascender 1000 / descender -200 with no
+                // line gap, so a rendered line is 1.2em. At 1.15 the check blessed 44-unit boxes
+                // holding 38-unit type, which are a unit and a half short of an actual line.
+                float lineHeight = label.fontSize * 1.2f;
+
+                // Against the authored line count, not against one. A label written with its own
+                // newlines needs room for all of them, and checking a single line let a two-line
+                // hero tagline pass in a box that fits neither.
+                int authoredLines = string.IsNullOrEmpty(label.text)
+                    ? 1
+                    : label.text.Split('\n').Length;
+                float neededHeight = lineHeight * authoredLines;
+
+                if (labelRect.height < neededHeight)
+                {
+                    problems++;
+                    Debug.LogError($"[Scaffold] {sceneName}: '{Path(label.transform)}' has a " +
+                                   $"{labelRect.height:0}-unit box for {label.fontSize:0}-unit type — " +
+                                   (authoredLines > 1
+                                       ? $"{authoredLines} authored lines need {neededHeight:0}."
+                                       : $"one line needs {neededHeight:0}."));
+                }
+
+                // Text that is already written can be measured, and most of the game's copy is
+                // authored right here. Without this the check only ever asked whether a line fits
+                // vertically, and never whether the words fit across — which is how a global type
+                // raise broke a dozen labels that each individually still "fit".
+                if (string.IsNullOrEmpty(label.text)) continue;
+
+                // A glyph the face does not carry renders as a substituted box. The measurement
+                // below bails on one, which meant the check went quietest exactly where the text
+                // was unreadable — so it is reported here first, by name.
+                if (TryFindMissingGlyph(label, out char missing))
+                {
+                    problems++;
+                    Debug.LogError($"[Scaffold] {sceneName}: '{Path(label.transform)}' uses " +
+                                   $"U+{(int)missing:X4} ('{missing}'), which {label.font.name} does " +
+                                   "not carry — it renders as a substituted box.");
+                    continue;
+                }
+
+                if (!TryMeasureWidth(label, out float needed)) continue;
+                if (needed <= labelRect.width + 1f) continue;
+
+                bool wraps = label.textWrappingMode == TextWrappingModes.Normal;
+                bool fitsWrapped = wraps && labelRect.height >= lineHeight * 2f &&
+                                   needed <= labelRect.width * 2f;
+                if (fitsWrapped) continue;
+
+                problems++;
+                Debug.LogError($"[Scaffold] {sceneName}: '{Path(label.transform)}' needs " +
+                               $"{needed:0} units for \"{Trim(label.text)}\" in a {labelRect.width:0}-unit " +
+                               (wraps ? "box with no room to wrap." : "box and does not wrap."));
+            }
+
             foreach (var graphic in graphics)
             {
                 if (!graphic.raycastTarget || !graphic.gameObject.activeInHierarchy) continue;
@@ -1788,6 +1909,95 @@ namespace Game.SceneTools
 
             rect = new Rect(pivotX - width * rt.pivot.x, pivotY - height * rt.pivot.y, width, height);
             return true;
+        }
+
+        /// <summary>
+        /// The two places the 13pt floor cannot be met without a layout decision, waived
+        /// deliberately and loudly rather than by a silent hole in the check.
+        ///
+        /// The market shows five cards across 1020 units, so a card is 192 wide whatever the type
+        /// wants; the opponent rail gives each seat a 165-unit cell, a power chip 250, and a die
+        /// face 172 of which the pips own most. All of them need a layout answer
+        /// (fewer cards, a scrolling market, a row-shaped card, a taller rail) — that is a
+        /// redesign question, not one to settle by shrinking a box here.
+        /// </summary>
+        private static bool IsTypeWaived(TMP_Text label)
+        {
+            var path = Path(label.transform);
+            return path.Contains("/CardButton/") || path.Contains("/PlayerRow/") ||
+                   path.EndsWith("/PowerChip/Text") || path.EndsWith("/WildTag");
+        }
+
+        /// <summary>
+        /// The first character of a label's text that its own font asset has no glyph for.
+        /// Whitespace is exempt — it is laid out, not drawn.
+        /// </summary>
+        private static bool TryFindMissingGlyph(TMP_Text label, out char missing)
+        {
+            missing = '\0';
+
+            var font = label.font;
+            if (font == null || string.IsNullOrEmpty(label.text)) return false;
+
+            foreach (char c in label.text)
+            {
+                if (char.IsWhiteSpace(c)) continue;
+                if (font.characterLookupTable.ContainsKey(c)) continue;
+
+                missing = c;
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// How wide a label's text actually is, summed from the font asset's own glyph advances.
+        ///
+        /// TMP's own GetPreferredValues cannot be used here: with no canvas and no laid-out text,
+        /// batchmode returns about 27 units for a 32-character string, so a check built on it
+        /// passes everything. Reading the advances directly is the only measurement that means
+        /// anything at generation time.
+        ///
+        /// Returns false when the text cannot be measured honestly — an authored newline, or a
+        /// glyph the face does not carry — because a guard that guesses is worse than one that
+        /// says nothing.
+        /// </summary>
+        private static bool TryMeasureWidth(TMP_Text label, out float width)
+        {
+            width = 0f;
+
+            var font = label.font;
+            if (font == null || font.faceInfo.pointSize <= 0) return false;
+
+            // Authored newlines are measured, not skipped. Bailing on them disabled this check
+            // for precisely the labels that had been re-wrapped by hand to fix an overflow — so
+            // none of those fixes were ever verified. The widest line is what has to fit.
+            float scale = label.fontSize / font.faceInfo.pointSize;
+            foreach (var line in label.text.Split('\n'))
+            {
+                float lineWidth = 0f;
+                foreach (char c in line)
+                {
+                    if (!font.characterLookupTable.TryGetValue(c, out var character)) return false;
+                    lineWidth += character.glyph.metrics.horizontalAdvance * scale;
+                }
+
+                // characterSpacing is in font units, em/100 — the convention UiFactory.Label
+                // writes it in. It applies between glyphs, not after the last one.
+                if (line.Length > 1)
+                    lineWidth += label.characterSpacing / 100f * label.fontSize * (line.Length - 1);
+
+                width = Mathf.Max(width, lineWidth);
+            }
+
+            return true;
+        }
+
+        private static string Trim(string text)
+        {
+            var flat = text.Replace("\n", " ");
+            return flat.Length <= 42 ? flat : flat.Substring(0, 40) + "…";
         }
 
         private static string Describe(Rect r) =>
