@@ -16,6 +16,7 @@ namespace Game.UI
         [SerializeField] private Button passPlayButton;
         [SerializeField] private Button soloButton;
         [SerializeField] private Button howToPlayButton;
+        [SerializeField] private Button settingsButton;
         [SerializeField] private TMP_InputField joinCodeInput;
         [SerializeField] private TMP_InputField nameInput;
         [SerializeField] private TMP_Text statusLabel;
@@ -26,6 +27,7 @@ namespace Game.UI
         public event Action PassPlayClicked;
         public event Action SoloClicked;
         public event Action HowToPlayClicked;
+        public event Action SettingsClicked;
 
         /// <summary>
         /// The player finished editing their display name (STORY-4.3). Raised on end-edit rather
@@ -42,6 +44,8 @@ namespace Game.UI
             if (soloButton != null) soloButton.onClick.AddListener(() => SoloClicked?.Invoke());
             if (howToPlayButton != null)
                 howToPlayButton.onClick.AddListener(() => HowToPlayClicked?.Invoke());
+            if (settingsButton != null)
+                settingsButton.onClick.AddListener(() => SettingsClicked?.Invoke());
             if (nameInput != null)
                 nameInput.onEndEdit.AddListener(value => NameChanged?.Invoke(value ?? string.Empty));
         }
@@ -75,6 +79,7 @@ namespace Game.UI
             if (passPlayButton != null) passPlayButton.interactable = interactable;
             if (soloButton != null) soloButton.interactable = interactable;
             if (howToPlayButton != null) howToPlayButton.interactable = interactable;
+            if (settingsButton != null) settingsButton.interactable = interactable;
         }
     }
 }

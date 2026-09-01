@@ -162,7 +162,13 @@ namespace Game.SceneTools
             // Sits between the hero and the actions, in the gap the hero already leaves, so it
             // reads as something you fill in on the way to hosting rather than a settings chore.
             var nameInput = UiFactory.InputField(content, "NameInput", "Your name (optional)",
-                new Vector2(0, -180), new Vector2(970, 120));
+                new Vector2(-85, -180), new Vector2(800, 120));
+
+            // Settings shares the identity row: both are things you set up before playing, and
+            // the offline row below is already three buttons wide (STORY-4.1 AC2).
+            var settingsButton = UiFactory.Button(content, "SettingsButton", "\u2699",
+                new Vector2(400, -180), new Vector2(140, 120), ButtonStyle.Secondary, fontSize: 52f);
+            UiFactory.BlueprintFrame((RectTransform)settingsButton.transform, marks: false);
             nameInput.characterLimit = PlayerName.MaxLength;
             nameInput.lineType = TMP_InputField.LineType.SingleLine;
 
@@ -203,16 +209,19 @@ namespace Game.SceneTools
             SetRef(view, "passPlayButton", passPlay);
             SetRef(view, "soloButton", solo);
             SetRef(view, "howToPlayButton", howTo);
+            SetRef(view, "settingsButton", settingsButton);
             SetRef(view, "joinCodeInput", codeInput);
             SetRef(view, "nameInput", nameInput);
             SetRef(view, "statusLabel", status);
             SetRef(view, "joinCodeLabel", codeLabel);
 
             var howToPlayView = BuildHowToPlayPanel(content);
+            var settingsController = BuildSettingsPanel(content);
 
             var controller = canvas.gameObject.AddComponent<MainMenuController>();
             SetRef(controller, "view", view);
             SetRef(controller, "howToPlay", howToPlayView);
+            SetRef(controller, "settings", settingsController);
 
             return Save(scene, SceneNames.MainMenu);
         }
@@ -299,6 +308,99 @@ namespace Game.SceneTools
             SetRef(view, "skipButton", skip);
             SetRef(view, "playSoloButton", playSolo);
             return view;
+        }
+
+        /// <summary>
+        /// The settings panel (STORY-4.1). One builder, dropped into both the menu and the Game
+        /// scene, because AC2 wants it reachable from either and a scene load mid-match would
+        /// end the match. Returns the controller so the caller can hang a button off it.
+        /// </summary>
+        private static SettingsController BuildSettingsPanel(Transform parent)
+        {
+            var panel = FullScreenPanel(parent, "SettingsPanel", _theme.surfaceOverlay);
+
+            UiFactory.Label(panel, "Title", "SETTINGS", new Vector2(0, 640), new Vector2(900, 110), 62f,
+                TextAlignmentOptions.Center, FontRole.HeadingBold, _theme.textInverse, 0.1f);
+
+            // Shown only over a live online match — the presenter decides, the layout always has
+            // room for it so nothing shifts when it appears.
+            var warning = UiFactory.Label(panel, "LiveMatchWarning",
+                "The round clock keeps running — there is no pause in a live match.",
+                new Vector2(0, 545), new Vector2(900, 60), 26f,
+                TextAlignmentOptions.Center, FontRole.BodyMedium, _theme.Accent(700));
+
+            float y = 400f;
+            y = SettingsSection(panel, "AUDIO", y);
+            var master = SettingsSlider(panel, "Master", "Master", ref y);
+            var music = SettingsSlider(panel, "Music", "Music", ref y);
+            var sfxSlider = SettingsSlider(panel, "Sfx", "Effects", ref y);
+
+            y -= 40f;
+            y = SettingsSection(panel, "GAMEPLAY", y);
+
+            UiFactory.Label(panel, "NameLabel", "Your name", new Vector2(-330, y), new Vector2(360, 60), 32f,
+                TextAlignmentOptions.Left, FontRole.Body, _theme.textInverse);
+            var nameInput = UiFactory.InputField(panel, "NameInput", "Your name (optional)",
+                new Vector2(150, y), new Vector2(560, 100));
+            nameInput.characterLimit = PlayerName.MaxLength;
+            nameInput.lineType = TMP_InputField.LineType.SingleLine;
+            y -= 130f;
+
+            var haptics = SettingsToggle(panel, "Haptics", "Haptics", ref y);
+
+            y -= 40f;
+            y = SettingsSection(panel, "ACCESSIBILITY", y);
+            var reducedMotion = SettingsToggle(panel, "ReducedMotion", "Reduced motion", ref y);
+
+            var close = UiFactory.Button(panel, "CloseButton", "DONE",
+                new Vector2(0, -700), new Vector2(460, 140));
+
+            var view = panel.gameObject.AddComponent<SettingsView>();
+            SetRef(view, "root", panel.gameObject);
+            SetRef(view, "closeButton", close);
+            SetRef(view, "liveMatchWarning", warning);
+            SetRef(view, "masterSlider", master);
+            SetRef(view, "musicSlider", music);
+            SetRef(view, "sfxSlider", sfxSlider);
+            SetRef(view, "nameInput", nameInput);
+            SetRef(view, "hapticsToggle", haptics);
+            SetRef(view, "reducedMotionToggle", reducedMotion);
+            SetRef(view, "theme", _theme);
+
+            // The controller sits on the parent, not the panel: the panel starts inactive, and a
+            // component there would not run Start() until something opened it — which is the
+            // thing the controller is responsible for doing.
+            var controller = parent.gameObject.AddComponent<SettingsController>();
+            SetRef(controller, "view", view);
+            SetRef(controller, "sfx", AssetDatabase.LoadAssetAtPath<SfxCatalog>("Assets/_Project/Audio/SfxCatalog.asset"));
+            return controller;
+        }
+
+        private static float SettingsSection(Transform panel, string title, float y)
+        {
+            UiFactory.Label(panel, title + "Header", title, new Vector2(-330, y), new Vector2(400, 50), 28f,
+                TextAlignmentOptions.Left, FontRole.BodySemibold, _theme.Accent(700), 0.18f);
+            return y - 90f;
+        }
+
+        private static UnityEngine.UI.Slider SettingsSlider(Transform panel, string name, string label,
+            ref float y)
+        {
+            UiFactory.Label(panel, name + "Label", label, new Vector2(-330, y), new Vector2(360, 60), 32f,
+                TextAlignmentOptions.Left, FontRole.Body, _theme.textInverse);
+            var slider = UiFactory.Slider(panel, name + "Slider", new Vector2(160, y), new Vector2(540, 80));
+            y -= 110f;
+            return slider;
+        }
+
+        private static Button SettingsToggle(Transform panel, string name, string label, ref float y)
+        {
+            UiFactory.Label(panel, name + "Label", label, new Vector2(-330, y), new Vector2(420, 60), 32f,
+                TextAlignmentOptions.Left, FontRole.Body, _theme.textInverse);
+            var toggle = UiFactory.ToggleButton(panel, name + "Toggle", new Vector2(280, y),
+                new Vector2(220, 92), on: true);
+            y -= 120f;
+            return toggle;
         }
 
         private static string BuildLobbyScene()
@@ -867,6 +969,13 @@ namespace Game.SceneTools
             var phase = Top(UiFactory.Label(content, "Phase", "", new Vector2(-280, 0), new Vector2(480, 40), 28f,
                 TextAlignmentOptions.Left, FontRole.BodySemibold, _theme.Accent(700), 0.16f), -130);
 
+            // The Game scene had no way out and no way in to anything (STORY-4.1 AC2): no back
+            // button, nothing in the top bar. This gear takes the gap between the round label and
+            // the Sparks chip, which is the only free space up there.
+            var settingsButton = Top(UiFactory.Button(content, "SettingsButton", "\u2699",
+                new Vector2(70, 0), new Vector2(92, 76), ButtonStyle.Ghost, fontSize: 40f), -78);
+            UiFactory.BlueprintFrame((RectTransform)settingsButton.transform, marks: false);
+
             var sparksChipGo = new GameObject("SparksChip", typeof(RectTransform), typeof(Image));
             var sparksChip = (RectTransform)sparksChipGo.transform;
             sparksChip.SetParent(content, false);
@@ -1077,6 +1186,9 @@ namespace Game.SceneTools
 
             // Decides between the two modes at runtime and disables whichever is not in play.
             var modeGo = new GameObject("GameSceneBootstrap");
+            var settingsController = BuildSettingsPanel(content);
+            settingsButton.onClick.AddListener(settingsController.Open);
+
             var mode = modeGo.AddComponent<GameSceneBootstrap>();
             SetRef(mode, "presenter", presenter);
             SetRef(mode, "hotSeatHost", hotSeat);

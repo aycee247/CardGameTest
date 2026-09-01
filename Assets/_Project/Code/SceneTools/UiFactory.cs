@@ -136,6 +136,99 @@ namespace Game.SceneTools
             return input;
         }
 
+        /// <summary>
+        /// A themed slider: track, fill and handle. The first continuous control in the project —
+        /// volume is a real range, and stepping it with buttons would be worse for the one thing
+        /// a player adjusts by ear.
+        /// </summary>
+        public static Slider Slider(Transform parent, string name, Vector2 anchoredPos, Vector2 size,
+            float value = 1f)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            var rt = (RectTransform)go.transform;
+            rt.SetParent(parent, false);
+            rt.sizeDelta = size;
+            rt.anchoredPosition = anchoredPos;
+
+            // The track is thinner than the control: the whole rect stays tappable, so a thumb
+            // that misses the line by a few pixels still moves the slider.
+            var track = Panel(rt, "Track", stretch: false);
+            track.anchorMin = new Vector2(0f, 0.5f);
+            track.anchorMax = new Vector2(1f, 0.5f);
+            track.sizeDelta = new Vector2(0f, 12f);
+            track.anchoredPosition = Vector2.zero;
+            var trackImage = track.gameObject.AddComponent<Image>();
+            trackImage.color = Theme.divider;
+
+            var fillArea = Panel(rt, "FillArea", stretch: false);
+            fillArea.anchorMin = new Vector2(0f, 0.5f);
+            fillArea.anchorMax = new Vector2(1f, 0.5f);
+            fillArea.sizeDelta = new Vector2(0f, 12f);
+            fillArea.anchoredPosition = Vector2.zero;
+
+            var fill = Panel(fillArea, "Fill", stretch: false);
+            fill.anchorMin = Vector2.zero;
+            fill.anchorMax = new Vector2(0f, 1f);
+            fill.offsetMin = Vector2.zero;
+            fill.offsetMax = Vector2.zero;
+            var fillImage = fill.gameObject.AddComponent<Image>();
+            fillImage.color = Theme.accentPriority;
+
+            var handleArea = Panel(rt, "HandleArea", stretch: false);
+            handleArea.anchorMin = Vector2.zero;
+            handleArea.anchorMax = Vector2.one;
+            handleArea.offsetMin = new Vector2(22f, 0f);
+            handleArea.offsetMax = new Vector2(-22f, 0f);
+
+            var handle = Panel(handleArea, "Handle", stretch: false);
+            handle.sizeDelta = new Vector2(44f, 44f);
+            var handleImage = handle.gameObject.AddComponent<Image>();
+            handleImage.color = Theme.accentPriority;
+
+            var slider = go.AddComponent<Slider>();
+            slider.fillRect = fill;
+            slider.handleRect = handle;
+            slider.targetGraphic = handleImage;
+            slider.direction = UnityEngine.UI.Slider.Direction.LeftToRight;
+            slider.minValue = 0f;
+            slider.maxValue = 1f;
+            slider.SetValueWithoutNotify(value);
+            return slider;
+        }
+
+        /// <summary>
+        /// An on/off control built from the ordinary <see cref="Button"/> rather than Unity's
+        /// Toggle. A toggle would be a second interaction model for the sake of one boolean;
+        /// this way the press sinks and springs like every other button in the game, and the
+        /// label carries the state.
+        ///
+        /// The caller owns the value — call <see cref="SetToggleLabel"/> when it changes.
+        /// </summary>
+        public static Button ToggleButton(Transform parent, string name, Vector2 anchoredPos,
+            Vector2 size, bool on)
+        {
+            var button = Button(parent, name, on ? "ON" : "OFF", anchoredPos, size,
+                on ? ButtonStyle.Primary : ButtonStyle.Secondary, fontSize: 32f);
+            BlueprintFrame((RectTransform)button.transform, marks: false);
+            return button;
+        }
+
+        /// <summary>Repaints a <see cref="ToggleButton"/> for its new state.</summary>
+        public static void SetToggleLabel(Button toggle, bool on)
+        {
+            if (toggle == null) return;
+
+            var label = toggle.GetComponentInChildren<TextMeshProUGUI>();
+            if (label != null)
+            {
+                label.text = on ? "ON" : "OFF";
+                label.color = on ? Theme.textInverse : Theme.textPrimary;
+            }
+
+            var image = toggle.GetComponent<Image>();
+            if (image != null) image.color = on ? Theme.accentPriority : Theme.surfaceRaised;
+        }
+
         public static void Stretch(RectTransform rt)
         {
             rt.anchorMin = Vector2.zero;

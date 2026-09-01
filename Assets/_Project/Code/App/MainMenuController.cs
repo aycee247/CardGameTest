@@ -15,6 +15,7 @@ namespace Game.App
     {
         [SerializeField] private MainMenuView view;
         [SerializeField] private HowToPlayView howToPlay;
+        [SerializeField] private SettingsController settings;
 
         [Tooltip("Seats the hosted session allows. Simultaneous play means six costs no more " +
                  "wall-clock time than two.")]
@@ -48,6 +49,7 @@ namespace Game.App
             view.SoloClicked += OnSolo;
             view.NameChanged += OnNameChanged;
             view.HowToPlayClicked += OnHowToPlay;
+            view.SettingsClicked += OnSettings;
 
             if (howToPlay != null)
             {
@@ -89,6 +91,7 @@ namespace Game.App
                 view.SoloClicked -= OnSolo;
                 view.NameChanged -= OnNameChanged;
                 view.HowToPlayClicked -= OnHowToPlay;
+                view.SettingsClicked -= OnSettings;
             }
 
             if (howToPlay != null)
@@ -113,6 +116,8 @@ namespace Game.App
         }
 
         private void OnHowToPlay() => howToPlay?.Open();
+
+        private void OnSettings() => settings?.Open();
 
         /// <summary>
         /// Read or skipped, both of which mean "do not open this by itself again". Skipping is a
