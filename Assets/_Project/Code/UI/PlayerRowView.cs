@@ -85,8 +85,11 @@ namespace Game.UI
             {
                 case SeatStatus.Reconnecting:
                     color = trouble;
+                    // "back in 8s", not "reconnecting 8s": the rail cell is 150 units wide, and
+                    // the longer wording truncated to "reconnecting…" — losing the countdown,
+                    // which is the only part of it that changes or tells you anything.
                     return player.ReconnectSecondsLeft > 0f
-                        ? $"reconnecting {Mathf.CeilToInt(player.ReconnectSecondsLeft)}s"
+                        ? $"back in {Mathf.CeilToInt(player.ReconnectSecondsLeft)}s"
                         : "reconnecting";
 
                 case SeatStatus.Abandoned:

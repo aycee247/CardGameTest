@@ -155,7 +155,7 @@ namespace Game.SceneTools
             MiniDieGlyph(hero, "GlyphFive", 5, new Vector2(-390, -70));
             MiniDieGlyph(hero, "GlyphSix", 6, new Vector2(-300, -70));
             UiFactory.Label(hero, "Meta", "2–6 PLAYERS · 10 ROUNDS\n≈ 12 MINUTES",
-                new Vector2(230, -80), new Vector2(460, 90), 38f,
+                new Vector2(250, -80), new Vector2(520, 100), 38f,
                 TextAlignmentOptions.Right, FontRole.BodyMedium, Muted(0.55f), 0.08f);
             UiFactory.Label(hero, "BodyCopy",
                 "Roll together, shape your dice, commit in secret,\nthen claim the market's machines.",
@@ -184,8 +184,11 @@ namespace Game.SceneTools
 
             // Settings shares the identity row: both are things you set up before playing, and
             // the offline row below is already three buttons wide (STORY-4.1 AC2).
-            var settingsButton = Bottom(UiFactory.Button(content, "SettingsButton", "\u2699",
-                Vector2.zero, new Vector2(140, 120), ButtonStyle.Secondary, fontSize: 58f), IdentityY);
+            // "SET", not a gear glyph: U+2699 is in none of the Barlow faces and not in the
+            // LiberationSans fallback either, so TMP substituted a box — the button read as tofu
+            // on device. An icon here needs a glyph added to the atlases first.
+            var settingsButton = Bottom(UiFactory.Button(content, "SettingsButton", "SET",
+                Vector2.zero, new Vector2(140, 120), ButtonStyle.Secondary, fontSize: 38f), IdentityY);
             ((RectTransform)settingsButton.transform).anchoredPosition += new Vector2(400f, 0f);
             UiFactory.BlueprintFrame((RectTransform)settingsButton.transform, marks: false);
             nameInput.characterLimit = PlayerName.MaxLength;
@@ -538,11 +541,17 @@ namespace Game.SceneTools
             var chipGo = new GameObject("ClaimantChip", typeof(RectTransform), typeof(Image));
             var chip = (RectTransform)chipGo.transform;
             chip.SetParent(root, false);
-            chip.sizeDelta = new Vector2(300, 100);
-            FixedSize(chipGo, 300, 100);
+            // 380 wide: the label carries "{NAME} · {score}" and PlayerName allows 16 characters,
+            // which is 440 units at 38f — 300 fit only the short names.
+            chip.sizeDelta = new Vector2(380, 100);
+            FixedSize(chipGo, 380, 100);
             chipGo.GetComponent<Image>().color = _theme.Accent(800);
-            UiFactory.Label(chip, "Text", "", Vector2.zero, new Vector2(280, 80), 38f,
+            var chipText = UiFactory.Label(chip, "Text", "", Vector2.zero, new Vector2(360, 80), 38f,
                 TextAlignmentOptions.Center, FontRole.BodySemibold, _theme.textInverse);
+            // A 16-character name still overruns 360; ellipsis beats wrapping into two lines that
+            // the 100-unit chip cannot hold.
+            chipText.textWrappingMode = TextWrappingModes.NoWrap;
+            chipText.overflowMode = TextOverflowModes.Ellipsis;
             chipGo.SetActive(false);
 
             var resultStamp = UiFactory.Label(root, "ResultStamp", "", new Vector2(0, -240), new Vector2(960, 110), 74f,
@@ -921,7 +930,7 @@ namespace Game.SceneTools
             FixedSize(go, 250, 56);
             go.GetComponent<Image>().color = _theme.Accent(100);
 
-            var label = UiFactory.Label(rt, "Text", "POWER", Vector2.zero, new Vector2(240, 48), 26f,
+            var label = UiFactory.Label(rt, "Text", "POWER", Vector2.zero, new Vector2(250, 48), 26f,
                 TextAlignmentOptions.Center, FontRole.BodySemibold, _theme.Accent(800), 0.08f);
             label.textWrappingMode = TextWrappingModes.NoWrap;
             label.overflowMode = TextOverflowModes.Ellipsis;
@@ -997,8 +1006,9 @@ namespace Game.SceneTools
             // The Game scene had no way out and no way in to anything (STORY-4.1 AC2): no back
             // button, nothing in the top bar. This gear takes the gap between the round label and
             // the Sparks chip, which is the only free space up there.
-            var settingsButton = Top(UiFactory.Button(content, "SettingsButton", "\u2699",
-                new Vector2(70, 0), new Vector2(92, 76), ButtonStyle.Ghost, fontSize: 50f), -78);
+            // Same substituted-box problem as the menu's; see there.
+            var settingsButton = Top(UiFactory.Button(content, "SettingsButton", "SET",
+                new Vector2(70, 0), new Vector2(92, 76), ButtonStyle.Ghost, fontSize: 38f), -78);
             UiFactory.BlueprintFrame((RectTransform)settingsButton.transform, marks: false);
 
             var sparksChipGo = new GameObject("SparksChip", typeof(RectTransform), typeof(Image));
@@ -1058,7 +1068,7 @@ namespace Game.SceneTools
             // below what is drawn — clear the top edge of the done square beneath it.
             var reroll = Bottom(UiFactory.Button(content, "RerollButton", "RE-ROLL",
                 new Vector2(-370, 0), new Vector2(310, 110), ButtonStyle.Secondary), 358);
-            var nudgeDown = Bottom(UiFactory.Button(content, "NudgeDownButton", "−1",
+            var nudgeDown = Bottom(UiFactory.Button(content, "NudgeDownButton", "-1",
                 new Vector2(-125, 0), new Vector2(140, 110), ButtonStyle.Secondary), 358);
             var nudgeUp = Bottom(UiFactory.Button(content, "NudgeUpButton", "+1",
                 new Vector2(30, 0), new Vector2(140, 110), ButtonStyle.Secondary), 358);
@@ -1768,12 +1778,23 @@ namespace Game.SceneTools
                 // line gap, so a rendered line is 1.2em. At 1.15 the check blessed 44-unit boxes
                 // holding 38-unit type, which are a unit and a half short of an actual line.
                 float lineHeight = label.fontSize * 1.2f;
-                if (labelRect.height < lineHeight)
+
+                // Against the authored line count, not against one. A label written with its own
+                // newlines needs room for all of them, and checking a single line let a two-line
+                // hero tagline pass in a box that fits neither.
+                int authoredLines = string.IsNullOrEmpty(label.text)
+                    ? 1
+                    : label.text.Split('\n').Length;
+                float neededHeight = lineHeight * authoredLines;
+
+                if (labelRect.height < neededHeight)
                 {
                     problems++;
                     Debug.LogError($"[Scaffold] {sceneName}: '{Path(label.transform)}' has a " +
                                    $"{labelRect.height:0}-unit box for {label.fontSize:0}-unit type — " +
-                                   $"one line needs {lineHeight:0}.");
+                                   (authoredLines > 1
+                                       ? $"{authoredLines} authored lines need {neededHeight:0}."
+                                       : $"one line needs {neededHeight:0}."));
                 }
 
                 // Text that is already written can be measured, and most of the game's copy is
@@ -1781,6 +1802,18 @@ namespace Game.SceneTools
                 // vertically, and never whether the words fit across — which is how a global type
                 // raise broke a dozen labels that each individually still "fit".
                 if (string.IsNullOrEmpty(label.text)) continue;
+
+                // A glyph the face does not carry renders as a substituted box. The measurement
+                // below bails on one, which meant the check went quietest exactly where the text
+                // was unreadable — so it is reported here first, by name.
+                if (TryFindMissingGlyph(label, out char missing))
+                {
+                    problems++;
+                    Debug.LogError($"[Scaffold] {sceneName}: '{Path(label.transform)}' uses " +
+                                   $"U+{(int)missing:X4} ('{missing}'), which {label.font.name} does " +
+                                   "not carry — it renders as a substituted box.");
+                    continue;
+                }
 
                 if (!TryMeasureWidth(label, out float needed)) continue;
                 if (needed <= labelRect.width + 1f) continue;
@@ -1896,6 +1929,29 @@ namespace Game.SceneTools
         }
 
         /// <summary>
+        /// The first character of a label's text that its own font asset has no glyph for.
+        /// Whitespace is exempt — it is laid out, not drawn.
+        /// </summary>
+        private static bool TryFindMissingGlyph(TMP_Text label, out char missing)
+        {
+            missing = '\0';
+
+            var font = label.font;
+            if (font == null || string.IsNullOrEmpty(label.text)) return false;
+
+            foreach (char c in label.text)
+            {
+                if (char.IsWhiteSpace(c)) continue;
+                if (font.characterLookupTable.ContainsKey(c)) continue;
+
+                missing = c;
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// How wide a label's text actually is, summed from the font asset's own glyph advances.
         ///
         /// TMP's own GetPreferredValues cannot be used here: with no canvas and no laid-out text,
@@ -1913,19 +1969,27 @@ namespace Game.SceneTools
 
             var font = label.font;
             if (font == null || font.faceInfo.pointSize <= 0) return false;
-            if (label.text.IndexOf('\n') >= 0) return false;
 
+            // Authored newlines are measured, not skipped. Bailing on them disabled this check
+            // for precisely the labels that had been re-wrapped by hand to fix an overflow — so
+            // none of those fixes were ever verified. The widest line is what has to fit.
             float scale = label.fontSize / font.faceInfo.pointSize;
-            foreach (char c in label.text)
+            foreach (var line in label.text.Split('\n'))
             {
-                if (!font.characterLookupTable.TryGetValue(c, out var character)) return false;
-                width += character.glyph.metrics.horizontalAdvance * scale;
-            }
+                float lineWidth = 0f;
+                foreach (char c in line)
+                {
+                    if (!font.characterLookupTable.TryGetValue(c, out var character)) return false;
+                    lineWidth += character.glyph.metrics.horizontalAdvance * scale;
+                }
 
-            // characterSpacing is in font units, em/100 — the same convention UiFactory.Label
-            // writes it in. It applies between glyphs, not after the last one.
-            if (label.text.Length > 1)
-                width += label.characterSpacing / 100f * label.fontSize * (label.text.Length - 1);
+                // characterSpacing is in font units, em/100 — the convention UiFactory.Label
+                // writes it in. It applies between glyphs, not after the last one.
+                if (line.Length > 1)
+                    lineWidth += label.characterSpacing / 100f * label.fontSize * (line.Length - 1);
+
+                width = Mathf.Max(width, lineWidth);
+            }
 
             return true;
         }

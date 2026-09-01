@@ -117,4 +117,4 @@ InitTestScene*.unity*
 !/tools/**/*.csproj
 
 # Design canvas working files — the artboards are source, the seeded payload is a 2MB build artifact.
-design/
+/design/
