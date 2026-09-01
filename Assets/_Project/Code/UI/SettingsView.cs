@@ -36,6 +36,8 @@ namespace Game.UI
 
         [Header("Accessibility")]
         [SerializeField] private Button reducedMotionToggle;
+        [SerializeField] private Slider uiScaleSlider;
+        [SerializeField] private TMP_Text uiScaleValue;
 
         [Tooltip("Colours for the on/off buttons. UiFactory is Editor-only, so the runtime repaint " +
                  "lives here — the same arrangement SeatRowView uses.")]
@@ -48,6 +50,9 @@ namespace Game.UI
         public event Action<string> NameChanged;
         public event Action<bool> HapticsChanged;
         public event Action<bool> ReducedMotionChanged;
+
+        /// <summary>A multiplier, not a point size — the whole interface grows together.</summary>
+        public event Action<float> UiScaleChanged;
         public event Action Closed;
 
         private bool _haptics;
@@ -81,6 +86,12 @@ namespace Game.UI
                 ReducedMotionChanged?.Invoke(_reducedMotion);
             });
 
+            if (uiScaleSlider != null) uiScaleSlider.onValueChanged.AddListener(value =>
+            {
+                ShowScale(value);
+                UiScaleChanged?.Invoke(value);
+            });
+
             if (closeButton != null) closeButton.onClick.AddListener(() =>
             {
                 Close();
@@ -98,8 +109,11 @@ namespace Game.UI
         /// preview sound at whoever just opened the panel.
         /// </summary>
         public void Render(float master, float music, float sfx, string displayName,
-            bool haptics, bool reducedMotion)
+            bool haptics, bool reducedMotion, float uiScale)
         {
+            if (uiScaleSlider != null) uiScaleSlider.SetValueWithoutNotify(uiScale);
+            ShowScale(uiScale);
+
             if (masterSlider != null) masterSlider.SetValueWithoutNotify(master);
             if (musicSlider != null) musicSlider.SetValueWithoutNotify(music);
             if (sfxSlider != null) sfxSlider.SetValueWithoutNotify(sfx);
@@ -109,6 +123,15 @@ namespace Game.UI
             _reducedMotion = reducedMotion;
             PaintToggle(hapticsToggle, haptics);
             PaintToggle(reducedMotionToggle, reducedMotion);
+        }
+
+        /// <summary>
+        /// The scale as a percentage. A slider with no read-out is a guess, and this one changes
+        /// the size of the very label describing it.
+        /// </summary>
+        private void ShowScale(float scale)
+        {
+            if (uiScaleValue != null) uiScaleValue.text = $"{Mathf.RoundToInt(scale * 100f)}%";
         }
 
         /// <summary>

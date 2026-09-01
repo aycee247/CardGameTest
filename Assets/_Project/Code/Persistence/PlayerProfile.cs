@@ -17,6 +17,16 @@ namespace Game.Persistence
 
         /// <summary>Scales every UI animation; 1 is authored speed, 2 twice as fast.</summary>
         public float AnimationSpeed = 1f;
+
+        /// <summary>
+        /// How much larger the interface is drawn, 1 being as authored (STORY-4.5 AC1).
+        ///
+        /// Scales the whole layout, not the type on its own. Every box in this game is sized to
+        /// its text — the generator refuses to build one that is not — so growing labels alone
+        /// would overflow every screen. Growing the canvas keeps the layout intact and shows
+        /// less of it, which is the trade a player can actually see and undo.
+        /// </summary>
+        public float UiScale = 1f;
     }
 
     /// <summary>

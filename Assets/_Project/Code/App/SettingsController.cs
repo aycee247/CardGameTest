@@ -39,6 +39,7 @@ namespace Game.App
             view.NameChanged += OnNameChanged;
             view.HapticsChanged += OnHapticsChanged;
             view.ReducedMotionChanged += OnReducedMotionChanged;
+            view.UiScaleChanged += OnUiScaleChanged;
 
             if (!GameServices.IsReady) return;
             GameServices.Locator.TryGet<ISaveService>(out _save);
@@ -53,6 +54,7 @@ namespace Game.App
             view.NameChanged -= OnNameChanged;
             view.HapticsChanged -= OnHapticsChanged;
             view.ReducedMotionChanged -= OnReducedMotionChanged;
+            view.UiScaleChanged -= OnUiScaleChanged;
         }
 
         /// <summary>
@@ -67,7 +69,8 @@ namespace Game.App
             var settings = _save?.Profile?.Settings ?? new GameSettings();
 
             view.Render(settings.MasterVolume, settings.MusicVolume, settings.SfxVolume,
-                LocalIdentity.RawDisplayName, settings.Haptics, settings.ReducedMotion);
+                LocalIdentity.RawDisplayName, settings.Haptics, settings.ReducedMotion,
+                settings.UiScale);
 
             // Only an online match runs a clock that will not wait for this panel (STORY-2.7:
             // hot-seat and solo are untimed by design, so the warning would be a lie there).
@@ -127,7 +130,8 @@ namespace Game.App
             // player the version their opponents will see.
             var settings = _save?.Profile?.Settings ?? new GameSettings();
             view.Render(settings.MasterVolume, settings.MusicVolume, settings.SfxVolume,
-                LocalIdentity.RawDisplayName, settings.Haptics, settings.ReducedMotion);
+                LocalIdentity.RawDisplayName, settings.Haptics, settings.ReducedMotion,
+                settings.UiScale);
         }
 
         private void OnHapticsChanged(bool on)
@@ -135,6 +139,18 @@ namespace Game.App
             if (_save?.Profile == null) return;
 
             _save.Profile.Settings.Haptics = on;
+            _save.MarkDirty();
+        }
+
+        /// <summary>
+        /// Writes the scale and lets the applier repaint the canvas. The panel the slider lives
+        /// on resizes underneath the thumb, which is the clearest preview available.
+        /// </summary>
+        private void OnUiScaleChanged(float scale)
+        {
+            if (_save?.Profile == null) return;
+
+            _save.Profile.Settings.UiScale = Mathf.Clamp(scale, UiScaleApplier.MinScale, UiScaleApplier.MaxScale);
             _save.MarkDirty();
         }
 

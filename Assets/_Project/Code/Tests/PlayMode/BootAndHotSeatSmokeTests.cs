@@ -265,6 +265,66 @@ namespace Game.Tests.PlayMode
             }
         }
 
+        /// <summary>
+        /// STORY-4.5 AC1: the accessibility scale reaches the canvas, not just the profile. It
+        /// works by narrowing the scaler's reference width, so the whole layout grows in the
+        /// proportions it was authored in and nothing can overflow the box it was measured into.
+        /// </summary>
+        [UnityTest]
+        [Timeout(120000)]
+        public IEnumerator UiScale_WidensEverythingByNarrowingTheReference()
+        {
+            LogAssert.ignoreFailingMessages = true;
+
+            if (!GameServices.IsReady)
+            {
+                SceneManager.LoadScene(SceneNames.Boot);
+
+                float deadline = Time.realtimeSinceStartup + 90f;
+                while (SceneManager.GetActiveScene().name != SceneNames.MainMenu)
+                {
+                    Assert.Less(Time.realtimeSinceStartup, deadline, "Boot never reached the MainMenu.");
+                    yield return null;
+                }
+            }
+
+            Assert.IsTrue(GameServices.Locator.TryGet<ISaveService>(out var save), "No save service.");
+
+            float original = save.Profile.Settings.UiScale;
+            try
+            {
+                save.Profile.Settings.UiScale = 1f;
+                SceneManager.LoadScene(SceneNames.MainMenu);
+                yield return null;
+
+                var scaler = Object.FindFirstObjectByType<CanvasScaler>();
+                Assert.IsNotNull(scaler, "MainMenu has no CanvasScaler — regenerate the scenes.");
+                Assert.AreEqual(UiScaleApplier.ReferenceWidth, scaler.referenceResolution.x, 0.5f,
+                    "At scale 1 the reference width must be exactly as authored.");
+
+                // Raising the scale narrows the reference, which is what makes everything bigger.
+                save.Profile.Settings.UiScale = 1.25f;
+                save.MarkDirty();
+                yield return null;
+
+                Assert.AreEqual(UiScaleApplier.ReferenceWidth / 1.25f, scaler.referenceResolution.x, 0.5f,
+                    "The scale never reached the canvas.");
+
+                // And it is clamped: past the maximum a six-seat rail stops fitting at all.
+                save.Profile.Settings.UiScale = 9f;
+                save.MarkDirty();
+                yield return null;
+
+                Assert.AreEqual(UiScaleApplier.ReferenceWidth / UiScaleApplier.MaxScale,
+                    scaler.referenceResolution.x, 0.5f, "An out-of-range scale was not clamped.");
+            }
+            finally
+            {
+                save.Profile.Settings.UiScale = original;
+                save.MarkDirty();
+            }
+        }
+
         [UnityTest]
         [Timeout(60000)]
         public IEnumerator GameScene_LoadedWithoutNetwork_StartsHotSeatMatch()
