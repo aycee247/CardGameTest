@@ -177,13 +177,18 @@ namespace Game.SceneTools
                 new Vector2(0, -660), new Vector2(970, 144), ButtonStyle.Secondary);
 
             // Kept beyond the handoff: the offline paths — pass-the-device, and solo vs bots
-            // (STORY-7.1) — sharing one row so the online actions keep their prominence.
-            var passPlay = UiFactory.Button(content, "PassPlayButton", "PASS & PLAY",
-                new Vector2(-250, -830), new Vector2(470, 144), ButtonStyle.Ghost);
+            // (STORY-7.1) — sharing one row so the online actions keep their prominence. HOW TO
+            // PLAY (STORY-3.5) joins them: it belongs with the things you do without a friend
+            // waiting, and a new player looking for it looks here.
+            var passPlay = UiFactory.Button(content, "PassPlayButton", "PASS &\nPLAY",
+                new Vector2(-322, -830), new Vector2(310, 144), ButtonStyle.Ghost, fontSize: 30f);
             UiFactory.BlueprintFrame((RectTransform)passPlay.transform, marks: false);
-            var solo = UiFactory.Button(content, "SoloButton", "SOLO VS BOTS",
-                new Vector2(250, -830), new Vector2(470, 144), ButtonStyle.Ghost);
+            var solo = UiFactory.Button(content, "SoloButton", "SOLO VS\nBOTS",
+                new Vector2(0, -830), new Vector2(310, 144), ButtonStyle.Ghost, fontSize: 30f);
             UiFactory.BlueprintFrame((RectTransform)solo.transform, marks: false);
+            var howTo = UiFactory.Button(content, "HowToPlayButton", "HOW TO\nPLAY",
+                new Vector2(322, -830), new Vector2(310, 144), ButtonStyle.Ghost, fontSize: 30f);
+            UiFactory.BlueprintFrame((RectTransform)howTo.transform, marks: false);
 
             var status = Bottom(UiFactory.Label(content, "Status", "", Vector2.zero,
                 new Vector2(970, 70), 32f, TextAlignmentOptions.Center, FontRole.Body, Muted(0.8f)), 200);
@@ -197,13 +202,17 @@ namespace Game.SceneTools
             SetRef(view, "joinButton", join);
             SetRef(view, "passPlayButton", passPlay);
             SetRef(view, "soloButton", solo);
+            SetRef(view, "howToPlayButton", howTo);
             SetRef(view, "joinCodeInput", codeInput);
             SetRef(view, "nameInput", nameInput);
             SetRef(view, "statusLabel", status);
             SetRef(view, "joinCodeLabel", codeLabel);
 
+            var howToPlayView = BuildHowToPlayPanel(content);
+
             var controller = canvas.gameObject.AddComponent<MainMenuController>();
             SetRef(controller, "view", view);
+            SetRef(controller, "howToPlay", howToPlayView);
 
             return Save(scene, SceneNames.MainMenu);
         }
@@ -244,6 +253,52 @@ namespace Game.SceneTools
             var color = _theme.textPrimary;
             color.a = alpha;
             return color;
+        }
+
+        /// <summary>
+        /// The first-run explainer (STORY-3.5). A full-screen overlay on the menu's own canvas
+        /// rather than a fifth scene: it is four pages of reading, and a scene load either side
+        /// of that would cost more than it buys.
+        /// </summary>
+        private static HowToPlayView BuildHowToPlayPanel(Transform parent)
+        {
+            var panel = FullScreenPanel(parent, "HowToPlayPanel", _theme.surfaceOverlay);
+
+            var title = UiFactory.Label(panel, "Title", "", new Vector2(0, 540), new Vector2(900, 200), 66f,
+                TextAlignmentOptions.Center, FontRole.HeadingBold, _theme.textInverse);
+            var body = UiFactory.Label(panel, "Body", "", new Vector2(0, 40), new Vector2(880, 780), 38f,
+                TextAlignmentOptions.Center, FontRole.Body, _theme.textInverse);
+            var progress = UiFactory.Label(panel, "Progress", "", new Vector2(0, -430), new Vector2(400, 60), 30f,
+                TextAlignmentOptions.Center, FontRole.BodyMedium,
+                UiFactory.WithAlpha(_theme.textInverse, 0.55f), 0.18f);
+
+            var next = UiFactory.Button(panel, "NextButton", "NEXT",
+                new Vector2(160, -560), new Vector2(360, 140));
+            var nextLabel = next.GetComponentInChildren<TextMeshProUGUI>();
+            var back = UiFactory.Button(panel, "BackButton", "BACK",
+                new Vector2(-160, -560), new Vector2(360, 140), ButtonStyle.Ghost);
+            var skip = UiFactory.Button(panel, "SkipButton", "SKIP",
+                new Vector2(0, -720), new Vector2(360, 110), ButtonStyle.Ghost);
+
+            // Deliberately NOT under NEXT. It used to share that rect, which meant a player
+            // tapping quickly through the pages had their next tap — same thumb, a fraction of a
+            // second later — land on PLAY SOLO and start a match they never asked for, from the
+            // one screen aimed at people who do not yet know what the buttons do.
+            var playSolo = UiFactory.Button(panel, "PlaySoloButton", "PLAY SOLO",
+                new Vector2(0, -720), new Vector2(460, 130));
+            UiFactory.BlueprintFrame((RectTransform)playSolo.transform, FrameEmphasis.AccentStrong);
+
+            var view = panel.gameObject.AddComponent<HowToPlayView>();
+            SetRef(view, "root", panel.gameObject);
+            SetRef(view, "titleText", title);
+            SetRef(view, "bodyText", body);
+            SetRef(view, "progressText", progress);
+            SetRef(view, "nextButton", next);
+            SetRef(view, "nextLabel", nextLabel);
+            SetRef(view, "backButton", back);
+            SetRef(view, "skipButton", skip);
+            SetRef(view, "playSoloButton", playSolo);
+            return view;
         }
 
         private static string BuildLobbyScene()

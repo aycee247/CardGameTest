@@ -1,5 +1,6 @@
 using System;
 using Game.Networking;
+using Game.Persistence;
 using Game.UI;
 using UnityEngine;
 
@@ -13,6 +14,7 @@ namespace Game.App
     public sealed class MainMenuController : MonoBehaviour
     {
         [SerializeField] private MainMenuView view;
+        [SerializeField] private HowToPlayView howToPlay;
 
         [Tooltip("Seats the hosted session allows. Simultaneous play means six costs no more " +
                  "wall-clock time than two.")]
@@ -45,6 +47,14 @@ namespace Game.App
             view.PassPlayClicked += OnPassPlay;
             view.SoloClicked += OnSolo;
             view.NameChanged += OnNameChanged;
+            view.HowToPlayClicked += OnHowToPlay;
+
+            if (howToPlay != null)
+            {
+                howToPlay.Finished += OnOnboardingSeen;
+                howToPlay.Skipped += OnOnboardingSeen;
+                howToPlay.PlaySoloRequested += OnSolo;
+            }
 
             // The menu is where identity is set, until the settings screen exists (STORY-4.1).
             view.SetName(LocalIdentity.RawDisplayName);
@@ -60,16 +70,62 @@ namespace Game.App
                     status = "Saved settings couldn't be read and were reset to defaults. " + status;
             }
             view.SetStatus(status);
+
+            // Last, so a brand-new player meets the explainer over a menu that has already
+            // finished settling rather than one still resolving its own state.
+            ShowOnboardingIfNewPlayer();
         }
 
         private void OnDestroy()
         {
-            if (view == null) return;
-            view.HostClicked -= OnHost;
-            view.JoinClicked -= OnJoin;
-            view.PassPlayClicked -= OnPassPlay;
-            view.SoloClicked -= OnSolo;
-            view.NameChanged -= OnNameChanged;
+            // Guards only the view's own handlers. It used to wrap the whole method, which after
+            // the explainer landed meant a missing view silently skipped unsubscribing from it
+            // too — harmless while both die in the same unload, but not what the guard says.
+            if (view != null)
+            {
+                view.HostClicked -= OnHost;
+                view.JoinClicked -= OnJoin;
+                view.PassPlayClicked -= OnPassPlay;
+                view.SoloClicked -= OnSolo;
+                view.NameChanged -= OnNameChanged;
+                view.HowToPlayClicked -= OnHowToPlay;
+            }
+
+            if (howToPlay != null)
+            {
+                howToPlay.Finished -= OnOnboardingSeen;
+                howToPlay.Skipped -= OnOnboardingSeen;
+                howToPlay.PlaySoloRequested -= OnSolo;
+            }
+        }
+
+        /// <summary>
+        /// Opens the explainer the first time this player reaches the menu, and again if its
+        /// revision has moved past what they last read (STORY-3.5). Without a profile — a scene
+        /// opened straight from the editor — it stays shut rather than nagging on every load.
+        /// </summary>
+        private void ShowOnboardingIfNewPlayer()
+        {
+            if (howToPlay == null) return;
+            if (!GameServices.Locator.TryGet<ISaveService>(out var save) || save.Profile == null) return;
+
+            if (save.Profile.OnboardingSeenVersion < HowToPlayView.Version) howToPlay.Open();
+        }
+
+        private void OnHowToPlay() => howToPlay?.Open();
+
+        /// <summary>
+        /// Read or skipped, both of which mean "do not open this by itself again". Skipping is a
+        /// decision, not a misfire — the player who skipped it has the HOW TO PLAY button right
+        /// there, and re-prompting them every launch is nagging.
+        /// </summary>
+        private void OnOnboardingSeen()
+        {
+            if (!GameServices.Locator.TryGet<ISaveService>(out var save) || save.Profile == null) return;
+            if (save.Profile.OnboardingSeenVersion >= HowToPlayView.Version) return;
+
+            save.Profile.OnboardingSeenVersion = HowToPlayView.Version;
+            save.MarkDirty();
         }
 
         /// <summary>

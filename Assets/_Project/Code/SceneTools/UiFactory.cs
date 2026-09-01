@@ -65,7 +65,8 @@ namespace Game.SceneTools
         }
 
         public static Button Button(Transform parent, string name, string label,
-            Vector2 anchoredPos, Vector2 size, ButtonStyle style = ButtonStyle.Primary)
+            Vector2 anchoredPos, Vector2 size, ButtonStyle style = ButtonStyle.Primary,
+            float fontSize = 40f)
         {
             var go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
             var rt = (RectTransform)go.transform;
@@ -91,7 +92,7 @@ namespace Game.SceneTools
                     break;
             }
 
-            var textRt = Label(rt, "Text", label, Vector2.zero, size, 40f,
+            var textRt = Label(rt, "Text", label, Vector2.zero, size, fontSize,
                 TextAlignmentOptions.Center, FontRole.BodySemibold, labelColor, 0.04f).rectTransform;
             textRt.anchorMin = Vector2.zero;
             textRt.anchorMax = Vector2.one;
