@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Game.Core;
 using Game.Data;
@@ -42,6 +43,13 @@ namespace Game.App
 
         public HotSeatDirector Director => _director;
 
+        /// <summary>
+        /// Forwards the live session's snapshots, surviving rematches (each StartMatch builds a new
+        /// session and re-hooks it here). GameSceneBootstrap feeds these to match telemetry — this
+        /// host stays free of telemetry calls of its own.
+        /// </summary>
+        public event Action<MatchSnapshot> SnapshotChanged;
+
         private void Start()
         {
             if (autoStartOnLoad) StartMatch();
@@ -64,6 +72,10 @@ namespace Game.App
             var state = MatchFactory.Build(config, cardDatabase, names, seed);
             _session = new LocalMatchSession(state, new SeededDiceRoller(unchecked((ulong)seed)));
             _director = new HotSeatDirector(_session);
+
+            // The previous session (a rematch) is discarded whole, subscribers included, so this
+            // needs no matching unsubscribe.
+            _session.Changed += s => SnapshotChanged?.Invoke(s);
 
             if (presenter != null)
             {

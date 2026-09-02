@@ -11,7 +11,8 @@
         "Unity.Netcode.Runtime",
         "Unity.Services.Core",
         "Unity.Services.Authentication",
-        "Unity.Services.Multiplayer"
+        "Unity.Services.Multiplayer",
+        "Unity.Services.Analytics"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -20,6 +21,12 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.services.analytics",
+            "expression": "[1,99)",
+            "define": "FOUNDRY_UGS_ANALYTICS"
+        }
+    ],
     "noEngineReferences": false
 }

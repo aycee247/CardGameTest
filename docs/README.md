@@ -13,6 +13,7 @@
 | Know the rules and requirements | [`game-design.md`](game-design.md) — **canonical** |
 | Understand the code | [`architecture/overview.md`](architecture/overview.md) |
 | Find work to do | [`backlog/roadmap.md`](backlog/roadmap.md) |
+| See what happens after TestFlight | [`product-plan.md`](product-plan.md) — feedback program + monetization |
 | Know how we work | [`agile/working-agreement.md`](agile/working-agreement.md) |
 | Know when something is finished | [`agile/definition-of-done.md`](agile/definition-of-done.md) |
 | Build a screen | [`design/ui-conventions.md`](design/ui-conventions.md) |

@@ -38,6 +38,11 @@ namespace Game.App
         private bool _awaitingFirstSnapshot;
         private float _firstSnapshotDeadline;
 
+        // Match telemetry (docs/product-plan.md F1): one tracker per scene, fed by whichever mode
+        // is driving. Created here rather than in the hosts so all three modes report identically.
+        private MatchTelemetryTracker _matchTelemetry;
+        private string _telemetryMode = "hotseat";
+
         /// <summary>True when this scene was loaded as part of a live network session.</summary>
         public static bool IsOnline
         {
@@ -67,7 +72,12 @@ namespace Game.App
         {
             ConfigureHints();
 
-            if (endScreen != null) endScreen.MenuClicked += OnMenuFromEndScreen;
+            if (endScreen != null)
+            {
+                endScreen.MenuClicked += OnMenuFromEndScreen;
+                endScreen.PulseRated += OnPulseRated;
+                endScreen.PulseCommented += OnPulseCommented;
+            }
 
             if (IsOnline)
             {
@@ -139,6 +149,8 @@ namespace Game.App
             }
 
             hotSeatHost.enabled = true;
+            BeginMatchTelemetry("hotseat");
+            hotSeatHost.SnapshotChanged += OnTelemetrySnapshot;
             hotSeatHost.StartMatch();
         }
 
@@ -155,6 +167,8 @@ namespace Game.App
             }
 
             soloHost.enabled = true;
+            BeginMatchTelemetry("solo");
+            soloHost.SnapshotChanged += OnTelemetrySnapshot;
             soloHost.StartMatch(botCount);
         }
 
@@ -174,6 +188,7 @@ namespace Game.App
 
             presenter.Bind(networkController, networkController);
             networkController.HostLost += OnHostLost;
+            BeginMatchTelemetry("online");
 
             // The correction path for the other ordering. Awake normally gets the name in before
             // the spawn announcement goes out; if the spawn somehow won, this fixes it, and if it
@@ -221,8 +236,18 @@ namespace Game.App
 
         private void OnDestroy()
         {
+            _matchTelemetry?.NotifyClosed();
+
             if (presenter != null) presenter.DoneRequested -= OnOnlineDone;
-            if (endScreen != null) endScreen.RematchClicked -= OnOnlineRematch;
+            if (hotSeatHost != null) hotSeatHost.SnapshotChanged -= OnTelemetrySnapshot;
+            if (soloHost != null) soloHost.SnapshotChanged -= OnTelemetrySnapshot;
+            if (endScreen != null)
+            {
+                endScreen.MenuClicked -= OnMenuFromEndScreen;
+                endScreen.PulseRated -= OnPulseRated;
+                endScreen.PulseCommented -= OnPulseCommented;
+                endScreen.RematchClicked -= OnOnlineRematch;
+            }
             if (hotSeatOverlay != null) hotSeatOverlay.GameOverDismissed -= OnMenuFromEndScreen;
 
             if (networkController != null)
@@ -313,6 +338,8 @@ namespace Game.App
             // The match is talking to us, so the watchdog has nothing left to watch for.
             _awaitingFirstSnapshot = false;
 
+            _matchTelemetry?.OnSnapshot(snapshot);
+
             if (revealSpotlight != null)
             {
                 if (snapshot.Phase == RoundPhase.Reveal && _lastOnlinePhase != RoundPhase.Reveal)
@@ -339,6 +366,50 @@ namespace Game.App
             }
 
             _lastOnlinePhase = snapshot.Phase;
+        }
+
+        /// <summary>
+        /// Arms match telemetry for whichever mode is about to drive the scene. Without a service
+        /// graph (the Game scene opened directly in the editor) the tracker is simply absent and
+        /// every feed below no-ops.
+        /// </summary>
+        private void BeginMatchTelemetry(string mode)
+        {
+            _telemetryMode = mode;
+            if (GameServices.IsReady && GameServices.Locator.TryGet<ITelemetry>(out var telemetry))
+                _matchTelemetry = new MatchTelemetryTracker(telemetry, mode);
+        }
+
+        private void OnTelemetrySnapshot(MatchSnapshot snapshot)
+        {
+            _matchTelemetry?.OnSnapshot(snapshot);
+        }
+
+        /// <summary>The one-tap post-match rating (F2). Fires once per shown end screen.</summary>
+        private void OnPulseRated(int rating)
+        {
+            RecordPulse("match_pulse", rating, null);
+        }
+
+        /// <summary>The optional follow-up line, recorded separately so ratings are never double-counted.</summary>
+        private void OnPulseCommented(int rating, string comment)
+        {
+            RecordPulse("match_pulse_comment", rating, comment);
+        }
+
+        private void RecordPulse(string eventName, int rating, string comment)
+        {
+            if (!GameServices.IsReady ||
+                !GameServices.Locator.TryGet<ITelemetry>(out var telemetry)) return;
+
+            var parameters = new System.Collections.Generic.Dictionary<string, object>
+            {
+                ["mode"] = _telemetryMode,
+                ["rating"] = rating,
+            };
+            if (!string.IsNullOrWhiteSpace(comment)) parameters["comment"] = comment.Trim();
+
+            telemetry.Record(eventName, parameters);
         }
 
         /// <summary>

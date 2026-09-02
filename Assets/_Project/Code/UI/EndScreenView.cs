@@ -27,6 +27,16 @@ namespace Game.UI
         [SerializeField] private UiAnimationService anims;
         [SerializeField] private ThemeAsset theme;
 
+        [Header("Feedback pulse (docs/product-plan.md F2)")]
+        [SerializeField] private GameObject pulseRoot;
+        [SerializeField] private TMP_Text pulsePrompt;
+        [SerializeField] private GameObject pulseRatingRow;
+        [Tooltip("Ratings 1–5, left to right. Seeded by the scene generator.")]
+        [SerializeField] private Button[] pulseRatingButtons;
+        [SerializeField] private GameObject pulseCommentRow;
+        [SerializeField] private TMP_InputField pulseCommentInput;
+        [SerializeField] private Button pulseSendButton;
+
         private sealed class Row
         {
             public RectTransform Root;
@@ -43,12 +53,33 @@ namespace Game.UI
         public event Action RematchClicked;
         public event Action MenuClicked;
 
+        /// <summary>One tap on a rating (1–5). Fires at most once per shown end screen — the tap
+        /// itself is the whole ask, so it must never gate on the optional comment.</summary>
+        public event Action<int> PulseRated;
+
+        /// <summary>The optional follow-up line, with the rating it belongs to.</summary>
+        public event Action<int, string> PulseCommented;
+
+        private int _pulseRating;
+
         public bool IsOpen => root != null && root.activeSelf;
 
         private void Awake()
         {
             if (rematchButton != null) rematchButton.onClick.AddListener(() => RematchClicked?.Invoke());
             if (menuButton != null) menuButton.onClick.AddListener(() => MenuClicked?.Invoke());
+
+            if (pulseRatingButtons != null)
+            {
+                for (int i = 0; i < pulseRatingButtons.Length; i++)
+                {
+                    int rating = i + 1;
+                    var button = pulseRatingButtons[i];
+                    if (button != null) button.onClick.AddListener(() => OnPulseRatingTapped(rating));
+                }
+            }
+
+            if (pulseSendButton != null) pulseSendButton.onClick.AddListener(OnPulseSendTapped);
         }
 
         public void SetRematchVisible(bool visible)
@@ -79,7 +110,49 @@ namespace Game.UI
             }
 
             RenderRows(snapshot, standings);
+            ResetPulse();
             if (root != null) root.SetActive(true);
+        }
+
+        /// <summary>
+        /// Back to the unanswered state for a fresh match. Every Show() resets: a rematch is a new
+        /// match and deserves its own rating, not the last one's leftovers.
+        /// </summary>
+        private void ResetPulse()
+        {
+            _pulseRating = 0;
+            if (pulseRoot != null) pulseRoot.SetActive(true);
+            if (pulsePrompt != null) pulsePrompt.text = "HOW WAS THAT MATCH?";
+            if (pulseRatingRow != null) pulseRatingRow.SetActive(true);
+            if (pulseCommentRow != null) pulseCommentRow.SetActive(false);
+            if (pulseCommentInput != null) pulseCommentInput.SetTextWithoutNotify(string.Empty);
+        }
+
+        /// <summary>
+        /// The tap is the submission (one tap, no confirm step); the comment slot then appears in
+        /// the same space as an optional extra, never a requirement.
+        /// </summary>
+        private void OnPulseRatingTapped(int rating)
+        {
+            if (_pulseRating != 0) return;   // already answered this match
+
+            _pulseRating = rating;
+            PulseRated?.Invoke(rating);
+
+            if (pulsePrompt != null) pulsePrompt.text = "THANKS — ANYTHING TO ADD?";
+            if (pulseRatingRow != null) pulseRatingRow.SetActive(false);
+            if (pulseCommentRow != null) pulseCommentRow.SetActive(true);
+        }
+
+        private void OnPulseSendTapped()
+        {
+            if (_pulseRating == 0) return;
+
+            string comment = pulseCommentInput != null ? pulseCommentInput.text : string.Empty;
+            if (!string.IsNullOrWhiteSpace(comment)) PulseCommented?.Invoke(_pulseRating, comment.Trim());
+
+            if (pulsePrompt != null) pulsePrompt.text = "NOTED — SEE YOU NEXT MATCH.";
+            if (pulseCommentRow != null) pulseCommentRow.SetActive(false);
         }
 
         public void Hide()

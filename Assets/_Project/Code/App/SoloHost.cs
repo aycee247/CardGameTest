@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Game.Core;
 using Game.Data;
@@ -35,6 +36,10 @@ namespace Game.App
 
         public SoloDirector Director => _director;
 
+        /// <summary>Same arrangement as <see cref="HotSeatHost.SnapshotChanged"/>: snapshots out,
+        /// telemetry stays in GameSceneBootstrap.</summary>
+        public event Action<MatchSnapshot> SnapshotChanged;
+
         public void StartMatch(int botCount)
         {
             _botCount = Mathf.Clamp(botCount, 1, 5);
@@ -48,6 +53,9 @@ namespace Game.App
 
             var state = MatchFactory.Build(config, cardDatabase, names, seed);
             _session = new LocalMatchSession(state, new SeededDiceRoller(unchecked((ulong)seed)));
+
+            // Rematch discards the old session with its subscribers; no unsubscribe needed.
+            _session.Changed += s => SnapshotChanged?.Invoke(s);
 
             var bots = new List<BotPlayer>(_botCount);
             for (int seat = 1; seat <= _botCount; seat++)

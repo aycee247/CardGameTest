@@ -22,6 +22,7 @@ namespace Game.App
         [SerializeField] private NetworkManager networkManager;
 
         private ISaveService _saveService;
+        private UgsTelemetry _telemetry;
 
         private void Awake()
         {
@@ -47,6 +48,10 @@ namespace Game.App
             {
                 var session = GameServices.Locator.Get<SessionManager>();
                 await session.InitializeAsync();
+
+                // Collection starts only behind a successful UGS init — the same gate online play
+                // passes through. A fully offline boot records nothing, by design (F1).
+                _telemetry.StartCollection();
             }
             catch (Exception e)
             {
@@ -82,6 +87,10 @@ namespace Game.App
 
             // Networking / online services
             locator.Register(new SessionManager());
+
+            // Telemetry (docs/product-plan.md F1) — registered inert; Start() arms it after UGS.
+            _telemetry = new UgsTelemetry();
+            locator.Register<ITelemetry>(_telemetry);
 
             // Scene flow
             locator.Register(new SceneFlowService());
