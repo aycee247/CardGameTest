@@ -134,8 +134,10 @@
     statusEl.className = "status" + (isErr ? " err" : "");
   }
 
+  // sessionStorage, not localStorage: the key shouldn't outlive the tab on a shared or
+  // borrowed machine (#103 review).
   try {
-    var savedKey = localStorage.getItem("foundry-admin-key");
+    var savedKey = sessionStorage.getItem("foundry-admin-key");
     if (savedKey) keyInput.value = savedKey;
   } catch (e) { /* storage may be unavailable; the field still works */ }
 
@@ -190,15 +192,31 @@
         rollup.appendChild(el("span", "pill info", "Avg rating " + avg.toFixed(1) + " / 5"));
       }
 
-      var confusion = pillCounts(list, "confusion");
-      delete confusion["Nowhere"];
-      var topConfusion = Object.keys(confusion).sort(function (a, b) { return confusion[b] - confusion[a]; })[0];
-      rollup.appendChild(topConfusion
-        ? el("span", "pill warn", "Confusion hotspot: " + topConfusion + " ×" + confusion[topConfusion])
-        : el("span", "pill good", "No confusion reported"));
+      // "No confusion reported" is only true when someone actually picked Nowhere — a skipped
+      // question is missing data, not a confirmed answer, and conflating the two (#103 review)
+      // would make an unanswered night look like a clean one.
+      var confusionCounts = pillCounts(list, "confusion");
+      var nowhereCount = confusionCounts["Nowhere"] || 0;
+      delete confusionCounts["Nowhere"];
+      var topConfusion = Object.keys(confusionCounts)
+        .sort(function (a, b) { return confusionCounts[b] - confusionCounts[a]; })[0];
+      if (topConfusion) {
+        rollup.appendChild(el("span", "pill warn",
+          "Confusion hotspot: " + topConfusion + " ×" + confusionCounts[topConfusion]));
+      } else if (nowhereCount) {
+        rollup.appendChild(el("span", "pill good", "No confusion reported ×" + nowhereCount));
+      } else {
+        rollup.appendChild(el("span", "pill info", "No confusion data yet"));
+      }
 
       var unfair = pillCounts(list, "priorityFair")["Unfair"] || 0;
       if (unfair) rollup.appendChild(el("span", "pill warn", "Priority felt unfair ×" + unfair));
+
+      var sparks = pillCounts(list, "sparksWorthTracking");
+      if (sparks.Yes || sparks.Meh || sparks.No) {
+        rollup.appendChild(el("span", "pill info",
+          "Sparks worth it: " + (sparks.Yes || 0) + "Y / " + (sparks.Meh || 0) + "M / " + (sparks.No || 0) + "N"));
+      }
 
       card.appendChild(rollup);
 
@@ -226,6 +244,7 @@
         row("Fun peak", r.funPeak, r.funPeakNote);
         row("Confused at", r.confusion, r.confusionNote);
         row("Priority", r.priorityFair, r.priorityNote);
+        row("Sparks worth it", r.sparksWorthTracking, null);
         row("Again tomorrow", r.playAgain, null);
         row("Would invite", r.invite, null);
         resp.appendChild(dl);
@@ -249,7 +268,7 @@
       })
       .then(function (data) {
         responses = data.responses || [];
-        try { localStorage.setItem("foundry-admin-key", key); } catch (e) { }
+        try { sessionStorage.setItem("foundry-admin-key", key); } catch (e) { }
         setStatus(responses.length + " debriefs loaded.");
         document.getElementById("toolsCard").hidden = false;
         render();
@@ -265,8 +284,15 @@
 
   document.getElementById("csvBtn").addEventListener("click", function () {
     var cols = ["session", "submittedAt", "name", "rating", "funPeak", "funPeakNote",
-      "confusion", "confusionNote", "priorityFair", "priorityNote", "playAgain", "invite"];
-    var quote = function (v) { return '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"'; };
+      "confusion", "confusionNote", "priorityFair", "priorityNote", "sparksWorthTracking",
+      "playAgain", "invite"];
+    // A name or note starting with = + - or @ opens as a formula in Excel/Sheets, and every
+    // free-text field here comes from an anonymous, unauthenticated submitter (#103 review).
+    // A leading tab defuses it without visibly changing the printed value.
+    var escapeFormula = function (s) { return /^[=+\-@]/.test(s) ? "\t" + s : s; };
+    var quote = function (v) {
+      return '"' + escapeFormula(String(v == null ? "" : v)).replace(/"/g, '""') + '"';
+    };
     var lines = [cols.join(",")].concat(responses.map(function (r) {
       return cols.map(function (c) { return quote(r[c]); }).join(",");
     }));

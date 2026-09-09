@@ -183,6 +183,16 @@
     </fieldset>
 
     <fieldset>
+      <legend>Bonus &middot; Was tracking Sparks worth the bother?</legend>
+      <p class="qnote">Unspent dice become Sparks, capped at 10, spent on rerolls or setting a face.</p>
+      <div class="chips" data-group="sparksWorthTracking" role="group" aria-label="Sparks worth tracking">
+        <button type="button" class="chip" aria-pressed="false">Yes</button>
+        <button type="button" class="chip" aria-pressed="false">Meh</button>
+        <button type="button" class="chip" aria-pressed="false">No</button>
+      </div>
+    </fieldset>
+
+    <fieldset>
       <legend>Overall, that match was&hellip;</legend>
       <div class="chips" data-group="rating" role="group" aria-label="Overall rating, 1 to 5">
         <button type="button" class="chip" aria-pressed="false">1</button>
@@ -197,7 +207,7 @@
     <p class="status" id="status"></p>
   </form>
 
-  <div class="card thanks" id="thanksCard" hidden>
+  <div class="card thanks" id="thanksCard" role="status" aria-live="polite" tabindex="-1" hidden>
     <p class="big">Logged. See you next match.</p>
     <p>Your answers go straight into the next build's worklist — watch the TestFlight notes
        for &ldquo;you said &rarr; we changed.&rdquo;</p>
@@ -229,7 +239,8 @@
 (function () {
   "use strict";
 
-  var picks = { funPeak: null, confusion: null, priorityFair: null, playAgain: null, rating: null };
+  var picks = { funPeak: null, confusion: null, priorityFair: null, sparksWorthTracking: null,
+    playAgain: null, rating: null };
 
   document.querySelectorAll(".chips").forEach(function (group) {
     var key = group.getAttribute("data-group");
@@ -251,12 +262,15 @@
     statusEl.className = "status" + (isErr ? " err" : "");
   }
 
-  function sessionKey() {
-    return new Date().toISOString().slice(0, 10);
+  // The session date is derived server-side from this offset, never from a date this page
+  // sends — see api/_lib.js. getTimezoneOffset() returns minutes to ADD to local time to reach
+  // UTC (e.g. US Eastern is 240 or 300 depending on DST).
+  function tzOffsetMinutes() {
+    return new Date().getTimezoneOffset();
   }
 
   function refreshCount() {
-    fetch("/api/debriefs?count=1&session=" + sessionKey())
+    fetch("/api/debriefs?count=1&tzOffsetMinutes=" + tzOffsetMinutes())
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (data) {
         if (!data || !data.count) return;
@@ -277,7 +291,7 @@
     if (!picks.playAgain) { setStatus("Question 4 is the one that matters most — pick an answer.", true); return; }
 
     var doc = {
-      session: sessionKey(),
+      tzOffsetMinutes: tzOffsetMinutes(),
       name: name,
       website: document.getElementById("websiteInput").value,
       funPeak: picks.funPeak,
@@ -286,6 +300,7 @@
       confusionNote: document.getElementById("confusionNote").value.trim() || null,
       priorityFair: picks.priorityFair,
       priorityNote: document.getElementById("priorityNote").value.trim() || null,
+      sparksWorthTracking: picks.sparksWorthTracking,
       playAgain: picks.playAgain,
       invite: document.getElementById("inviteInput").value.trim() || null,
       rating: picks.rating ? parseInt(picks.rating, 10) : null
@@ -303,7 +318,9 @@
         throw new Error(body && body.error ? body.error : "Server said no (" + r.status + ").");
       });
       form.hidden = true;
-      document.getElementById("thanksCard").hidden = false;
+      var thanks = document.getElementById("thanksCard");
+      thanks.hidden = false;
+      thanks.focus(); // moves off the now-hidden submit button; role="status" announces the text
       refreshCount();
     }).catch(function (err) {
       submitBtn.disabled = false;
