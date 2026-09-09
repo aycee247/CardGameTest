@@ -27,6 +27,9 @@ namespace Game.App
                  "fires a clip per frame, which is a noise, not a preview.")]
         [SerializeField] private float previewCooldownSeconds = 0.18f;
 
+        [Tooltip("Where SEND FEEDBACK addresses its email (docs/product-plan.md F2).")]
+        [SerializeField] private string feedbackEmail = "aaron.cornwell.247@gmail.com";
+
         private ISaveService _save;
         private IAudioService _audio;
         private float _nextPreviewAt;
@@ -40,6 +43,7 @@ namespace Game.App
             view.HapticsChanged += OnHapticsChanged;
             view.ReducedMotionChanged += OnReducedMotionChanged;
             view.UiScaleChanged += OnUiScaleChanged;
+            view.FeedbackClicked += OnFeedbackClicked;
 
             if (!GameServices.IsReady) return;
             GameServices.Locator.TryGet<ISaveService>(out _save);
@@ -55,6 +59,28 @@ namespace Game.App
             view.HapticsChanged -= OnHapticsChanged;
             view.ReducedMotionChanged -= OnReducedMotionChanged;
             view.UiScaleChanged -= OnUiScaleChanged;
+            view.FeedbackClicked -= OnFeedbackClicked;
+        }
+
+        /// <summary>
+        /// Opens the tester's mail client with the boring half of a bug report — build, device,
+        /// OS — already filled in (docs/product-plan.md F2). A report that names its build is
+        /// actionable; one that starts "which version are you on?" usually dies in the asking.
+        /// </summary>
+        private void OnFeedbackClicked()
+        {
+            string subject = $"Foundry feedback ({Application.version})";
+            string body = "\n\n—\n" +
+                          $"Version: {Application.version}\n" +
+                          $"Device: {SystemInfo.deviceModel}\n" +
+                          $"OS: {SystemInfo.operatingSystem}";
+
+            Application.OpenURL("mailto:" + feedbackEmail +
+                "?subject=" + System.Uri.EscapeDataString(subject) +
+                "&body=" + System.Uri.EscapeDataString(body));
+
+            if (GameServices.IsReady && GameServices.Locator.TryGet<ITelemetry>(out var telemetry))
+                telemetry.Record("feedback_opened");
         }
 
         /// <summary>

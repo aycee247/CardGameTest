@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Game.Core;
 using Game.Data;
@@ -35,6 +36,10 @@ namespace Game.App
 
         public SoloDirector Director => _director;
 
+        /// <summary>Same arrangement as <see cref="HotSeatHost.SnapshotChanged"/>: snapshots out,
+        /// telemetry stays in GameSceneBootstrap.</summary>
+        public event Action<MatchSnapshot> SnapshotChanged;
+
         public void StartMatch(int botCount)
         {
             _botCount = Mathf.Clamp(botCount, 1, 5);
@@ -56,6 +61,12 @@ namespace Game.App
 
             _director = new SoloDirector(_session, new PlayerId(0), bots,
                 pacingSeed: unchecked((ulong)seed ^ 0xB07B07UL));
+
+            // Hooked only after the director exists: its constructor calls _session.SetViewAs and
+            // raises Changed while state is still Round=0/Phase=Roll, before Begin() starts round 1.
+            // Subscribing earlier recorded that as a fake match_started with a zero-length Roll
+            // phase. Rematch discards the old session with its subscribers; no unsubscribe needed.
+            _session.Changed += s => SnapshotChanged?.Invoke(s);
 
             if (presenter != null)
             {

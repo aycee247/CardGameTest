@@ -50,6 +50,23 @@ that actually went wrong that day, not speculation. STORY-6.7 AC3.
 7. **External testers** (the friend group): promote the build to the external
    group — the **first** build per version needs Beta App Review (~1 day);
    subsequent builds of the same version usually skip it.
+8. **What to Test notes close the loop**: name what tester feedback changed in
+   this build ("You said X → we changed Y") and remind testers of the three
+   feedback doors — the post-match pulse, Settings ▸ SEND FEEDBACK, and
+   screenshot → Share Beta Feedback. `docs/product-plan.md` (F3) is the why.
+
+## Analytics (added with the telemetry build)
+
+- The app records gameplay telemetry via **UGS Analytics**
+  (`com.unity.services.analytics`). Custom events are **silently dropped**
+  unless they are defined in Unity Cloud ▸ the project ▸ Analytics ▸
+  **Event Manager** — the event names and parameters are listed in
+  `docs/product-plan.md` (F1). Define them once before the first telemetry
+  build ships.
+- App Store privacy: with analytics on, the App Privacy answers must declare
+  **Product Interaction** data (not linked to identity, not used for
+  tracking). No ATT prompt is needed — nothing crosses apps or leaves the
+  first party.
 
 ## Pitfalls actually hit on 2026-08-26
 

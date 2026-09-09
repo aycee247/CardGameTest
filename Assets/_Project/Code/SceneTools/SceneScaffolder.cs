@@ -386,8 +386,12 @@ namespace Game.SceneTools
             uiScale.maxValue = UiScaleApplier.MaxScale;
             y -= 110f;
 
+            // Feedback shares the bottom row with DONE: the panel above is full, and the door out
+            // of the game and the door to its developer belong at the same level of reach.
+            var feedback = UiFactory.Button(panel, "FeedbackButton", "SEND FEEDBACK",
+                new Vector2(-250, -700), new Vector2(440, 140), ButtonStyle.Ghost);
             var close = UiFactory.Button(panel, "CloseButton", "DONE",
-                new Vector2(0, -700), new Vector2(460, 140));
+                new Vector2(240, -700), new Vector2(420, 140));
 
             var view = panel.gameObject.AddComponent<SettingsView>();
             SetRef(view, "root", panel.gameObject);
@@ -401,6 +405,7 @@ namespace Game.SceneTools
             SetRef(view, "reducedMotionToggle", reducedMotion);
             SetRef(view, "uiScaleSlider", uiScale);
             SetRef(view, "uiScaleValue", uiScaleValue);
+            SetRef(view, "feedbackButton", feedback);
             SetRef(view, "theme", _theme);
 
             // The controller sits on the parent, not the panel: the panel starts inactive, and a
@@ -616,7 +621,11 @@ namespace Game.SceneTools
 
             var rowsRoot = UiFactory.Panel(root, "Rows", stretch: false);
             rowsRoot.sizeDelta = new Vector2(960, 900);
-            rowsRoot.anchoredPosition = new Vector2(0, -60);
+            // Lifted from the handoff's original -60: six 130px rows at 14px spacing stack 850
+            // units down from this container's top edge, and the pulse block below needs headroom
+            // that -60 didn't leave at six players (#101 review) — see the pulse block's own
+            // comment for the arithmetic this and it were tuned together against.
+            rowsRoot.anchoredPosition = new Vector2(0, 30);
             Column(rowsRoot, spacing: 14);
 
             // Standing row template, deactivated in place.
@@ -647,6 +656,47 @@ namespace Game.SceneTools
             var menu = Bottom(UiFactory.Button(root, "MenuButton", "MAIN MENU",
                 Vector2.zero, new Vector2(940, 132), ButtonStyle.Secondary), 170);
 
+            // ---- Post-match pulse (docs/product-plan.md F2) ----
+            // Between the standings and REMATCH: one prompt, five one-tap ratings, and a comment
+            // row that swaps into the same slot after a rating lands. It never blocks the buttons
+            // below it — answering is a nudge, not a toll.
+            //
+            // Sized against the worst case, six players: rowsRoot (above) stacks 850 units of rows
+            // down from its top edge at y=1440 (screen-bottom-relative), landing the sixth row's
+            // bottom at y=590. REMATCH/MENU occupy y=104..396. That leaves 590-396=194 units for
+            // this block plus its gaps to both neighbours — a 210-tall block didn't fit and
+            // overlapped REMATCH's hit area (#101 review); 150 does, with ~20 units of breathing
+            // room on each side. Regenerate scenes after touching either block, and recheck this
+            // arithmetic if rowsRoot, the row template's height/spacing, or the button row changes.
+            var pulseRoot = UiFactory.Panel(root, "Pulse", stretch: false);
+            pulseRoot.sizeDelta = new Vector2(960, 150);
+            pulseRoot.anchoredPosition = new Vector2(0, -465);
+
+            var pulsePrompt = UiFactory.Label(pulseRoot, "Prompt", "HOW WAS THAT MATCH?",
+                new Vector2(0, 45), new Vector2(900, 46), 38f,
+                TextAlignmentOptions.Center, FontRole.BodySemibold, _theme.Accent(700), 0.18f);
+
+            var ratingRow = UiFactory.Panel(pulseRoot, "RatingRow", stretch: false);
+            ratingRow.sizeDelta = new Vector2(960, 84);
+            ratingRow.anchoredPosition = new Vector2(0, -28);
+            var ratingButtons = new Button[5];
+            for (int i = 0; i < ratingButtons.Length; i++)
+            {
+                ratingButtons[i] = UiFactory.Button(ratingRow, $"Rate{i + 1}", (i + 1).ToString(),
+                    new Vector2(-360 + i * 180, 0), new Vector2(150, 74), ButtonStyle.Ghost);
+            }
+
+            var commentRow = UiFactory.Panel(pulseRoot, "CommentRow", stretch: false);
+            commentRow.sizeDelta = new Vector2(960, 84);
+            commentRow.anchoredPosition = new Vector2(0, -28);
+            var commentInput = UiFactory.InputField(commentRow, "CommentInput",
+                "Anything to add? (optional)", new Vector2(-100, 0), new Vector2(690, 74));
+            commentInput.characterLimit = 200;
+            commentInput.lineType = TMP_InputField.LineType.SingleLine;
+            var commentSend = UiFactory.Button(commentRow, "SendButton", "SEND",
+                new Vector2(370, 0), new Vector2(180, 74), ButtonStyle.Secondary);
+            commentRow.gameObject.SetActive(false);
+
             rootGo.SetActive(false);
 
             var view = rootGo.AddComponent<EndScreenView>();
@@ -660,6 +710,13 @@ namespace Game.SceneTools
             SetRef(view, "menuButton", menu);
             SetRef(view, "anims", canvas.GetComponent<UiAnimationService>());
             SetRef(view, "theme", _theme);
+            SetRef(view, "pulseRoot", pulseRoot.gameObject);
+            SetRef(view, "pulsePrompt", pulsePrompt);
+            SetRef(view, "pulseRatingRow", ratingRow.gameObject);
+            SetRefArray(view, "pulseRatingButtons", ratingButtons);
+            SetRef(view, "pulseCommentRow", commentRow.gameObject);
+            SetRef(view, "pulseCommentInput", commentInput);
+            SetRef(view, "pulseSendButton", commentSend);
 
             return view;
         }
@@ -2038,6 +2095,22 @@ namespace Game.SceneTools
                 return;
             }
             prop.objectReferenceValue = value;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        /// <summary>Array counterpart of <see cref="SetRef"/> for fields like the pulse's rating buttons.</summary>
+        private static void SetRefArray(Object target, string field, Object[] values)
+        {
+            var so = new SerializedObject(target);
+            var prop = so.FindProperty(field);
+            if (prop == null || !prop.isArray)
+            {
+                Debug.LogWarning($"[Scaffold] Array field '{field}' not found on {target.GetType().Name}.");
+                return;
+            }
+            prop.arraySize = values.Length;
+            for (int i = 0; i < values.Length; i++)
+                prop.GetArrayElementAtIndex(i).objectReferenceValue = values[i];
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 

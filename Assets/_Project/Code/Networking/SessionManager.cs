@@ -46,6 +46,16 @@ namespace Game.Networking
         /// <summary>Raised whenever who is in the session changes — join, leave, host migration.</summary>
         public event Action RosterChanged;
 
+        /// <summary>
+        /// Raised exactly once, the moment UGS first comes up successfully — whether that happens
+        /// at boot or on a later retry from Host/Join after boot's own attempt failed (NET-5: the
+        /// menu lets a player try again). <see cref="IsInitialized"/>'s early return means this
+        /// fires at most once per app run, from whichever call site actually succeeds — the single
+        /// hook <see cref="GameBootstrap"/> needs to arm anything that only makes sense once online
+        /// services exist, regardless of which path got them there.
+        /// </summary>
+        public event Action Initialized;
+
         /// <summary>Initializes UGS and signs the player in anonymously (idempotent).</summary>
         public async Task InitializeAsync()
         {
@@ -58,6 +68,7 @@ namespace Game.Networking
 
             IsInitialized = true;
             Debug.Log($"[Session] UGS ready. PlayerId={AuthenticationService.Instance.PlayerId}");
+            Initialized?.Invoke();
         }
 
         /// <summary>Hosts a new match. Returns the join code others use to connect.</summary>

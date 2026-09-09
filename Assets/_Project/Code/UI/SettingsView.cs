@@ -34,6 +34,9 @@ namespace Game.UI
         [SerializeField] private TMP_InputField nameInput;
         [SerializeField] private Button hapticsToggle;
 
+        [Header("Feedback")]
+        [SerializeField] private Button feedbackButton;
+
         [Header("Accessibility")]
         [SerializeField] private Button reducedMotionToggle;
         [SerializeField] private Slider uiScaleSlider;
@@ -53,6 +56,10 @@ namespace Game.UI
 
         /// <summary>A multiplier, not a point size — the whole interface grows together.</summary>
         public event Action<float> UiScaleChanged;
+
+        /// <summary>SEND FEEDBACK tapped. The controller composes the email — this panel cannot
+        /// see build or device info, and should not.</summary>
+        public event Action FeedbackClicked;
         public event Action Closed;
 
         private bool _haptics;
@@ -91,6 +98,9 @@ namespace Game.UI
                 ShowScale(value);
                 UiScaleChanged?.Invoke(value);
             });
+
+            if (feedbackButton != null)
+                feedbackButton.onClick.AddListener(() => FeedbackClicked?.Invoke());
 
             if (closeButton != null) closeButton.onClick.AddListener(() =>
             {
