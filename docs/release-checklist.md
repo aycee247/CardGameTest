@@ -55,6 +55,58 @@ that actually went wrong that day, not speculation. STORY-6.7 AC3.
    feedback doors — the post-match pulse, Settings ▸ SEND FEEDBACK, and
    screenshot → Share Beta Feedback. `docs/product-plan.md` (F3) is the why.
 
+## What to Test template
+
+The shape step 8 is asking for, pasted into App Store Connect ▸ TestFlight ▸ the
+build ▸ Test Details. Keep the three feedback doors and the closing-the-loop
+line every time; swap the middle section for what's actually new.
+
+```
+What to Test — Build <N>
+
+<One line on what changed and why it matters to a tester. If tester feedback
+drove it: "You said X → we changed Y." If nothing testers said drove this
+build, say what's new plainly instead — don't manufacture a "you said" that
+didn't happen.>
+
+To test:
+- <The specific thing(s) this build needs eyes on.>
+
+After you play, use one of the three feedback doors:
+- Post-match rating on the standings screen (one tap, plus an optional note).
+- Settings ▸ SEND FEEDBACK for anything longer or a bug.
+- Screenshot → Share Beta Feedback, same as always.
+```
+
+**Build 12** shipped the feedback doors themselves, so there was no prior
+tester feedback to close the loop on yet — the note introduced them instead
+and asked testers to start using them. Kept here as the first real instance:
+
+```
+What to Test — Build 12
+
+New this build: two ways to tell us what you thought, right after playing.
+
+- Post-match rating — after a match, a quick 1–5 tap shows on the standings
+  screen. Add a note if you want; takes five seconds either way.
+- Settings → SEND FEEDBACK — opens an email pre-filled with your build and
+  device info. Good for anything longer, or a bug report.
+- Screenshot → Share Beta Feedback still works too, same as always.
+
+Please use at least one of these after your matches this week — that's what
+we're using to plan the next build.
+
+To test:
+- Play at least one full match (solo or hot-seat) and rate it on the end
+  screen.
+- Six-player games especially — the standings layout shifted slightly to
+  make room for the rating.
+- Try Settings → SEND FEEDBACK once, just to confirm it opens your mail app
+  correctly.
+
+Nothing changed in the rules this build — just how we hear from you.
+```
+
 ## Analytics (added with the telemetry build)
 
 - The app records gameplay telemetry via **UGS Analytics**
