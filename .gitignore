@@ -118,3 +118,7 @@ InitTestScene*.unity*
 
 # Design canvas working files — the artboards are source, the seeded payload is a 2MB build artifact.
 /design/
+
+# Play-night web kit (web/play-night)
+node_modules/
+.vercel/
