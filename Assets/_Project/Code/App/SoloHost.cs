@@ -54,9 +54,6 @@ namespace Game.App
             var state = MatchFactory.Build(config, cardDatabase, names, seed);
             _session = new LocalMatchSession(state, new SeededDiceRoller(unchecked((ulong)seed)));
 
-            // Rematch discards the old session with its subscribers; no unsubscribe needed.
-            _session.Changed += s => SnapshotChanged?.Invoke(s);
-
             var bots = new List<BotPlayer>(_botCount);
             for (int seat = 1; seat <= _botCount; seat++)
                 bots.Add(new BotPlayer(new PlayerId(seat), ResolveCard,
@@ -64,6 +61,12 @@ namespace Game.App
 
             _director = new SoloDirector(_session, new PlayerId(0), bots,
                 pacingSeed: unchecked((ulong)seed ^ 0xB07B07UL));
+
+            // Hooked only after the director exists: its constructor calls _session.SetViewAs and
+            // raises Changed while state is still Round=0/Phase=Roll, before Begin() starts round 1.
+            // Subscribing earlier recorded that as a fake match_started with a zero-length Roll
+            // phase. Rematch discards the old session with its subscribers; no unsubscribe needed.
+            _session.Changed += s => SnapshotChanged?.Invoke(s);
 
             if (presenter != null)
             {

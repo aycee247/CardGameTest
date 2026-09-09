@@ -51,9 +51,9 @@ that actually went wrong that day, not speculation. STORY-6.7 AC3.
    group — the **first** build per version needs Beta App Review (~1 day);
    subsequent builds of the same version usually skip it.
 8. **What to Test notes close the loop**: name what tester feedback changed in
-   this build ("You said X → we changed Y") and remind testers of the two
-   feedback doors — the post-match pulse and screenshot → Share Beta Feedback.
-   `docs/product-plan.md` (F3) is the why.
+   this build ("You said X → we changed Y") and remind testers of the three
+   feedback doors — the post-match pulse, Settings ▸ SEND FEEDBACK, and
+   screenshot → Share Beta Feedback. `docs/product-plan.md` (F3) is the why.
 
 ## Analytics (added with the telemetry build)
 

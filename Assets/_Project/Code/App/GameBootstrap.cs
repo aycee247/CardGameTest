@@ -48,10 +48,6 @@ namespace Game.App
             {
                 var session = GameServices.Locator.Get<SessionManager>();
                 await session.InitializeAsync();
-
-                // Collection starts only behind a successful UGS init — the same gate online play
-                // passes through. A fully offline boot records nothing, by design (F1).
-                _telemetry.StartCollection();
             }
             catch (Exception e)
             {
@@ -86,10 +82,16 @@ namespace Game.App
             _saveService.ProfileChanged += ApplyAudioSettings;
 
             // Networking / online services
-            locator.Register(new SessionManager());
+            var session = new SessionManager();
+            locator.Register(session);
 
-            // Telemetry (docs/product-plan.md F1) — registered inert; Start() arms it after UGS.
+            // Telemetry (docs/product-plan.md F1) — registered inert; armed by SessionManager's
+            // Initialized event, which fires once whenever UGS first comes up — at boot, or on a
+            // later Host/Join retry if boot's own attempt failed (NET-5). Hooking the event here
+            // rather than after Start()'s own await means a retry arms it too, not only the boot
+            // path — a fully offline run never fires it, so it stays inert exactly as designed.
             _telemetry = new UgsTelemetry();
+            session.Initialized += _telemetry.StartCollection;
             locator.Register<ITelemetry>(_telemetry);
 
             // Scene flow

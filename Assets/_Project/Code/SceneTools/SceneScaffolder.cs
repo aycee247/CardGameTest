@@ -621,7 +621,11 @@ namespace Game.SceneTools
 
             var rowsRoot = UiFactory.Panel(root, "Rows", stretch: false);
             rowsRoot.sizeDelta = new Vector2(960, 900);
-            rowsRoot.anchoredPosition = new Vector2(0, -60);
+            // Lifted from the handoff's original -60: six 130px rows at 14px spacing stack 850
+            // units down from this container's top edge, and the pulse block below needs headroom
+            // that -60 didn't leave at six players (#101 review) — see the pulse block's own
+            // comment for the arithmetic this and it were tuned together against.
+            rowsRoot.anchoredPosition = new Vector2(0, 30);
             Column(rowsRoot, spacing: 14);
 
             // Standing row template, deactivated in place.
@@ -656,33 +660,41 @@ namespace Game.SceneTools
             // Between the standings and REMATCH: one prompt, five one-tap ratings, and a comment
             // row that swaps into the same slot after a rating lands. It never blocks the buttons
             // below it — answering is a nudge, not a toll.
+            //
+            // Sized against the worst case, six players: rowsRoot (above) stacks 850 units of rows
+            // down from its top edge at y=1440 (screen-bottom-relative), landing the sixth row's
+            // bottom at y=590. REMATCH/MENU occupy y=104..396. That leaves 590-396=194 units for
+            // this block plus its gaps to both neighbours — a 210-tall block didn't fit and
+            // overlapped REMATCH's hit area (#101 review); 150 does, with ~20 units of breathing
+            // room on each side. Regenerate scenes after touching either block, and recheck this
+            // arithmetic if rowsRoot, the row template's height/spacing, or the button row changes.
             var pulseRoot = UiFactory.Panel(root, "Pulse", stretch: false);
-            pulseRoot.sizeDelta = new Vector2(960, 210);
-            pulseRoot.anchoredPosition = new Vector2(0, -590);
+            pulseRoot.sizeDelta = new Vector2(960, 150);
+            pulseRoot.anchoredPosition = new Vector2(0, -465);
 
             var pulsePrompt = UiFactory.Label(pulseRoot, "Prompt", "HOW WAS THAT MATCH?",
-                new Vector2(0, 65), new Vector2(900, 48), 38f,
+                new Vector2(0, 45), new Vector2(900, 46), 38f,
                 TextAlignmentOptions.Center, FontRole.BodySemibold, _theme.Accent(700), 0.18f);
 
             var ratingRow = UiFactory.Panel(pulseRoot, "RatingRow", stretch: false);
-            ratingRow.sizeDelta = new Vector2(960, 120);
-            ratingRow.anchoredPosition = new Vector2(0, -35);
+            ratingRow.sizeDelta = new Vector2(960, 84);
+            ratingRow.anchoredPosition = new Vector2(0, -28);
             var ratingButtons = new Button[5];
             for (int i = 0; i < ratingButtons.Length; i++)
             {
                 ratingButtons[i] = UiFactory.Button(ratingRow, $"Rate{i + 1}", (i + 1).ToString(),
-                    new Vector2(-360 + i * 180, 0), new Vector2(150, 110), ButtonStyle.Ghost);
+                    new Vector2(-360 + i * 180, 0), new Vector2(150, 74), ButtonStyle.Ghost);
             }
 
             var commentRow = UiFactory.Panel(pulseRoot, "CommentRow", stretch: false);
-            commentRow.sizeDelta = new Vector2(960, 120);
-            commentRow.anchoredPosition = new Vector2(0, -35);
+            commentRow.sizeDelta = new Vector2(960, 84);
+            commentRow.anchoredPosition = new Vector2(0, -28);
             var commentInput = UiFactory.InputField(commentRow, "CommentInput",
-                "Anything to add? (optional)", new Vector2(-100, 0), new Vector2(690, 104));
+                "Anything to add? (optional)", new Vector2(-100, 0), new Vector2(690, 74));
             commentInput.characterLimit = 200;
             commentInput.lineType = TMP_InputField.LineType.SingleLine;
             var commentSend = UiFactory.Button(commentRow, "SendButton", "SEND",
-                new Vector2(370, 0), new Vector2(180, 104), ButtonStyle.Secondary);
+                new Vector2(370, 0), new Vector2(180, 74), ButtonStyle.Secondary);
             commentRow.gameObject.SetActive(false);
 
             rootGo.SetActive(false);

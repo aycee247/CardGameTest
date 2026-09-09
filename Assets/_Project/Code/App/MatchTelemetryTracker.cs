@@ -64,7 +64,11 @@ namespace Game.App
                 _phaseStartedAt = now;
             }
 
-            if (snapshot.Round != _lastRound)
+            // The final round is also a round boundary even though Round never advances past it:
+            // RulesEngine.RunUpkeep goes straight from the last round to MatchOver without
+            // incrementing Round again, so IsMatchOver has to count as a boundary here too, or the
+            // funnel reports only 9 of 10 rounds and drops the final round's duration.
+            if (snapshot.Round != _lastRound || snapshot.IsMatchOver)
             {
                 _telemetry.Record("round_completed", new Dictionary<string, object>
                 {
@@ -114,8 +118,18 @@ namespace Game.App
             });
 
             // A snapshot can arrive already at MatchOver (a client joining the tail end); count it
-            // started-and-done rather than leaving the tracker armed to misreport an abandon.
-            if (snapshot.IsMatchOver) CompleteMatch(snapshot, now);
+            // started-and-done rather than leaving the tracker armed to misreport an abandon. Still
+            // worth a (zero-length) round_completed: consumers of the funnel can assume every
+            // match_completed was preceded by exactly TotalRounds round_completed events.
+            if (snapshot.IsMatchOver)
+            {
+                _telemetry.Record("round_completed", new Dictionary<string, object>
+                {
+                    ["round"] = _lastRound,
+                    ["seconds"] = 0f,
+                });
+                CompleteMatch(snapshot, now);
+            }
         }
 
         private void CompleteMatch(in MatchSnapshot snapshot, float now)
