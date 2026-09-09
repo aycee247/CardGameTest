@@ -9,6 +9,11 @@
 #   UNITY_SERIAL                  — a serial-based (Plus/Pro) activation.
 # Until they all exist, this job fails fast on the first step with a pointer here.
 #
+# If activation fails with "Code 400 (status: Machine bindings don't match)", the stored
+# .ulf no longer matches GitHub's runner image (it happened 2026-09-09 after a runner
+# update). Refresh it via the unity-activation workflow — its header comment is the
+# step-by-step.
+#
 # Note: GitHub pauses cron schedules after ~60 days without repository activity; a push
 # re-enables them.
 
