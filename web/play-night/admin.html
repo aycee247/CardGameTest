@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Foundry Playtest Log</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;800&family=Barlow+Semi+Condensed:wght@600;800&display=swap">
+<style>
+  :root {
+    --ground: #fdf3e3; --raised: #ffffff; --ink: #16212e; --muted: #6f6a5e;
+    --accent: #2f6fd0; --accent-soft: #cfe2ff; --ember: #f0803c; --ready: #34b27b;
+    --edge: #16212e; --shadow: #16212e; --chip-bg: #fdf3e3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #16222e; --raised: #22364a; --ink: #eef6ff; --muted: #8fa1b3;
+      --accent: #4f92e8; --accent-soft: #12325f; --ember: #f0803c; --ready: #46c98d;
+      --edge: #0b1119; --shadow: #0b1119; --chip-bg: #16222e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: "Barlow", "Helvetica Neue", Arial, sans-serif;
+    font-size: 16px; line-height: 1.45; padding: 20px 16px 56px;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+  .eyebrow {
+    font-family: "Barlow Semi Condensed", "Barlow", sans-serif;
+    font-weight: 600; font-size: 13px; letter-spacing: 0.22em;
+    text-transform: uppercase; color: var(--accent); margin: 0;
+  }
+  h1 {
+    font-family: "Barlow Semi Condensed", "Barlow", sans-serif;
+    font-weight: 800; font-size: 38px; line-height: 0.95;
+    text-transform: uppercase; margin: 6px 0 0; text-wrap: balance;
+  }
+  .card {
+    background: var(--raised); border: 3px solid var(--edge); border-radius: 18px;
+    box-shadow: 7px 7px 0 var(--shadow); padding: 18px;
+  }
+  .keyrow { display: flex; gap: 10px; flex-wrap: wrap; }
+  input[type="password"] {
+    flex: 1; min-width: 200px; font: inherit; color: var(--ink); background: var(--chip-bg);
+    border: 3px solid var(--edge); border-radius: 12px; padding: 10px 12px;
+  }
+  button {
+    font-family: "Barlow Semi Condensed", "Barlow", sans-serif;
+    font-weight: 800; font-size: 16px; text-transform: uppercase; letter-spacing: 0.05em;
+    color: #ffffff; background: var(--accent);
+    border: 3px solid var(--edge); border-radius: 12px;
+    box-shadow: 4px 4px 0 var(--shadow); padding: 10px 16px; cursor: pointer;
+  }
+  button:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--shadow); }
+  button.ghost { background: var(--chip-bg); color: var(--ink); }
+  button:focus-visible, input:focus-visible { outline: 3px solid var(--ember); outline-offset: 2px; }
+  .status { font-size: 15px; color: var(--muted); margin: 8px 0 0; min-height: 1.4em; }
+  .status.err { color: var(--ember); font-weight: 600; }
+
+  .session h2 {
+    font-family: "Barlow Semi Condensed", "Barlow", sans-serif;
+    font-weight: 800; font-size: 22px; text-transform: uppercase; letter-spacing: 0.04em;
+    margin: 0 0 10px;
+  }
+  .rollup { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .pill {
+    font-family: "Barlow Semi Condensed", "Barlow", sans-serif;
+    font-weight: 800; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase;
+    border: 3px solid var(--edge); border-radius: 999px; padding: 5px 12px;
+    background: var(--chip-bg);
+  }
+  .pill.good { background: var(--ready); color: #ffffff; }
+  .pill.warn { background: var(--ember); color: #ffffff; }
+  .pill.info { background: var(--accent-soft); }
+
+  .resp { border-top: 3px solid var(--edge); padding: 12px 0; }
+  .resp:last-child { padding-bottom: 0; }
+  .resp .who {
+    display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 6px;
+  }
+  .resp .name { font-weight: 800; font-family: "Barlow Semi Condensed", "Barlow", sans-serif;
+    text-transform: uppercase; font-size: 17px; }
+  .resp .meta { color: var(--muted); font-size: 13px; }
+  .resp dl { display: grid; grid-template-columns: 130px 1fr; gap: 4px 12px; margin: 0; }
+  .resp dt {
+    font-family: "Barlow Semi Condensed", "Barlow", sans-serif; font-weight: 600;
+    font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
+  }
+  .resp dd { margin: 0; overflow-wrap: anywhere; }
+  .resp dd .note { color: var(--muted); }
+  @media (max-width: 480px) { .resp dl { grid-template-columns: 1fr; } .resp dt { margin-top: 6px; } }
+
+  .empty { color: var(--muted); text-align: center; padding: 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Foundry playtest kit &middot; host only</p>
+    <h1>Playtest Log</h1>
+  </header>
+
+  <div class="card" id="keyCard">
+    <div class="keyrow">
+      <input type="password" id="keyInput" placeholder="Admin key" autocomplete="current-password">
+      <button id="loadBtn">Open the log</button>
+    </div>
+    <p class="status" id="status">The key is the ADMIN_KEY environment variable set on the Vercel project.</p>
+  </div>
+
+  <div id="sessions"></div>
+
+  <div class="card" id="toolsCard" hidden>
+    <div class="keyrow">
+      <button class="ghost" id="csvBtn">Download CSV</button>
+      <button class="ghost" id="refreshBtn">Refresh</button>
+    </div>
+    <p class="status">Turn findings into issues on the GitHub board — the debrief is only useful once it's filed.</p>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var responses = [];
+  var statusEl = document.getElementById("status");
+  var keyInput = document.getElementById("keyInput");
+
+  function setStatus(msg, isErr) {
+    statusEl.textContent = msg;
+    statusEl.className = "status" + (isErr ? " err" : "");
+  }
+
+  // sessionStorage, not localStorage: the key shouldn't outlive the tab on a shared or
+  // borrowed machine (#103 review).
+  try {
+    var savedKey = sessionStorage.getItem("foundry-admin-key");
+    if (savedKey) keyInput.value = savedKey;
+  } catch (e) { /* storage may be unavailable; the field still works */ }
+
+  function el(tag, cls, text) {
+    var node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text != null) node.textContent = text;
+    return node;
+  }
+
+  function pillCounts(list, field) {
+    var counts = {};
+    list.forEach(function (r) {
+      var v = r[field];
+      if (v != null) counts[v] = (counts[v] || 0) + 1;
+    });
+    return counts;
+  }
+
+  function render() {
+    var root = document.getElementById("sessions");
+    root.textContent = "";
+
+    var bySession = {};
+    responses.forEach(function (r) {
+      var s = r.session || "unknown";
+      (bySession[s] = bySession[s] || []).push(r);
+    });
+
+    var dates = Object.keys(bySession).sort().reverse();
+    if (!dates.length) {
+      var none = el("div", "card");
+      none.appendChild(el("p", "empty", "No debriefs yet. Run a play night."));
+      root.appendChild(none);
+      return;
+    }
+
+    dates.forEach(function (date) {
+      var list = bySession[date];
+      var card = el("section", "card session");
+      card.appendChild(el("h2", null, date + " — " + list.length +
+        (list.length === 1 ? " debrief" : " debriefs")));
+
+      var rollup = el("div", "rollup");
+      var again = pillCounts(list, "playAgain");
+      rollup.appendChild(el("span", "pill " + ((again.Yes || 0) >= list.length / 2 ? "good" : "warn"),
+        "Again tomorrow: " + (again.Yes || 0) + "Y / " + (again.Maybe || 0) + "M / " + (again.No || 0) + "N"));
+
+      var rated = list.filter(function (r) { return r.rating; });
+      if (rated.length) {
+        var avg = rated.reduce(function (a, r) { return a + r.rating; }, 0) / rated.length;
+        rollup.appendChild(el("span", "pill info", "Avg rating " + avg.toFixed(1) + " / 5"));
+      }
+
+      // "No confusion reported" is only true when someone actually picked Nowhere — a skipped
+      // question is missing data, not a confirmed answer, and conflating the two (#103 review)
+      // would make an unanswered night look like a clean one.
+      var confusionCounts = pillCounts(list, "confusion");
+      var nowhereCount = confusionCounts["Nowhere"] || 0;
+      delete confusionCounts["Nowhere"];
+      var topConfusion = Object.keys(confusionCounts)
+        .sort(function (a, b) { return confusionCounts[b] - confusionCounts[a]; })[0];
+      if (topConfusion) {
+        rollup.appendChild(el("span", "pill warn",
+          "Confusion hotspot: " + topConfusion + " ×" + confusionCounts[topConfusion]));
+      } else if (nowhereCount) {
+        rollup.appendChild(el("span", "pill good", "No confusion reported ×" + nowhereCount));
+      } else {
+        rollup.appendChild(el("span", "pill info", "No confusion data yet"));
+      }
+
+      var unfair = pillCounts(list, "priorityFair")["Unfair"] || 0;
+      if (unfair) rollup.appendChild(el("span", "pill warn", "Priority felt unfair ×" + unfair));
+
+      var sparks = pillCounts(list, "sparksWorthTracking");
+      if (sparks.Yes || sparks.Meh || sparks.No) {
+        rollup.appendChild(el("span", "pill info",
+          "Sparks worth it: " + (sparks.Yes || 0) + "Y / " + (sparks.Meh || 0) + "M / " + (sparks.No || 0) + "N"));
+      }
+
+      card.appendChild(rollup);
+
+      list.forEach(function (r) {
+        var resp = el("div", "resp");
+        var who = el("div", "who");
+        who.appendChild(el("span", "name", r.name || "?"));
+        var t = r.submittedAt ? new Date(r.submittedAt) : null;
+        who.appendChild(el("span", "meta",
+          (t ? t.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "") +
+          (r.rating ? " · rated " + r.rating + "/5" : " · unrated")));
+        resp.appendChild(who);
+
+        var dl = el("dl");
+        function row(label, value, note) {
+          if (value == null && note == null) return;
+          dl.appendChild(el("dt", null, label));
+          var dd = el("dd", null, value != null ? String(value) : "—");
+          if (note) {
+            dd.appendChild(document.createTextNode(" "));
+            dd.appendChild(el("span", "note", "“" + note + "”"));
+          }
+          dl.appendChild(dd);
+        }
+        row("Fun peak", r.funPeak, r.funPeakNote);
+        row("Confused at", r.confusion, r.confusionNote);
+        row("Priority", r.priorityFair, r.priorityNote);
+        row("Sparks worth it", r.sparksWorthTracking, null);
+        row("Again tomorrow", r.playAgain, null);
+        row("Would invite", r.invite, null);
+        resp.appendChild(dl);
+        card.appendChild(resp);
+      });
+
+      root.appendChild(card);
+    });
+  }
+
+  function load() {
+    var key = keyInput.value.trim();
+    if (!key) { setStatus("Enter the admin key.", true); return; }
+    setStatus("Loading…");
+
+    fetch("/api/debriefs", { headers: { Authorization: "Bearer " + key } })
+      .then(function (r) {
+        if (r.status === 401) throw new Error("Wrong key.");
+        if (!r.ok) throw new Error("Server said no (" + r.status + ").");
+        return r.json();
+      })
+      .then(function (data) {
+        responses = data.responses || [];
+        try { sessionStorage.setItem("foundry-admin-key", key); } catch (e) { }
+        setStatus(responses.length + " debriefs loaded.");
+        document.getElementById("toolsCard").hidden = false;
+        render();
+      })
+      .catch(function (err) {
+        setStatus(err && err.message ? err.message : "Couldn't load.", true);
+      });
+  }
+
+  document.getElementById("loadBtn").addEventListener("click", load);
+  document.getElementById("refreshBtn").addEventListener("click", load);
+  keyInput.addEventListener("keydown", function (e) { if (e.key === "Enter") load(); });
+
+  document.getElementById("csvBtn").addEventListener("click", function () {
+    var cols = ["session", "submittedAt", "name", "rating", "funPeak", "funPeakNote",
+      "confusion", "confusionNote", "priorityFair", "priorityNote", "sparksWorthTracking",
+      "playAgain", "invite"];
+    // A name or note starting with = + - or @ opens as a formula in Excel/Sheets, and every
+    // free-text field here comes from an anonymous, unauthenticated submitter (#103 review).
+    // A leading tab defuses it without visibly changing the printed value.
+    var escapeFormula = function (s) { return /^[=+\-@]/.test(s) ? "\t" + s : s; };
+    var quote = function (v) {
+      return '"' + escapeFormula(String(v == null ? "" : v)).replace(/"/g, '""') + '"';
+    };
+    var lines = [cols.join(",")].concat(responses.map(function (r) {
+      return cols.map(function (c) { return quote(r[c]); }).join(",");
+    }));
+    var blob = new Blob([lines.join("\n")], { type: "text/csv" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "foundry-debriefs.csv";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+})();
+</script>
+</body>
+</html>

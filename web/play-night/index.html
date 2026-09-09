@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Foundry Play Night</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎲</text></svg>">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;800&family=Barlow+Semi+Condensed:wght@600;800&display=swap">
+<style>
+  /* Chunky arcade direction — palette from the game's ThemeGenerator (Blueprint Light / Dark). */
+  :root {
+    --ground: #fdf3e3; --raised: #ffffff; --ink: #16212e; --muted: #6f6a5e;
+    --accent: #2f6fd0; --accent-soft: #cfe2ff; --ember: #f0803c; --ready: #34b27b;
+    --edge: #16212e; --shadow: #16212e; --chip-bg: #fdf3e3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #16222e; --raised: #22364a; --ink: #eef6ff; --muted: #8fa1b3;
+      --accent: #4f92e8; --accent-soft: #12325f; --ember: #f0803c; --ready: #46c98d;
+      --edge: #0b1119; --shadow: #0b1119; --chip-bg: #16222e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: "Barlow", "Helvetica Neue", Arial, sans-serif;
+    font-size: 17px; line-height: 1.45; padding: 20px 16px 56px;
+  }
+  .wrap { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+  .eyebrow {
+    font-family: "Barlow Semi Condensed", "Barlow", sans-serif;
+    font-weight: 600; font-size: 13px; letter-spacing: 0.22em;
+    text-transform: uppercase; color: var(--accent); margin: 0;
+  }
+  h1 {
+    font-family: "Barlow Semi Condensed", "Barlow", sans-serif;
+    font-weight: 800; font-size: 44px; line-height: 0.95;
+    text-transform: uppercase; letter-spacing: 0.01em; margin: 6px 0 0; text-wrap: balance;
+  }
+  .sub { color: var(--muted); margin: 10px 0 0; max-width: 46ch; }
+  .card {
+    background: var(--raised); border: 3px solid var(--edge); border-radius: 18px;
+    box-shadow: 7px 7px 0 var(--shadow); padding: 20px 18px;
+  }
+  .count-chip {
+    display: inline-flex; align-items: center; gap: 8px; margin-top: 14px; padding: 6px 14px;
+    background: var(--accent-soft); color: var(--ink);
+    border: 3px solid var(--edge); border-radius: 999px;
+    font-family: "Barlow Semi Condensed", "Barlow", sans-serif;
+    font-weight: 800; font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .count-chip .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ready); }
+  .count-chip[hidden] { display: none; }
+  fieldset { border: 0; padding: 0; margin: 0 0 20px; }
+  fieldset:last-of-type { margin-bottom: 4px; }
+  legend, label.q {
+    display: block; font-family: "Barlow Semi Condensed", "Barlow", sans-serif;
+    font-weight: 800; font-size: 17px; text-transform: uppercase;
+    letter-spacing: 0.05em; margin-bottom: 9px; padding: 0;
+  }
+  .qnote { font-weight: 500; font-size: 14px; color: var(--muted); margin: -5px 0 9px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    font-family: "Barlow", sans-serif; font-weight: 600; font-size: 15px;
+    color: var(--ink); background: var(--chip-bg);
+    border: 3px solid var(--edge); border-radius: 999px; padding: 8px 15px; cursor: pointer;
+  }
+  .chip[aria-pressed="true"] { background: var(--accent); color: #ffffff; }
+  .chip:focus-visible, button:focus-visible, input:focus-visible {
+    outline: 3px solid var(--ember); outline-offset: 2px;
+  }
+  input[type="text"] {
+    width: 100%; font: inherit; color: var(--ink); background: var(--chip-bg);
+    border: 3px solid var(--edge); border-radius: 12px; padding: 10px 12px;
+  }
+  input[type="text"]::placeholder { color: var(--muted); }
+  .followup { margin-top: 9px; }
+  .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+  .submit {
+    width: 100%; font-family: "Barlow Semi Condensed", "Barlow", sans-serif;
+    font-weight: 800; font-size: 20px; text-transform: uppercase; letter-spacing: 0.06em;
+    color: #ffffff; background: var(--accent);
+    border: 3px solid var(--edge); border-radius: 16px;
+    box-shadow: 5px 5px 0 var(--shadow); padding: 14px; cursor: pointer; margin-top: 6px;
+  }
+  .submit:active { transform: translate(3px, 3px); box-shadow: 2px 2px 0 var(--shadow); }
+  .submit[disabled] { opacity: 0.55; cursor: default; }
+  .status { margin-top: 10px; font-size: 15px; color: var(--muted); min-height: 1.4em; }
+  .status.err { color: var(--ember); font-weight: 600; }
+  .thanks { text-align: center; padding: 12px 4px; }
+  .thanks .big {
+    font-family: "Barlow Semi Condensed", "Barlow", sans-serif;
+    font-weight: 800; font-size: 30px; text-transform: uppercase; margin: 0 0 6px; color: var(--ready);
+  }
+  .thanks p { margin: 0 auto; color: var(--muted); max-width: 40ch; }
+  details.host { border: 3px dashed var(--edge); border-radius: 18px; padding: 4px 18px; }
+  details.host summary {
+    font-family: "Barlow Semi Condensed", "Barlow", sans-serif;
+    font-weight: 800; font-size: 16px; text-transform: uppercase; letter-spacing: 0.08em;
+    padding: 12px 0; cursor: pointer;
+  }
+  details.host[open] summary { border-bottom: 3px solid var(--edge); margin-bottom: 12px; }
+  .host ol { margin: 0 0 16px; padding-left: 22px; display: flex; flex-direction: column; gap: 10px; }
+  .host li::marker { font-weight: 800; color: var(--accent); }
+  .host b { font-weight: 800; }
+  .host .why { color: var(--muted); font-size: 15px; }
+  .loopnote { font-size: 15px; color: var(--muted); text-align: center; max-width: 44ch; margin: 0 auto; }
+  .loopnote b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Foundry playtest kit &middot; after the match</p>
+    <h1>Play Night Debrief</h1>
+    <p class="sub">Five questions, straight after your last match while it's still fresh.
+       Takes about a minute. Honest beats kind — a rough note now saves a bad rule shipping.</p>
+    <span class="count-chip" id="countChip" hidden><span class="dot"></span><span id="countText"></span></span>
+  </header>
+
+  <form class="card" id="debriefForm">
+    <fieldset>
+      <label class="q" for="nameInput">Your name</label>
+      <input type="text" id="nameInput" maxlength="24" placeholder="Same name you play under" autocomplete="name">
+    </fieldset>
+
+    <div class="hp" aria-hidden="true">
+      <label>Leave this empty<input type="text" id="websiteInput" tabindex="-1" autocomplete="off"></label>
+    </div>
+
+    <fieldset>
+      <legend>1 &middot; Where was the fun peak?</legend>
+      <div class="chips" data-group="funPeak" role="group" aria-label="Fun peak">
+        <button type="button" class="chip" aria-pressed="false">Roll</button>
+        <button type="button" class="chip" aria-pressed="false">Shape</button>
+        <button type="button" class="chip" aria-pressed="false">Commit</button>
+        <button type="button" class="chip" aria-pressed="false">Reveal</button>
+        <button type="button" class="chip" aria-pressed="false">Re-pick</button>
+        <button type="button" class="chip" aria-pressed="false">Upkeep</button>
+        <button type="button" class="chip" aria-pressed="false">Final scores</button>
+      </div>
+      <input type="text" class="followup" id="funPeakNote" maxlength="200" placeholder="What made it the peak? (optional)">
+    </fieldset>
+
+    <fieldset>
+      <legend>2 &middot; Where were you confused?</legend>
+      <div class="chips" data-group="confusion" role="group" aria-label="Confusion point">
+        <button type="button" class="chip" aria-pressed="false">Nowhere</button>
+        <button type="button" class="chip" aria-pressed="false">Roll</button>
+        <button type="button" class="chip" aria-pressed="false">Shape</button>
+        <button type="button" class="chip" aria-pressed="false">Commit</button>
+        <button type="button" class="chip" aria-pressed="false">Reveal</button>
+        <button type="button" class="chip" aria-pressed="false">Re-pick</button>
+        <button type="button" class="chip" aria-pressed="false">Upkeep</button>
+        <button type="button" class="chip" aria-pressed="false">Scoring</button>
+      </div>
+      <input type="text" class="followup" id="confusionNote" maxlength="200" placeholder="What tripped you up? (optional)">
+    </fieldset>
+
+    <fieldset>
+      <legend>3 &middot; When two of you wanted the same card, did the tie-break feel fair?</legend>
+      <p class="qnote">Lowest score claims first, then fewest cards, then seat order.</p>
+      <div class="chips" data-group="priorityFair" role="group" aria-label="Priority fairness">
+        <button type="button" class="chip" aria-pressed="false">Fair</button>
+        <button type="button" class="chip" aria-pressed="false">Didn't notice</button>
+        <button type="button" class="chip" aria-pressed="false">Unfair</button>
+      </div>
+      <input type="text" class="followup" id="priorityNote" maxlength="200" placeholder="Which moment decided that? (optional)">
+    </fieldset>
+
+    <fieldset>
+      <legend>4 &middot; Would you play again tomorrow?</legend>
+      <div class="chips" data-group="playAgain" role="group" aria-label="Play again tomorrow">
+        <button type="button" class="chip" aria-pressed="false">Yes</button>
+        <button type="button" class="chip" aria-pressed="false">Maybe</button>
+        <button type="button" class="chip" aria-pressed="false">No</button>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <label class="q" for="inviteInput">5 &middot; Who would you invite to the table?</label>
+      <input type="text" id="inviteInput" maxlength="120" placeholder="Name someone real — or &ldquo;nobody yet&rdquo; is a real answer">
+    </fieldset>
+
+    <fieldset>
+      <legend>Bonus &middot; Was tracking Sparks worth the bother?</legend>
+      <p class="qnote">Unspent dice become Sparks, capped at 10, spent on rerolls or setting a face.</p>
+      <div class="chips" data-group="sparksWorthTracking" role="group" aria-label="Sparks worth tracking">
+        <button type="button" class="chip" aria-pressed="false">Yes</button>
+        <button type="button" class="chip" aria-pressed="false">Meh</button>
+        <button type="button" class="chip" aria-pressed="false">No</button>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Overall, that match was&hellip;</legend>
+      <div class="chips" data-group="rating" role="group" aria-label="Overall rating, 1 to 5">
+        <button type="button" class="chip" aria-pressed="false">1</button>
+        <button type="button" class="chip" aria-pressed="false">2</button>
+        <button type="button" class="chip" aria-pressed="false">3</button>
+        <button type="button" class="chip" aria-pressed="false">4</button>
+        <button type="button" class="chip" aria-pressed="false">5</button>
+      </div>
+    </fieldset>
+
+    <button type="submit" class="submit" id="submitBtn">Send debrief</button>
+    <p class="status" id="status"></p>
+  </form>
+
+  <div class="card thanks" id="thanksCard" role="status" aria-live="polite" tabindex="-1" hidden>
+    <p class="big">Logged. See you next match.</p>
+    <p>Your answers go straight into the next build's worklist — watch the TestFlight notes
+       for &ldquo;you said &rarr; we changed.&rdquo;</p>
+  </div>
+
+  <details class="host">
+    <summary>For the host — run of show</summary>
+    <ol>
+      <li><b>Ship first, play second.</b> The week's TestFlight build goes out before the night;
+          everyone updates before sitting down. Mixed builds can't share a match.</li>
+      <li><b>Fill the table.</b> The game only shows itself with a full lobby — contested cards,
+          the re-pick pass, the six-player clock all need bodies in seats.</li>
+      <li><b>First-timers get no help.</b> Match one is the onboarding test.
+          <span class="why">If it needs narration, the game failed, not the player.</span></li>
+      <li><b>Observe, don't rescue.</b> Write down every timer that expires and every rules
+          question asked out loud — each one is a finding.</li>
+      <li><b>Debrief while it's warm.</b> Everyone fills this page before phones go away.
+          Say the score out loud: &ldquo;5 of 7 sent theirs last week.&rdquo;</li>
+      <li><b>File it.</b> Findings become issues on the board within a day, and the next build's
+          notes name what changed because of them.</li>
+    </ol>
+  </details>
+
+  <p class="loopnote">This page saves to the playtest log for <b>Foundry</b> (working title) —
+     only tonight's count is shown here, so nobody's answers get graded at the table.</p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var picks = { funPeak: null, confusion: null, priorityFair: null, sparksWorthTracking: null,
+    playAgain: null, rating: null };
+
+  document.querySelectorAll(".chips").forEach(function (group) {
+    var key = group.getAttribute("data-group");
+    group.addEventListener("click", function (e) {
+      var btn = e.target.closest(".chip");
+      if (!btn) return;
+      group.querySelectorAll(".chip").forEach(function (c) { c.setAttribute("aria-pressed", "false"); });
+      btn.setAttribute("aria-pressed", "true");
+      picks[key] = btn.textContent.trim();
+    });
+  });
+
+  var form = document.getElementById("debriefForm");
+  var statusEl = document.getElementById("status");
+  var submitBtn = document.getElementById("submitBtn");
+
+  function setStatus(msg, isErr) {
+    statusEl.textContent = msg;
+    statusEl.className = "status" + (isErr ? " err" : "");
+  }
+
+  // The session date is derived server-side from this offset, never from a date this page
+  // sends — see api/_lib.js. getTimezoneOffset() returns minutes to ADD to local time to reach
+  // UTC (e.g. US Eastern is 240 or 300 depending on DST).
+  function tzOffsetMinutes() {
+    return new Date().getTimezoneOffset();
+  }
+
+  function refreshCount() {
+    fetch("/api/debriefs?count=1&tzOffsetMinutes=" + tzOffsetMinutes())
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (!data || !data.count) return;
+        var n = data.count;
+        document.getElementById("countText").textContent =
+          n + (n === 1 ? " debrief in tonight" : " debriefs in tonight");
+        document.getElementById("countChip").hidden = false;
+      })
+      .catch(function () { /* the count is a nicety */ });
+  }
+  refreshCount();
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+
+    var name = document.getElementById("nameInput").value.trim();
+    if (!name) { setStatus("Add your name first — anonymous notes can't be followed up.", true); return; }
+    if (!picks.playAgain) { setStatus("Question 4 is the one that matters most — pick an answer.", true); return; }
+
+    var doc = {
+      tzOffsetMinutes: tzOffsetMinutes(),
+      name: name,
+      website: document.getElementById("websiteInput").value,
+      funPeak: picks.funPeak,
+      funPeakNote: document.getElementById("funPeakNote").value.trim() || null,
+      confusion: picks.confusion,
+      confusionNote: document.getElementById("confusionNote").value.trim() || null,
+      priorityFair: picks.priorityFair,
+      priorityNote: document.getElementById("priorityNote").value.trim() || null,
+      sparksWorthTracking: picks.sparksWorthTracking,
+      playAgain: picks.playAgain,
+      invite: document.getElementById("inviteInput").value.trim() || null,
+      rating: picks.rating ? parseInt(picks.rating, 10) : null
+    };
+
+    submitBtn.disabled = true;
+    setStatus("Sending…");
+
+    fetch("/api/debrief", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(doc)
+    }).then(function (r) {
+      if (!r.ok) return r.json().then(function (body) {
+        throw new Error(body && body.error ? body.error : "Server said no (" + r.status + ").");
+      });
+      form.hidden = true;
+      var thanks = document.getElementById("thanksCard");
+      thanks.hidden = false;
+      thanks.focus(); // moves off the now-hidden submit button; role="status" announces the text
+      refreshCount();
+    }).catch(function (err) {
+      submitBtn.disabled = false;
+      setStatus((err && err.message ? err.message : "Didn't send.") + " Try once more, or screenshot and send it.", true);
+    });
+  });
+})();
+</script>
+</body>
+</html>

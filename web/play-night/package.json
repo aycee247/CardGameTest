@@ -1,0 +1,8 @@
+{
+  "name": "foundry-play-night",
+  "private": true,
+  "description": "Playtest debrief form + admin portal for Foundry play nights (STORY-8.3). Deployed on Vercel; responses stored in Vercel Blob.",
+  "dependencies": {
+    "@vercel/blob": "^1.0.0"
+  }
+}
