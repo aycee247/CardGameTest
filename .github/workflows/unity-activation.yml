@@ -1,0 +1,53 @@
+# Manual lane for refreshing the UNITY_LICENSE secret that nightly-playmode.yml
+# activates with.
+#
+# Why this exists: a personal Unity_lic.ulf embeds bindings of the machine that
+# requested it. When GitHub rolls a new runner image, Unity starts rejecting the
+# stored file with "Code 400 (status: Machine bindings don't match)" and every
+# nightly goes red at activation, before a single test runs — which is exactly
+# what happened on 2026-09-09. The fix is a fresh .ulf minted against the
+# current runner environment, and this workflow produces the request file for
+# that.
+#
+# The full refresh, start to finish (~10 minutes, only the repo owner can do it):
+#   1. GitHub ▸ aycee247/CardGameTest ▸ Actions ▸ "unity-activation" ▸ Run workflow
+#      (defaults are fine). Wait ~2 minutes for it to go green.
+#   2. Open the finished run and download its artifact — a file named like
+#      Unity_v6000.5.0f1.alf.
+#   3. Go to https://license.unity3d.com/manual, sign in with the SAME Unity
+#      account as the UNITY_EMAIL secret, upload the .alf, choose the personal
+#      licence option, and download Unity_lic.ulf.
+#   4. Open Unity_lic.ulf in a text editor, select all, copy. Then GitHub ▸
+#      aycee247/CardGameTest ▸ Settings ▸ Secrets and variables ▸ Actions ▸
+#      UNITY_LICENSE ▸ update, and paste the whole contents.
+#   5. Verify: Actions ▸ nightly-playmode ▸ Run workflow. Green means fixed.
+#
+# The version is auto-detected from ProjectSettings/ProjectVersion.txt (the same
+# way unity-test-runner detects it), so the .alf can never drift from the editor
+# the nightly actually runs.
+
+name: unity-activation
+
+on:
+  workflow_dispatch: {}   # never scheduled — run it only when activation breaks
+
+permissions:
+  contents: read
+
+jobs:
+  request-alf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Request manual activation file
+        id: alf
+        uses: game-ci/unity-request-activation-file@v2
+
+      - name: Expose the .alf as a downloadable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.alf.outputs.filePath }}
+          path: ${{ steps.alf.outputs.filePath }}
+          if-no-files-found: error
